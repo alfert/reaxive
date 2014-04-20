@@ -7,6 +7,7 @@ defmodule Reaxive do
     Reaxive.Supervisor.start_link
   end
 
+  @type signal :: {:Signal, reference, pid, any}
   @type signal(a) :: {:Signal, reference, pid, a}
 
   defrecord Signal, 
@@ -14,17 +15,25 @@ defmodule Reaxive do
   	source: nil, # pid of the source 
   	value: nil # current value of the signal
 
-  @spec signal_handler([signal(a)], ((a) -> b), signal(b)) :: no_return when a: var, b: var
-  def signal_handler(subscriptions, fun, signal) do
+  @spec signal_handler([signal(a)], [reference], ((a) -> b), signal(b)) :: no_return when a: var, b: var
+  def signal_handler(fun, signal), do: signal_handler([], [], fun, signal)
+  def signal_handler(subscriptions, mons, fun, signal) do
     receive do
       {:register, s = Signal[]} ->
-        signal_handler([s | subscriptions], fun, signal)
+        m = Process.monitor(s.source)
+        signal_handler([s | subscriptions], [m | mons], fun, signal)
       {:unregister, s = Signal[]} ->
-        signal_handler(subscriptions |> Enum.reject(&(&1.source == s.source)), fun, signal)
+        # TODO: for demonitoring, the mon ref must be known. put it to the signal list (pairs?)
+        signal_handler(subscriptions |> Enum.reject(&(&1.source == s.source)), mons, fun, signal)
+      {:DOWN, m, :process, pid, reason} ->
+        # a monitored Signal died, so take it out of the subscriptions
+        signal_handler(subscriptions |> Enum.reject(&(&1.source == pid)), 
+            mons |> Enum.reject(&(&1 == m)), fun, signal)
       msg -> 
         v = fun . (msg)
         s = signal.update(id: :erlang.make_ref(), value: v)
-        subscriptions |> Enum.each &(send(&1, s))
+        subscriptions |> Enum.each &(send(&1.source, s))
+        signal_handler(subscriptions, mons, fun, signal)
       end
   end
   
@@ -36,12 +45,13 @@ defmodule Reaxive do
   """
   @spec every(integer) :: signal(integer)
   def every(millis) do
-    spawn(fn() -> 
+    my_signal = make_signal()
+    p = spawn(fn() -> 
       :timer.send_interval(millis, :go)
-      my_signal = make_signal()
-      fun = &:os.timstamp/0
-      signal_handler([], fun, my_signal)
+      fun = fn(_v) -> :os.timestamp() end
+      signal_handler(fun, my_signal.update(source: self))
     end)
+    my_signal.update(source: p)
   end
 
   @doc """
@@ -51,11 +61,30 @@ defmodule Reaxive do
   """
   @spec lift((a -> b), signal(a)) :: signal(b) when a: var, b: var 
   def lift(fun, signal = Signal[]) do
-  	spawn(fn() -> 
-      my_signal = make_signal()
+    my_signal = make_signal()
+  	p = spawn(fn() -> 
       send(signal.source, {:register, my_signal})
-      signal_handler([], fun, my_signal)
+      signal_handler(fun, my_signal.update(source: p))
     end)
+    my_signal.update(source: p)
+  end
+  
+  @doc """
+  Renders a signal as text. 
+  """
+  @spec as_text(signal|pid) :: :none # when a: var
+  def as_text(s) when is_pid(s) do
+    signal = make_signal
+    as_text(signal.update(source: s))
+  end
+  def as_text(signal = Signal[]) do
+    fun = fn(value) -> IO.inspect(value) end
+    my_signal = make_signal()
+    p = spawn(fn() -> 
+      send(signal.source, {:register, my_signal})
+      signal_handler(fun, my_signal.update(source: self))
+    end)
+    my_signal.update(source: p)
   end
   
   
@@ -66,6 +95,13 @@ defmodule Reaxive do
   def make_signal(value \\ nil) do
     Signal.new(id: :erlang.make_ref(), source: self, value: value)
   end
-  
+
+  def log(msg) do
+    IO.puts(msg)
+  end  
+
+  def stop(signal = Signal[]) do
+    Process.exit(signal.source, :normal)
+  end
 
 end
