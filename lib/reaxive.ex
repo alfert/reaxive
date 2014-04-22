@@ -15,29 +15,41 @@ defmodule Reaxive do
   	source: nil, # pid of the source 
   	value: nil # current value of the signal
 
-  @spec signal_handler([signal(a)], [reference], ((a) -> b), signal(b)) :: no_return when a: var, b: var
-  def signal_handler(fun, signal), do: signal_handler([], [], fun, signal)
-  def signal_handler(subscriptions, mons, fun, signal) do
+  @doc """
+  Implements the internal receive loop for a signal. 
+
+  Its task is to manage the subscriptions of signals to which values are propagated. 
+  Subscriptions are managed with `register`, `unregister` and `DOWN` messages. The 
+  latter are created by monitoring signals and ensures that died signals are automatically
+  unsubscribed, helping in both situations when nasty things happen and when signals do
+  not know how to unsubscribe. 
+  """
+  @spec signal_handler([{signal(a), reference}], ((a) -> b), signal(b)) :: no_return when a: var, b: var
+  def signal_handler(fun, signal), do: signal_handler([], fun, signal)
+  def signal_handler(subscriptions, fun, signal) do
     receive do
       {:register, s = Signal[]} ->
         log("register signal #{inspect s}")
         m = Process.monitor(s.source)
-        signal_handler([s | subscriptions], [m | mons], fun, signal)
+        signal_handler([{s, m} | subscriptions], fun, signal)
       {:unregister, s = Signal[]} ->
-        # TODO: for demonitoring, the mon ref must be known. put it to the signal list (pairs?)
         log("unregister signal #{inspect s}")
-        signal_handler(subscriptions |> Enum.reject(&(&1.source == s.source)), mons, fun, signal)
-      {:DOWN, m, :process, pid, reason} ->
+        signal_handler(subscriptions |> 
+          Enum.reject(fn({sub, _mon}) -> sub.source == s.source end), fun, signal)
+      {:DOWN, _m, :process, pid, reason} ->
         # a monitored Signal died, so take it out of the subscriptions
         log("got DOWN for process #{inspect pid} and reason #{inspect reason}")
-        signal_handler(subscriptions |> Enum.reject(&(&1.source == pid)), 
-            mons |> Enum.reject(&(&1 == m)), fun, signal)
-      msg -> 
-        log("got value #{inspect msg}, calculating fun")
-        v = fun . (msg)
+        signal_handler(subscriptions |> 
+          Enum.reject(fn({sub, _mon}) -> sub.source == pid end), fun, signal)
+      msg = Signal[]-> 
+        log("got signal #{inspect msg}, calculating fun with value #{inspect msg.value}")
+        v = fun . (msg.value)
         s = signal.update(id: :erlang.make_ref(), value: v)
-        subscriptions |> Enum.each &(send(&1.source, s))
-        signal_handler(subscriptions, mons, fun, signal)
+        subscriptions |> Enum.each fn({sub, _m}) -> send(sub.source, s) end
+        signal_handler(subscriptions, fun, signal)
+      any -> 
+        log("got weird message #{inspect any}")
+        Signal[] = any
       end
   end
   
@@ -51,7 +63,7 @@ defmodule Reaxive do
   def every(millis) do
     my_signal = make_signal()
     p = spawn(fn() -> 
-      :timer.send_interval(millis, :go)
+      :timer.send_interval(millis, my_signal.update(value: :go))
       fun = fn(_v) -> :os.timestamp() end
       signal_handler(fun, my_signal.update(source: self))
     end)
@@ -67,8 +79,9 @@ defmodule Reaxive do
   def lift(fun, signal = Signal[]) do
     my_signal = make_signal()
   	p = spawn(fn() -> 
-      send(signal.source, {:register, my_signal})
-      signal_handler(fun, my_signal.update(source: self))
+      s = my_signal.update(source: self)
+      send(signal.source, {:register, s})
+      signal_handler(fun, s)
     end)
     my_signal.update(source: p)
   end
