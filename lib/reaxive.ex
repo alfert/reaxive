@@ -105,6 +105,53 @@ defmodule Reaxive do
     my_signal.update(source: p)
   end
 
+
+  @doc """
+  Converts a signal in to regular lazy Elixir stream.
+  """
+  @spec as_stream(signal, pos_integer | :infinity) :: Enumerable.t
+  def as_stream(signal = Signal[], timeout \\ :infinity) do
+    # Register a signal process, which also reacts
+    # on a `{:get, make_ref()}` message and answers with a 
+    # `{:got, ref, value}`message. 
+    # this signal process can have its own loop function
+    #
+    my_signal = make_signal()
+    p = spawn(fn() -> 
+      s = my_signal.update(source: self)
+      send(signal.source, {:register, s})
+      # TODO proper stream-handler
+      stream_handler(s)
+    end)
+    sig = my_signal.update(source: p)
+    next_fun = fn(_acc) ->
+      ref = make_ref()
+      send(sig.source, {:get, ref, self})
+      receive do
+        {:got, ^ref, value} -> {value, :next}
+        after timeout -> nil
+      end
+    end
+    Stream.resource(
+      fn() ->next_fun . (:next) |> elem(0) end, # lazy first value
+      next_fun, # all other values
+      fn(_) -> stop(sig) end # after termination
+      )
+  end
+  
+  def from_stream(s) do
+    
+  end
+  
+  def stream_handler(signal = Signal[]) do
+    receive do
+      {:get, ref, pid} when is_reference(ref) and is_pid(pid) ->
+        receive do 
+          s = Signal[] -> send(pid, {:got, ref, s.value})
+        end
+    end
+    stream_handler(signal)
+  end
   
   
   @doc """
@@ -125,8 +172,15 @@ defmodule Reaxive do
 
   def test do
     m = every 1_000
-    as_text(m)
+    c = lift(fn(_) -> :toc end, m)
+    as_text(c)
   end
   
+  def test2 do
+    m = every 1_000
+    c = lift(fn(_) -> :toc end, m)
+    s = as_stream(c)
+    Stream.take(s, 5) |> Stream.with_index |> Enum.to_list
+  end
 
 end
