@@ -20,16 +20,20 @@ defmodule Reaxive do
   def signal_handler(subscriptions, mons, fun, signal) do
     receive do
       {:register, s = Signal[]} ->
+        log("register signal #{inspect s}")
         m = Process.monitor(s.source)
         signal_handler([s | subscriptions], [m | mons], fun, signal)
       {:unregister, s = Signal[]} ->
         # TODO: for demonitoring, the mon ref must be known. put it to the signal list (pairs?)
+        log("unregister signal #{inspect s}")
         signal_handler(subscriptions |> Enum.reject(&(&1.source == s.source)), mons, fun, signal)
       {:DOWN, m, :process, pid, reason} ->
         # a monitored Signal died, so take it out of the subscriptions
+        log("got DOWN for process #{inspect pid} and reason #{inspect reason}")
         signal_handler(subscriptions |> Enum.reject(&(&1.source == pid)), 
             mons |> Enum.reject(&(&1 == m)), fun, signal)
       msg -> 
+        log("got value #{inspect msg}, calculating fun")
         v = fun . (msg)
         s = signal.update(id: :erlang.make_ref(), value: v)
         subscriptions |> Enum.each &(send(&1.source, s))
@@ -64,7 +68,7 @@ defmodule Reaxive do
     my_signal = make_signal()
   	p = spawn(fn() -> 
       send(signal.source, {:register, my_signal})
-      signal_handler(fun, my_signal.update(source: p))
+      signal_handler(fun, my_signal.update(source: self))
     end)
     my_signal.update(source: p)
   end
@@ -81,11 +85,13 @@ defmodule Reaxive do
     fun = fn(value) -> IO.inspect(value) end
     my_signal = make_signal()
     p = spawn(fn() -> 
-      send(signal.source, {:register, my_signal})
-      signal_handler(fun, my_signal.update(source: self))
+      s = my_signal.update(source: self)
+      send(signal.source, {:register, s})
+      signal_handler(fun, s)
     end)
     my_signal.update(source: p)
   end
+
   
   
   @doc """
@@ -97,11 +103,17 @@ defmodule Reaxive do
   end
 
   def log(msg) do
-    IO.puts(msg)
+    IO.puts("#{inspect self}: #{inspect msg}")
   end  
 
   def stop(signal = Signal[]) do
     Process.exit(signal.source, :normal)
   end
+
+  def test do
+    m = every 1_000
+    as_text(m)
+  end
+  
 
 end
