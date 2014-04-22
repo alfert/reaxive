@@ -5,12 +5,17 @@ defmodule Reaxive.Mixfile do
     [ app: :reaxive,
       version: "0.0.1",
       elixir: "~> 0.12.5",
+#      elixir: "~> 0.13.0-dev",
+      docs: [readme: true],
       deps: deps ]
   end
 
   # Configuration for the OTP application
   def application do
-    [mod: { Reaxive, [] }]
+    [
+      mod: { Reaxive, [] },
+      applications: [:kernel , :stdlib, :sasl]
+    ]
   end
 
   # Returns the list of dependencies in the format:
@@ -19,6 +24,9 @@ defmodule Reaxive.Mixfile do
   # To specify particular versions, regardless of the tag, do:
   # { :barbat, "~> 0.1", github: "elixir-lang/barbat" }
   defp deps do
-    []
+    [      
+      # Generate documentation with ex_doc
+      { :ex_doc, github: "elixir-lang/ex_doc" }
+    ]
   end
 end
