@@ -1,5 +1,5 @@
 defmodule Reaxive do
-  use Application.Behaviour
+  use Application
 
   # See http://elixir-lang.org/docs/stable/Application.Behaviour.html
   # for more information on OTP Applications
@@ -9,11 +9,16 @@ defmodule Reaxive do
 
   @type signal :: {:Signal, reference, pid, any}
   @type signal(a) :: {:Signal, reference, pid, a}
+  # @type sig_func(a, b) :: ((a, any) -> ({:reply, b, any} | {:noreply, any})) when a: var, b: var
+  @type sig_func :: ((any, any) -> ({:reply, any, any} | {:noreply, any}))
 
-  defrecord Signal, 
-  	id: nil, # id of the invividual sigal
-  	source: nil, # pid of the source 
-  	value: nil # current value of the signal
+  defmodule Signal do
+    defstruct id: nil, # id of the invividual sigal
+      source: nil, # pid of the source 
+      value: nil # current value of the signal
+
+    @type t :: %__MODULE__{} 
+  end
 
   @doc """
   Implements the internal receive loop for a signal. 
@@ -24,35 +29,51 @@ defmodule Reaxive do
   unsubscribed, helping in both situations when nasty things happen and when signals do
   not know how to unsubscribe. 
   """
-  @spec signal_handler([{signal(a), reference}], ((a) -> b), signal(b)) :: no_return when a: var, b: var
-  def signal_handler(fun, signal), do: signal_handler([], fun, signal)
-  def signal_handler(subscriptions, fun, signal) do
+#  @spec signal_handler([{signal(a), reference}], sig_func, signal(b), any) :: no_return when a: var, b: var
+  @spec signal_handler([{signal(any), reference}], sig_func, signal(any), any) :: no_return
+  # def signal_handler(fun, signal), do: signal_handler([], fun, signal, nil)
+  def signal_handler(subscriptions \\ [], fun, signal, state \\ nil) do
     receive do
-      {:register, s = Signal[]} ->
+      {:register, s = %Signal{}} ->
         log("register signal #{inspect s}")
         m = Process.monitor(s.source)
-        signal_handler([{s, m} | subscriptions], fun, signal)
-      {:unregister, s = Signal[]} ->
+        signal_handler([{s, m} | subscriptions], fun, signal, state)
+      {:unregister, s = %Signal{}} ->
         log("unregister signal #{inspect s}")
         signal_handler(subscriptions |> 
-          Enum.reject(fn({sub, _mon}) -> sub.source == s.source end), fun, signal)
+          Enum.reject(fn({sub, _mon}) -> sub.source == s.source end), fun, signal, state)
       {:DOWN, _m, :process, pid, reason} ->
         # a monitored Signal died, so take it out of the subscriptions
         log("got DOWN for process #{inspect pid} and reason #{inspect reason}")
         signal_handler(subscriptions |> 
-          Enum.reject(fn({sub, _mon}) -> sub.source == pid end), fun, signal)
-      msg = Signal[]-> 
-        log("got signal #{inspect msg}, calculating fun with value #{inspect msg.value}")
-        v = fun . (msg.value)
-        s = signal.update(id: :erlang.make_ref(), value: v)
-        subscriptions |> Enum.each fn({sub, _m}) -> send(sub.source, s) end
-        signal_handler(subscriptions, fun, signal)
+          Enum.reject(fn({sub, _mon}) -> sub.source == pid end), fun, signal, state)
+      msg = %Signal{}-> 
+        log("got signal #{inspect msg}, calculating fun with value #{inspect msg.value} and state #{inspect state}")
+        case fun . (msg.value, state) do
+          {:reply, v, new_state} ->  
+            s = signal.update(id: :erlang.make_ref(), value: v)
+            subscriptions |> Enum.each fn({sub, _m}) -> send(sub.source, s) end
+            signal_handler(subscriptions, fun, signal, new_state)
+          {:noreply, new_state} ->
+            signal_handler(subscriptions, fun, signal, new_state)
+        end
       any -> 
         log("got weird message #{inspect any}")
-        Signal[] = any
+        %Signal{} = any
       end
   end
-  
+
+  @doc """
+  Funkcional pushing of signal without any state interaction.
+  """
+  # @spec push((a) -> b) :: sig_func(a,b)
+  def push(fun) do
+    fn(a, state) -> 
+      log "Pushing a =  #{inspect a} and state = #{inspect state}"
+      v = fun . a
+      {:reply, v, state} 
+    end
+  end  
 
   @doc """
   Function `every` is an input signal, i.e. it generates new signal values
@@ -64,8 +85,10 @@ defmodule Reaxive do
     my_signal = make_signal()
     p = spawn(fn() -> 
       :timer.send_interval(millis, my_signal.update(value: :go))
-      fun = fn(_v) -> :os.timestamp() end
-      signal_handler(fun, my_signal.update(source: self))
+      fun = fn(_v) -> 
+        log "Got :go!"
+        :os.timestamp() end
+      signal_handler(push(fun), my_signal.update(source: self))
     end)
     my_signal.update(source: p)
   end
@@ -75,13 +98,13 @@ defmodule Reaxive do
   function `fun` to each value of `signal`, which has type `a`. 
   Consequently, function `fun` maps from type `a` to `b`.
   """
-  @spec lift((a -> b), signal(a)) :: signal(b) when a: var, b: var 
-  def lift(fun, signal = Signal[]) do
+  @spec lift(signal(a), (a -> b)) :: signal(b) when a: var, b: var 
+  def lift(signal = %Signal{}, fun) do
     my_signal = make_signal()
   	p = spawn(fn() -> 
       s = my_signal.update(source: self)
       send(signal.source, {:register, s})
-      signal_handler(fun, s)
+      signal_handler(push(fun), s)
     end)
     my_signal.update(source: p)
   end
@@ -94,13 +117,13 @@ defmodule Reaxive do
     signal = make_signal
     as_text(signal.update(source: s))
   end
-  def as_text(signal = Signal[]) do
+  def as_text(signal = %Signal{}) do
     fun = fn(value) -> IO.inspect(value) end
     my_signal = make_signal()
     p = spawn(fn() -> 
       s = my_signal.update(source: self)
       send(signal.source, {:register, s})
-      signal_handler(fun, s)
+      signal_handler(push(fun), s)
     end)
     my_signal.update(source: p)
   end
@@ -110,7 +133,7 @@ defmodule Reaxive do
   Converts a signal in to regular lazy Elixir stream.
   """
   @spec as_stream(signal, pos_integer | :infinity) :: Enumerable.t
-  def as_stream(signal = Signal[], timeout \\ :infinity) do
+  def as_stream(signal = %Signal{}, timeout \\ :infinity) do
     # Register a signal process, which also reacts
     # on a `{:get, make_ref()}` message and answers with a 
     # `{:got, ref, value}`message. 
@@ -120,7 +143,6 @@ defmodule Reaxive do
     p = spawn(fn() -> 
       s = my_signal.update(source: self)
       send(signal.source, {:register, s})
-      # TODO proper stream-handler
       stream_handler(s)
     end)
     sig = my_signal.update(source: p)
@@ -143,17 +165,40 @@ defmodule Reaxive do
     
   end
   
-  def stream_handler(signal = Signal[]) do
+
+
+  def stream_handler(signal = %Signal{}) do
     receive do
       {:get, ref, pid} when is_reference(ref) and is_pid(pid) ->
         receive do 
-          s = Signal[] -> send(pid, {:got, ref, s.value})
+          s = %Signal{} -> send(pid, {:got, ref, s.value})
         end
     end
     stream_handler(signal)
   end
   
+  @spec filter(signal(a), (a -> boolean)) :: signal(a) when a: var
+  def filter(signal = %Signal{}, pred) do
+    # lift s, 
+  end
   
+
+
+  @doc """
+  Creates a Signal where each item from the signal will be wrapped in a tuple alongside its index.
+
+  Does not work yet!
+  """
+  def with_index(signal = %Signal{}) do
+    # TODO correct implementation
+    with = fn(v, i) -> {i + 1, v} end
+    r = 1 .. :infinity
+    # lift s, fn (v) -> 
+    # with(v, 0)
+    nil
+  end
+  
+
   @doc """
   Creates a new signal instance with optional `value`.
   """
@@ -166,7 +211,8 @@ defmodule Reaxive do
     IO.puts("#{inspect self}: #{inspect msg}")
   end  
 
-  def stop(signal = Signal[]) do
+  def stop(signal = %Signal{}) do
+    log "Stopping signal #{inspect signal}"
     Process.exit(signal.source, :normal)
   end
 
@@ -178,9 +224,14 @@ defmodule Reaxive do
   
   def test2 do
     m = every 1_000
-    c = lift(fn(_) -> :toc end, m)
+    c = lift(m, fn(_) -> :toc end)
     s = as_stream(c)
     Stream.take(s, 5) |> Stream.with_index |> Enum.to_list
   end
+
+  def test3 do
+    m = every 1_000
+    m |> lift(fn(_) -> :toc end) 
+  end 
 
 end
