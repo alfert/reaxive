@@ -4,7 +4,7 @@ defmodule Reaxive.Mixfile do
   def project do
     [ app: :reaxive,
       version: "0.0.1",
-      elixir: "~> 0.13.0",
+      elixir: "~> 0.14",
       docs: [readme: true],
       deps: deps ]
   end
@@ -24,8 +24,8 @@ defmodule Reaxive.Mixfile do
   # { :barbat, "~> 0.1", github: "elixir-lang/barbat" }
   defp deps do
     [      
-      # Generate documentation with ex_doc
-      { :ex_doc, github: "elixir-lang/ex_doc" }
-    ]
+      # Generate documentation with ex_doc, valid for Elixir 0.14.1
+      { :ex_doc, github: "elixir-lang/ex_doc", ref: "ca71b84b9" }
+   ]
   end
 end
