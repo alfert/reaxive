@@ -7,17 +7,18 @@ defmodule Reaxive do
     Reaxive.Supervisor.start_link
   end
 
-  @type signal :: {:Signal, reference, pid, any}
-  @type signal(a) :: {:Signal, reference, pid, a}
+  @type signal :: Signal.t(any) # {:Signal, reference, pid, any}
+  @type signal(a) :: Signal.t(a) # {:Signal, reference, pid, a}
   # @type sig_func(a, b) :: ((a, any) -> ({:reply, b, any} | {:noreply, any})) when a: var, b: var
   @type sig_func :: ((any, any) -> ({:reply, any, any} | {:noreply, any}))
 
   defmodule Signal do
+    @derive Access
     defstruct id: nil, # id of the invividual sigal
       source: nil, # pid of the source 
       value: nil # current value of the signal
 
-    @type t :: %__MODULE__{} 
+    @type t(a) :: %__MODULE__{id: nil|reference, source: nil|pid, value: nil | a} 
   end
 
   @doc """
