@@ -77,7 +77,7 @@ defmodule Reaxive do
   def push(fun) do
     fn(a, state) -> 
       log "Pushing a =  #{inspect a} and state = #{inspect state}"
-      v = fun . a
+      v = fun . (a)
       {:reply, v, state} 
     end
   end  
@@ -94,7 +94,8 @@ defmodule Reaxive do
       :timer.send_interval(millis, %Signal{my_signal | value: :go})
       fun = fn(_v) -> 
         log "Got :go!"
-        :os.timestamp() end
+        :os.timestamp() 
+      end
       signal_handler(push(fun), %Signal{my_signal | source: self})
     end)
     %Signal{my_signal | source: p}
@@ -225,7 +226,7 @@ defmodule Reaxive do
 
   def test do
     m = every 1_000
-    c = lift(fn(_) -> :toc end, m)
+    c = lift(m, fn(_) -> :toc end)
     as_text(c)
   end
   
