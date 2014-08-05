@@ -1,6 +1,12 @@
 defmodule Reaxive do
   use Application
 
+# TODO:
+# put this part into a separate file
+# implement reactive streams as GenEvent Servers with lazy streams
+# and see how it works!
+
+
   # See http://elixir-lang.org/docs/stable/Application.Behaviour.html
   # for more information on OTP Applications
   def start(_type, _args) do
@@ -52,7 +58,7 @@ defmodule Reaxive do
         log("got signal #{inspect msg}, calculating fun with value #{inspect msg.value} and state #{inspect state}")
         case fun . (msg.value, state) do
           {:reply, v, new_state} ->  
-            s = signal.update(id: :erlang.make_ref(), value: v)
+            s = %Signal{signal | id: :erlang.make_ref(), value: v}
             subscriptions |> Enum.each fn({sub, _m}) -> send(sub.source, s) end
             signal_handler(subscriptions, fun, signal, new_state)
           {:noreply, new_state} ->
@@ -65,7 +71,7 @@ defmodule Reaxive do
   end
 
   @doc """
-  Funkcional pushing of signal without any state interaction.
+  Functional pushing of signals without any state interaction.
   """
   # @spec push((a) -> b) :: sig_func(a,b)
   def push(fun) do
@@ -85,13 +91,13 @@ defmodule Reaxive do
   def every(millis) do
     my_signal = make_signal()
     p = spawn(fn() -> 
-      :timer.send_interval(millis, my_signal.update(value: :go))
+      :timer.send_interval(millis, %Signal{my_signal | value: :go})
       fun = fn(_v) -> 
         log "Got :go!"
         :os.timestamp() end
-      signal_handler(push(fun), my_signal.update(source: self))
+      signal_handler(push(fun), %Signal{my_signal | source: self})
     end)
-    my_signal.update(source: p)
+    %Signal{my_signal | source: p}
   end
 
   @doc """
@@ -103,11 +109,11 @@ defmodule Reaxive do
   def lift(signal = %Signal{}, fun) do
     my_signal = make_signal()
   	p = spawn(fn() -> 
-      s = my_signal.update(source: self)
+      s = %Signal{my_signal | source: self}
       send(signal.source, {:register, s})
       signal_handler(push(fun), s)
     end)
-    my_signal.update(source: p)
+    %Signal{my_signal | source: p}
   end
   
   @doc """
@@ -116,17 +122,17 @@ defmodule Reaxive do
   @spec as_text(signal|pid) :: :none # when a: var
   def as_text(s) when is_pid(s) do
     signal = make_signal
-    as_text(signal.update(source: s))
+    as_text(%Signal{signal | source: s})
   end
   def as_text(signal = %Signal{}) do
     fun = fn(value) -> IO.inspect(value) end
     my_signal = make_signal()
     p = spawn(fn() -> 
-      s = my_signal.update(source: self)
+      s = %Signal{my_signal | source: self}
       send(signal.source, {:register, s})
       signal_handler(push(fun), s)
     end)
-    my_signal.update(source: p)
+    %Signal{my_signal | source: p}
   end
 
 
@@ -142,11 +148,11 @@ defmodule Reaxive do
     #
     my_signal = make_signal()
     p = spawn(fn() -> 
-      s = my_signal.update(source: self)
+      s = %Signal{my_signal | source: self}
       send(signal.source, {:register, s})
       stream_handler(s)
     end)
-    sig = my_signal.update(source: p)
+    sig = %Signal{my_signal | source: p}
     next_fun = fn(_acc) ->
       ref = make_ref()
       send(sig.source, {:get, ref, self})
@@ -205,7 +211,7 @@ defmodule Reaxive do
   """
   @spec make_signal(a) :: signal(a) when a: var
   def make_signal(value \\ nil) do
-    Signal.new(id: :erlang.make_ref(), source: self, value: value)
+    %Signal{id: :erlang.make_ref(), source: self, value: value}
   end
 
   def log(msg) do
