@@ -36,6 +36,7 @@ defprotocol Disposable do
 	def dispose(disposable)
 end
 
+
 defmodule Reaxive.Rx do
 	@moduledoc """
 	Implements the Rx protocols and handles the contract. 
@@ -49,9 +50,10 @@ defmodule Reaxive.Rx do
 	def start(), do: Agent.start(fn() -> %__MODULE__{id: :erlang.make_ref()} end)
 	
 	def subscribe(observable, observer) do
-		Agent.update(observable, fn(%__MODULE__{subscribers: sub}= state) -> 
+		:ok = Agent.update(observable, fn(%__MODULE__{subscribers: sub}= state) -> 
 			%__MODULE__{state | subscribers: [observer | sub]}
 		end)
+		fn() -> unsubscribe(observable, observer) end
 	end
 	
 	def unsubscribe(observable, observer) do
@@ -60,8 +62,11 @@ defmodule Reaxive.Rx do
 		end)
 	end
 	
-	def subscribers(observerable), do: 
+	def subscribers(observable), do: 
 		Agent.get(observable, fn(%__MODULE__{subscribers: sub}) -> sub end)
-	
 
+	defimpl Disposable, for: Function do
+		def dispose(fun), do: fun.()
+	end
+	
 end
