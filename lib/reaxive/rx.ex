@@ -36,16 +36,52 @@ defprotocol Disposable do
 	def dispose(disposable)
 end
 
-
 defmodule Reaxive.Rx do
+	
+	@spec map(Observable.t, (() ->any)) :: Observable.t
+	def map(rx, fun) do
+		{:ok, new_rx} = Reaxive.Rx.Impl.start()
+		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
+		:ok = Reaxive.Rx.Impl.source(new_rx, disp)
+		:ok = Reaxive.Rx.Impl.fun(new_rx, fun)
+		new_rx
+	end
+	
+	@spec generate(Enumerable.t, pos_integer) :: Observable.t
+	def generate(collection, delay \\ 100) do
+		{:ok, rx} = Reaxive.Rx.Impl.start()
+		:ok = Reaxive.Rx.Impl.fun(rx, &(&1)) # identity fun
+		send_values = fn() -> 
+			receive do
+				after delay -> :ok
+			end
+			collection |> Enum.each &Observer.on_next(rx, &1)
+			Observer.on_completed(rx)
+		end
+	end
+	
+	# a simple sink
+	@spec as_text(Observable.t) :: :none
+	def as_text(rx) do
+		map(rx, fn(v) -> IO.inspect v end)
+		:none
+	end
+	
+
+end
+
+defmodule Reaxive.Rx.Impl do
 	@moduledoc """
 	Implements the Rx protocols and handles the contract. 
 
 	Internally, we use the `Agent` module to ease the implementation.
 	"""
 
-	defstruct id: nil,
-		subscribers: []
+	defstruct id: nil, # might be handy to identify the Rx, but is it really required?
+		active: true, # if false, then an error has occurred or the calculation is completed
+		subscribers: [], # all interested observers
+		sources: [], # list of disposables
+		action: nil # the function to be applied to the values
 
 	def start(), do: Agent.start(fn() -> %__MODULE__{id: :erlang.make_ref()} end)
 	
@@ -56,17 +92,60 @@ defmodule Reaxive.Rx do
 		fn() -> unsubscribe(observable, observer) end
 	end
 	
-	def unsubscribe(observable, observer) do
+	def unsubscribe(observable, observer), do:
 		Agent.update(observable, fn(%__MODULE__{subscribers: sub}= state) -> 
 			%__MODULE__{state | subscribers: List.delete(sub, observer)}
 		end)
+	
+	def source(observable, disposable), do:
+		:ok = Agent.update(observable, fn(%__MODULE__{sources: src}= state) -> 
+			%__MODULE__{state | sources: [disposable | src]}
+		end)
+	
+	def fun(observable, fun), do:
+		Agent.update(observable, fn(%__MODULE__{action: nil}= state) -> 
+			%__MODULE__{state | action: fun}
+		end)
+	
+
+	def on_next(observer, value) do
+		:ok = Agent.cast(observer, &handle_value(&1, value))
+	end
+	def handle_value(%__MODULE__{active: true} = state, value) do
+		# TODO: handle failures of state.action gracefully
+		new_v = state.action . (value)
+		state.subscribers |> Enum.each(&Observer.on_next(&1, new_v))
+		state
 	end
 	
+	def on_completed(observer) do
+		:ok = Agent.cast(observer, fn(%__MODULE__{active: true} = state) -> 
+			state.subscribers |> Enum.each(&Observer.on_completed(&1))
+			%__MODULE__{state | active: false}
+		end)
+	end
+
+	def on_error(observer, exception) do
+		:ok = Agent.cast(observer, fn(%__MODULE__{active: true} = state) -> 
+			state.subscribers |> Enum.each(&Observer.on_error(&1, exception))
+			%__MODULE__{state | active: false}
+		end)
+	end
+
 	def subscribers(observable), do: 
 		Agent.get(observable, fn(%__MODULE__{subscribers: sub}) -> sub end)
 
 	defimpl Disposable, for: Function do
 		def dispose(fun), do: fun.()
 	end
+
+	defimpl Observer, for: Pid do
+		def on_next(observer, value), do: on_next(observer, value)
+		def on_error(observer, exception), do: on_error(observer, exception)
+		def on_completed(observer), do: on_completed(observer)
+	end
 	
+	defimpl Observable, for: Pid do
+		def subscribe(observable, observer), do: subscribe(observable, observer)
+	end
 end
