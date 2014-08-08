@@ -38,7 +38,7 @@ end
 
 defmodule Reaxive.Rx do
 	
-	@spec map(Observable.t, (() ->any)) :: Observable.t
+	@spec map(Observable.t, (... ->any) ) :: Observable.t
 	def map(rx, fun) do
 		{:ok, new_rx} = Reaxive.Rx.Impl.start()
 		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
@@ -58,13 +58,27 @@ defmodule Reaxive.Rx do
 			collection |> Enum.each &Observer.on_next(rx, &1)
 			Observer.on_completed(rx)
 		end
+		spawn(send_values)
+		rx
 	end
 	
 	# a simple sink
 	@spec as_text(Observable.t) :: :none
 	def as_text(rx) do
-		map(rx, fn(v) -> IO.inspect v end)
+		{:ok, new_rx} = Reaxive.Rx.Impl.start()
+		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
+		:ok = Reaxive.Rx.Impl.source(new_rx, disp)
+		:ok = Reaxive.Rx.Impl.fun(new_rx, fn(v) -> IO.inspect v end)
 		:none
+	end
+	
+	def collect(rx) do
+		{:ok, new_rx} = Reaxive.Rx.Impl.start()
+		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
+		:ok = Reaxive.Rx.Impl.source(new_rx, disp)
+		# TODO: Here we need the accumulator ....
+		# :ok = Reaxive.Rx.Impl.fun(new_rx, fun)
+		new_rx		
 	end
 	
 
@@ -81,7 +95,8 @@ defmodule Reaxive.Rx.Impl do
 		active: true, # if false, then an error has occurred or the calculation is completed
 		subscribers: [], # all interested observers
 		sources: [], # list of disposables
-		action: nil # the function to be applied to the values
+		action: nil, # the function to be applied to the values
+		accu: nil # accumulator 
 
 	def start(), do: Agent.start(fn() -> %__MODULE__{id: :erlang.make_ref()} end)
 	
