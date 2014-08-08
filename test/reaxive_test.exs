@@ -92,7 +92,11 @@ defmodule ReaxiveTest do
 		assert_receive {:on_next, :x}
 
 		Reaxive.Rx.Impl.on_completed(rx1)
-		assert_receive {:on_completed, nil}	
+		assert_receive {:on_completed, nil}
+
+		assert Reaxive.Rx.Impl.subscribers(rx1) == []
+		assert Reaxive.Rx.Impl.subscribers(rx2) == []
+	
 	end
 
 	def simple_observer_fun(pid) do

@@ -147,11 +147,13 @@ defmodule Reaxive.Rx.Impl do
 	end
 	def handle_value(%__MODULE__{active: true} = state, {:on_error, exception}) do
 		state.subscribers |> Enum.each(&Observer.on_error(&1, exception))
-		%__MODULE__{state | active: false}
+		state.sources |> Enum.each &Disposable.dispose(&1)
+		%__MODULE__{state | active: false, subscribers: []}
 	end
 	def handle_value(%__MODULE__{active: true} = state, :on_completed) do
 		state.subscribers |> Enum.each(&Observer.on_completed(&1))
-		%__MODULE__{state | active: false}
+		state.sources |> Enum.each &Disposable.dispose(&1)
+		%__MODULE__{state | active: false, subscribers: []}
 	end
 
 	def subscribers(observable), do: 
