@@ -52,6 +52,25 @@ defmodule ReaxiveTest do
 		assert_receive {:on_error, msg}
 	end
 
+	test "protocol for PID works" do
+		{:ok, rx} = Reaxive.Rx.Impl.start()
+		Process.link(rx)
+		Process.flag(:trap_exit, true)
+
+		:ok = Reaxive.Rx.Impl.fun(rx, &identity/1) 
+		disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
+
+		# now use the protocol functions on rx
+		Observer.on_next(rx, :x)
+		assert_receive {:on_next, :x}
+
+		Observer.on_completed(rx)
+		assert_receive {:on_completed, nil}
+
+		Observer.on_next(rx, :x)
+		assert_receive {:EXIT, ^rx, _}
+	end
+
 	test "chaining two Rx streams" do
 		{:ok, rx1} = Reaxive.Rx.Impl.start()
 		Process.link(rx1) #  just to ensure that failures appear also here!
@@ -63,7 +82,11 @@ defmodule ReaxiveTest do
 		src = Reaxive.Rx.Impl.subscribe(rx1, rx2)
 		:ok = Reaxive.Rx.Impl.source(rx2, src)
 
-		disp_me = Reaxive.Rx.Impl.subscribe(rx2, simple_observer_fun(self))
+		call_me = simple_observer_fun(self)
+		disp_me = Reaxive.Rx.Impl.subscribe(rx2, call_me)
+
+		assert Reaxive.Rx.Impl.subscribers(rx1) == [rx2]
+		assert Reaxive.Rx.Impl.subscribers(rx2) == [call_me]
 
 		Reaxive.Rx.Impl.on_next(rx1, :x)
 		assert_receive {:on_next, :x}
