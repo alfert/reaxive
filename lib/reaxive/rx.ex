@@ -157,17 +157,18 @@ defmodule Reaxive.Rx.Impl do
 	def subscribers(observable), do: 
 		Agent.get(observable, fn(%__MODULE__{subscribers: sub}) -> sub end)
 
-	defimpl Disposable, for: Function do
-		def dispose(fun), do: fun.()
-	end
+end
 
-	defimpl Observer, for: Pid do
-		def on_next(observer, value), do: on_next(observer, value)
-		def on_error(observer, exception), do: on_error(observer, exception)
-		def on_completed(observer), do: on_completed(observer)
-	end
-	
-	defimpl Observable, for: Pid do
-		def subscribe(observable, observer), do: subscribe(observable, observer)
-	end
+defimpl Disposable, for: Function do
+	def dispose(fun), do: fun.()
+end
+
+defimpl Observer, for: PID do
+	def on_next(observer, value), do: on_next(observer, value)
+	def on_error(observer, exception), do: on_error(observer, exception)
+	def on_completed(observer), do: on_completed(observer)
+end
+
+defimpl Observable, for: PID do
+	def subscribe(observable, observer), do: subscribe(observable, observer)
 end
