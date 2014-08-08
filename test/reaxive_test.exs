@@ -41,6 +41,17 @@ defmodule ReaxiveTest do
 		assert_receive {:EXIT, ^rx, _}
 	end
 
+	test "catch failing functions in rx" do
+		{:ok, rx} = Reaxive.Rx.Impl.start()
+		Process.link(rx)
+		Process.flag(:trap_exit, true)
+		:ok = Reaxive.Rx.Impl.fun(rx, fn(_) -> 1/0 end) # failing fun
+		disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
+
+		Reaxive.Rx.Impl.on_next(rx, :x)
+		assert_receive {:on_error, msg}
+	end
+
 	def simple_observer_fun(pid) do
 		fn(tag, value ) -> send(pid, {tag, value}) end
 	end

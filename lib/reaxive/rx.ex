@@ -124,27 +124,34 @@ defmodule Reaxive.Rx.Impl do
 	
 
 	def on_next(observer, value) do
-		:ok = Agent.cast(observer, &handle_value(&1, value))
+		:ok = Agent.cast(observer, &handle_value(&1, {:on_next, value}))
 	end
-	def handle_value(%__MODULE__{active: true} = state, value) do
-		# TODO: handle failures of state.action gracefully
-		new_v = state.action . (value)
-		state.subscribers |> Enum.each(&Observer.on_next(&1, new_v))
-		state
-	end
-	
+
 	def on_completed(observer) do
-		:ok = Agent.cast(observer, fn(%__MODULE__{active: true} = state) -> 
-			state.subscribers |> Enum.each(&Observer.on_completed(&1))
-			%__MODULE__{state | active: false}
-		end)
+		:ok = Agent.cast(observer, &handle_value(&1, :on_completed))
 	end
 
 	def on_error(observer, exception) do
-		:ok = Agent.cast(observer, fn(%__MODULE__{active: true} = state) -> 
-			state.subscribers |> Enum.each(&Observer.on_error(&1, exception))
-			%__MODULE__{state | active: false}
-		end)
+		:ok = Agent.cast(observer, &handle_value(&1, {:on_error, exception}))
+	end
+
+	@doc "Internal function to handle new values, errors or completions"
+	def handle_value(%__MODULE__{active: true} = state, {:on_next, value}) do
+		try do 
+			new_v = state.action . (value)
+			state.subscribers |> Enum.each(&Observer.on_next(&1, new_v))
+			state
+		catch 
+			what, message -> handle_value(state, {:on_error, {what, message}})
+		end
+	end
+	def handle_value(%__MODULE__{active: true} = state, {:on_error, exception}) do
+		state.subscribers |> Enum.each(&Observer.on_error(&1, exception))
+		%__MODULE__{state | active: false}
+	end
+	def handle_value(%__MODULE__{active: true} = state, :on_completed) do
+		state.subscribers |> Enum.each(&Observer.on_completed(&1))
+		%__MODULE__{state | active: false}
 	end
 
 	def subscribers(observable), do: 
