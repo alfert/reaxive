@@ -27,14 +27,18 @@ defmodule ReaxiveTest do
 
 	test "ensure monadic behavior in rx" do
 		{:ok, rx} = Reaxive.Rx.Impl.start()
+		Process.link(rx)
+		Process.flag(:trap_exit, true)
+
 		:ok = Reaxive.Rx.Impl.fun(rx, &(&1)) # identity fun
 		disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
 		Reaxive.Rx.Impl.on_completed(rx)
 		assert_receive {:on_completed, nil}
 
 		# we need to link rx with the test process to receive the EXIT signal.
-
-		catch_exit(Reaxive.Rx.Impl.on_next(rx, :x))
+		# catch_exit(Reaxive.Rx.Impl.on_next(rx, :x))
+		Reaxive.Rx.Impl.on_next(rx, :x)
+		assert_receive {:EXIT, ^rx, _}
 	end
 
 	def simple_observer_fun(pid) do
