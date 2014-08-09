@@ -15,7 +15,7 @@ defprotocol Observer do
 
 	Calls to the observer follow the regular sequence 
 
-		on_next* (on_error | on_completed)
+		on_next* (on_error | on_completed)?
 
 	It is the taks of `on_error` and `on_completed` to free up 
 	all internal resources. In particular the subscription needs
@@ -121,19 +121,15 @@ defmodule Reaxive.Rx.Impl do
 		Agent.update(observable, fn(%__MODULE__{action: nil}= state) -> 
 			%__MODULE__{state | action: fun}
 		end)
-	
 
-	def on_next(observer, value) do
+	def on_next(observer, value), do: 
 		:ok = Agent.cast(observer, &handle_value(&1, {:on_next, value}))
-	end
 
-	def on_completed(observer) do
+	def on_completed(observer), do:
 		:ok = Agent.cast(observer, &handle_value(&1, :on_completed))
-	end
 
-	def on_error(observer, exception) do
+	def on_error(observer, exception), do:
 		:ok = Agent.cast(observer, &handle_value(&1, {:on_error, exception}))
-	end
 
 	@doc "Internal function to handle new values, errors or completions"
 	def handle_value(%__MODULE__{active: true} = state, {:on_next, value}) do
