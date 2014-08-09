@@ -106,9 +106,7 @@ defmodule ReaxiveTest do
 
 		{:ok, rx2} = Reaxive.Rx.Impl.start()
 		Process.link(rx2) #  just to ensure that failures appear also here!
-		:ok = Reaxive.Rx.Impl.fun(rx2, fn(x) -> 
-			IO.puts "Yeah #{inspect x}"
-			1/0 end) # will always fail 
+		:ok = Reaxive.Rx.Impl.fun(rx2, fn(x) -> 1/0 end) # will always fail 
 		src = Reaxive.Rx.Impl.subscribe(rx1, rx2)
 		:ok = Reaxive.Rx.Impl.source(rx2, src)
 
@@ -121,11 +119,11 @@ defmodule ReaxiveTest do
 		Reaxive.Rx.Impl.on_next(rx1, :x)
 		assert_receive {:on_error, _}
 
-		Reaxive.Rx.Impl.on_completed(rx1)
-		assert_receive {:on_completed, nil}
-
-		assert Reaxive.Rx.Impl.subscribers(rx1) == []
 		assert Reaxive.Rx.Impl.subscribers(rx2) == []	
+		assert Reaxive.Rx.Impl.subscribers(rx1) == []
+
+		Reaxive.Rx.Impl.on_completed(rx1)
+		refute_receive {:on_completed, nil}
 	end
 
 	def simple_observer_fun(pid) do
