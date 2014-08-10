@@ -139,6 +139,34 @@ defmodule ReaxiveTest do
 		refute Process.alive?(rx)	
 	end
 
+	test "Stopping processes after completion" do
+		{:ok, rx1} = Reaxive.Rx.Impl.start([auto_stop: true])
+		Process.link(rx1) #  just to ensure that failures appear also here!
+		:ok = Reaxive.Rx.Impl.fun(rx1, &identity/1) 
+
+		{:ok, rx2} = Reaxive.Rx.Impl.start([auto_stop: true])
+		Process.link(rx2) #  just to ensure that failures appear also here!
+		:ok = Reaxive.Rx.Impl.fun(rx2, &identity/1) 
+		src = Reaxive.Rx.Impl.subscribe(rx1, rx2)
+		:ok = Reaxive.Rx.Impl.source(rx2, src)
+
+		call_me = simple_observer_fun(self)
+		disp_me = Reaxive.Rx.Impl.subscribe(rx2, call_me)
+
+		assert Reaxive.Rx.Impl.subscribers(rx1) == [rx2]
+		assert Reaxive.Rx.Impl.subscribers(rx2) == [call_me]
+
+		Reaxive.Rx.Impl.on_next(rx1, :x)
+		assert_receive {:on_next, :x}
+
+		Reaxive.Rx.Impl.on_completed(rx1)
+		assert_receive {:on_completed, nil}
+		disp_me.() # we call this, because our functional observer is too stupid to do it by itself
+
+		refute Process.alive?(rx1)
+		refute Process.alive?(rx2)
+	end
+
 	def simple_observer_fun(pid) do
 		fn(tag, value ) -> send(pid, {tag, value}) end
 	end

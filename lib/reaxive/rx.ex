@@ -171,6 +171,9 @@ defmodule Reaxive.Rx.Impl do
 	def terminate?(%__MODULE__{options: options, subscribers: []}) do
 		Keyword.get(options, :auto_stop, false)
 	end
+	def terminate?(%__MODULE__{options: options, active: false}) do
+		Keyword.get(options, :auto_stop, false)
+	end
 	def terminate?(%__MODULE__{}), do: false
 	
 
