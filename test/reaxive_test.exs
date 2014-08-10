@@ -2,7 +2,7 @@ defmodule ReaxiveTest do
 	use ExUnit.Case
 
 	test "subscribe and dispose" do
-		{:ok, rx} = Reaxive.Rx.Impl.start()
+		{:ok, rx} = Reaxive.Rx.Impl.start([auto_stop: false])
 		disp_me = Reaxive.Rx.Impl.subscribe(rx, :me)
 		disp_you = Reaxive.Rx.Impl.subscribe(rx, :you)
 
@@ -100,11 +100,11 @@ defmodule ReaxiveTest do
 
 	test "chaining two Rx streams with failures" do
 		Process.flag(:trap_exit, true)
-		{:ok, rx1} = Reaxive.Rx.Impl.start()
+		{:ok, rx1} = Reaxive.Rx.Impl.start([auto_stop: false])
 		Process.link(rx1) #  just to ensure that failures appear also here!
 		:ok = Reaxive.Rx.Impl.fun(rx1, &identity/1) 
 
-		{:ok, rx2} = Reaxive.Rx.Impl.start()
+		{:ok, rx2} = Reaxive.Rx.Impl.start([auto_stop: false])
 		Process.link(rx2) #  just to ensure that failures appear also here!
 		:ok = Reaxive.Rx.Impl.fun(rx2, fn(x) -> 1/0 end) # will always fail 
 		src = Reaxive.Rx.Impl.subscribe(rx1, rx2)
@@ -124,6 +124,19 @@ defmodule ReaxiveTest do
 
 		Reaxive.Rx.Impl.on_completed(rx1)
 		refute_receive {:on_completed, nil}
+	end
+
+	test "Stopping processes after unsubscribe" do
+		{:ok, rx} = Reaxive.Rx.Impl.start([auto_stop: true])
+		disp_me = Reaxive.Rx.Impl.subscribe(rx, :me)
+		disp_you = Reaxive.Rx.Impl.subscribe(rx, :you)
+
+		assert Reaxive.Rx.Impl.subscribers(rx) == [:you, :me]
+
+		Disposable.dispose(disp_me)
+		assert Reaxive.Rx.Impl.subscribers(rx) == [:you]
+		Disposable.dispose(disp_you)
+		refute Process.alive?(rx)	
 	end
 
 	def simple_observer_fun(pid) do

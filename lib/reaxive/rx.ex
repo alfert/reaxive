@@ -96,9 +96,15 @@ defmodule Reaxive.Rx.Impl do
 		subscribers: [], # all interested observers
 		sources: [], # list of disposables
 		action: nil, # the function to be applied to the values
+		options: [], #  behavior options
 		accu: nil # accumulator 
 
-	def start(), do: Agent.start(fn() -> %__MODULE__{id: :erlang.make_ref()} end)
+	@doc """
+	Starts the Rx Impl. If `auto_stop` is true, the `Impl` finishes after completion or
+	after an error or after unsubscribing the last subscriber.
+	"""
+	def start(options \\ [auto_stop: true]), do: 
+		Agent.start(fn() -> %__MODULE__{id: :erlang.make_ref(), options: options} end)
 	
 	def subscribe(observable, observer) do
 		:ok = Agent.update(observable, fn(%__MODULE__{subscribers: sub}= state) -> 
@@ -107,10 +113,13 @@ defmodule Reaxive.Rx.Impl do
 		fn() -> unsubscribe(observable, observer) end
 	end
 	
-	def unsubscribe(observable, observer), do:
-		Agent.update(observable, fn(%__MODULE__{subscribers: sub}= state) -> 
-			%__MODULE__{state | subscribers: List.delete(sub, observer)}
+	def unsubscribe(observable, observer) do
+		finish? = Agent.get_and_update(observable, fn(%__MODULE__{subscribers: sub}= state) -> 
+			new_state = %__MODULE__{state | subscribers: List.delete(sub, observer)}
+			{terminate?(new_state), new_state}
 		end)
+		if finish?, do: :ok = Agent.stop(observable), else: :ok
+	end
 	
 	def source(observable, disposable), do:
 		:ok = Agent.update(observable, fn(%__MODULE__{sources: src}= state) -> 
@@ -125,6 +134,8 @@ defmodule Reaxive.Rx.Impl do
 	def on_next(observer, value), do: 
 		:ok = Agent.cast(observer, &handle_value(&1, {:on_next, value}))
 
+	# Here we need to end the process. To synchronize behaviour, we need 
+	# call the Agent. Is this really the sensible case or do we block outselves?
 	def on_completed(observer), do:
 		:ok = Agent.cast(observer, &handle_value(&1, :on_completed))
 
@@ -151,6 +162,17 @@ defmodule Reaxive.Rx.Impl do
 		state.sources |> Enum.each &Disposable.dispose(&1) # disconnect from the sources
 		%__MODULE__{state | active: false, subscribers: []}
 	end
+	# def handle_value(%__MODULE__{active: false} = state, _) do
+	# 	state
+	# end
+	
+
+	@doc "Internal predication to check if we terminate ourselves."
+	def terminate?(%__MODULE__{options: options, subscribers: []}) do
+		Keyword.get(options, :auto_stop, false)
+	end
+	def terminate?(%__MODULE__{}), do: false
+	
 
 	def subscribers(observable), do: 
 		Agent.get(observable, fn(%__MODULE__{subscribers: sub}) -> sub end)
