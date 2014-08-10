@@ -1,5 +1,6 @@
 defmodule ReaxiveTest do
 	use ExUnit.Case
+	import ReaxiveTestTools
 
 	test "subscribe and dispose" do
 		{:ok, rx} = Reaxive.Rx.Impl.start([auto_stop: false])
@@ -167,12 +168,6 @@ defmodule ReaxiveTest do
 		refute Process.alive?(rx2)
 	end
 
-	def simple_observer_fun(pid) do
-		fn(tag, value ) -> send(pid, {tag, value}) end
-	end
-
-	def identity(x), do: x
-
 	def drain_messages(wait_millis \\ 50)
 	def drain_messages(wait_millis) when is_integer(wait_millis) do
 		receive do
@@ -187,9 +182,4 @@ defmodule ReaxiveTest do
 		end
 	end
 
-	defimpl Observer, for: Function do
-		def on_next(observer, value), do: observer.(:on_next, value)
-		def on_error(observer, exception), do: observer.(:on_error, exception)
-		def on_completed(observer), do: observer.(:on_completed, nil)
-	end
 end
