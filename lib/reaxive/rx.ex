@@ -47,15 +47,12 @@ defmodule Reaxive.Rx do
 		rx
 	end
 	
-	# a simple sink
-	@spec as_text(Observable.t) :: :none
-	def as_text(rx) do
-		{:ok, new_rx} = Reaxive.Rx.Impl.start()
-		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
-		:ok = Reaxive.Rx.Impl.source(new_rx, disp)
-		:ok = Reaxive.Rx.Impl.fun(new_rx, fn(v) -> IO.inspect v end)
-		:none
-	end
+	@doc """
+	This is a simple sink for events, which can be used for debugging
+	event streams. 
+	"""
+	@spec as_text(Observable.t) :: Observable.t
+	def as_text(rx), do: rx |> map(fn(v) -> IO.inspect v end)
 	
 	def collect(rx) do
 		{:ok, new_rx} = Reaxive.Rx.Impl.start()

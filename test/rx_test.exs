@@ -57,4 +57,9 @@ defmodule RxTest do
 			assert_receive{:on_next, ^v} end
 		assert_receive {:on_completed, nil}
 	end
+
+	test "print out generated values" do
+		values = [1, 2, 3, 4]
+		values |> Reaxive.Rx.generate |> Reaxive.Rx.as_text
+	end
 end
