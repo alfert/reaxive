@@ -47,4 +47,14 @@ defmodule RxTest do
 		Disposable.dispose(rx2)
 		refute Process.alive?(rx)
 	end
+
+	test "generate some values" do
+		values = [1, 2, 3, 4]
+		o = simple_observer_fun(self)
+		values |> Reaxive.Rx.generate |> Observable.subscribe(o)
+		
+		values |> Enum.each fn(v) ->
+			assert_receive{:on_next, ^v} end
+		assert_receive {:on_completed, nil}
+	end
 end

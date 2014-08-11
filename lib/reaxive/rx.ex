@@ -18,15 +18,29 @@ defmodule Reaxive.Rx do
 		new_rx
 	end
 	
+	@doc """
+	The `generate` function takes a collection and generates for each 
+	element of the collection an event. The delay between the events 
+	is the second parameter. The delay also takes place before the 
+	very first event. 
+
+	This function is always a root in the net of communicating
+	observables and does not depend on another observable.
+
+	*Important Remark:*
+
+	The current implementation does not handle aborted calculations 
+	properly but will crash.
+	"""
 	@spec generate(Enumerable.t, pos_integer) :: Observable.t
-	def generate(collection, delay \\ 100) do
+	def generate(collection, delay \\ 50) do
 		{:ok, rx} = Reaxive.Rx.Impl.start()
 		:ok = Reaxive.Rx.Impl.fun(rx, &(&1)) # identity fun
 		send_values = fn() -> 
-			receive do
-				after delay -> :ok
-			end
-			collection |> Enum.each &Observer.on_next(rx, &1)
+			collection |> Enum.each(fn(element) -> 
+				:timer.sleep(delay)
+				Observer.on_next(rx, element)
+			end) 
 			Observer.on_completed(rx)
 		end
 		spawn(send_values)
