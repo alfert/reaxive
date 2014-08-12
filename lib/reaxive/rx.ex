@@ -87,6 +87,19 @@ defmodule Reaxive.Rx do
 		fn(tag, value) -> send(pid, {tag, value}) end
 	end	
 
+	@doc """
+	This function filter the event sequence such that only those
+	events ŕemain in the sequence for which `pred` returns true. 
+
+	In Reactive Extensions, this function is called `Where`. 
+	"""
+	@spec filter(Observable.t, (any -> boolean)) :: Observable.t
+	def filter(rx, pred) do
+		# do we need special internal function inside Rx such that
+		# we can ignore values?
+	end
+	
+
 	def collect(rx) do
 		{:ok, new_rx} = Reaxive.Rx.Impl.start()
 		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
