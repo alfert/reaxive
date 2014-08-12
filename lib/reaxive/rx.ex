@@ -27,10 +27,13 @@ defmodule Reaxive.Rx do
 	This function is always a root in the net of communicating
 	observables and does not depend on another observable.
 
-	*Important Remark:*
+	*Important Remarks:*
 
-	The current implementation does not handle aborted calculations 
-	properly but will crash.
+	* The current implementation does not handle aborted calculations 
+	  properly but will crash.
+	* If the delay is set to too small value (e.g. `0`), then the first few
+	  elements may be swalloed because no subscriber is available. This might
+	  be changed in the future.
 	"""
 	@spec generate(Enumerable.t, pos_integer) :: Observable.t
 	def generate(collection, delay \\ 50) do
