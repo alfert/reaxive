@@ -95,17 +95,23 @@ defmodule Reaxive.Rx.Impl do
 		Agent.get(observable, fn(%__MODULE__{subscribers: sub}) -> sub end)
 
 
-defimpl Disposable, for: Function do
-	def dispose(fun), do: fun.()
-end
+	defimpl Disposable, for: Function do
+		def dispose(fun), do: fun.()
+	end
 
-defimpl Observer, for: PID do
-	def on_next(observer, value), do:      Reaxive.Rx.Impl.on_next(observer, value)
-	def on_error(observer, exception), do: Reaxive.Rx.Impl.on_error(observer, exception)
-	def on_completed(observer), do:        Reaxive.Rx.Impl.on_completed(observer)
-end
+	defimpl Observer, for: PID do
+		def on_next(observer, value), do:      Reaxive.Rx.Impl.on_next(observer, value)
+		def on_error(observer, exception), do: Reaxive.Rx.Impl.on_error(observer, exception)
+		def on_completed(observer), do:        Reaxive.Rx.Impl.on_completed(observer)
+	end
 
-defimpl Observable, for: PID do
-	def subscribe(observable, observer), do: Reaxive.Rx.Impl.subscribe(observable, observer)
-end
+	defimpl Observable, for: PID do
+		def subscribe(observable, observer), do: Reaxive.Rx.Impl.subscribe(observable, observer)
+	end
+
+	defimpl Observer, for: Function do
+		def on_next(observer, value), do: observer.(:on_next, value)
+		def on_error(observer, exception), do: observer.(:on_error, exception)
+		def on_completed(observer), do: observer.(:on_completed, nil)
+	end
 end
