@@ -54,6 +54,36 @@ defmodule Reaxive.Rx do
 	@spec as_text(Observable.t) :: Observable.t
 	def as_text(rx), do: rx |> map(fn(v) -> IO.inspect v end)
 	
+	@doc """
+	Converts a sequence of events into a (infinite) stream of events. 
+	"""
+	@spec stream(Observable.t) :: Enumerable.t
+	def stream(rx) do
+		# queue all events in an process and collect them.
+		# the accumulator is the function, which gets the next 
+		# element element from the enclosed process. 
+		#
+		o = stream_observer()
+		Stream.resource(
+			# initialize the stream: Connect with rx
+			fn() -> Observable.subscribe(rx, o) end, 
+			# next element is taken from the message queue
+			fn(acc) -> 
+				receive do
+					{:on_next, value} -> {value, acc}
+					{:on_completed, nil} -> nil
+					{:on_error, _e} -> nil
+				end
+			end,
+			# resource deallocation
+			fn(rx2) -> Disposable.dispose(rx2) end)
+	end
+	
+	@doc "A simple observer function, sending tag and value as composed message to the process."
+	def stream_observer(pid \\ self) do
+		fn(tag, value) -> send(pid, {tag, value}) end
+	end	
+
 	def collect(rx) do
 		{:ok, new_rx} = Reaxive.Rx.Impl.start()
 		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
