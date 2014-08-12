@@ -70,4 +70,12 @@ defmodule RxTest do
 		# l = s |> Enum.to_list
 		assert values == l
 	end
+
+	test "abort a sequence early on via generate and stream" do
+		all = 1..1000 |> Enum.to_list
+		five = all |> Reaxive.Rx.generate(1) |>
+			Reaxive.Rx.as_text |> Reaxive.Rx.stream |> Stream.take(5) |> Enum.to_list
+
+		assert five == (all |> Enum.take(5))
+	end
 end
