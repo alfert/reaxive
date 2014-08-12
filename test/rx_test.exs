@@ -62,4 +62,12 @@ defmodule RxTest do
 		values = [1, 2, 3, 4]
 		values |> Reaxive.Rx.generate |> Reaxive.Rx.as_text
 	end
+
+	test "create a stream from a sequence of events" do
+		values = 1..20 |> Enum.to_list
+		l = values |> Reaxive.Rx.generate(1) |> 
+			Reaxive.Rx.as_text |> Reaxive.Rx.stream |> Enum.to_list
+		# l = s |> Enum.to_list
+		assert values == l
+	end
 end
