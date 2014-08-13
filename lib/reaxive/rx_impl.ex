@@ -39,10 +39,29 @@ defmodule Reaxive.Rx.Impl do
 		:ok = Agent.update(observable, fn(%__MODULE__{sources: src}= state) -> 
 			%__MODULE__{state | sources: [disposable | src]}
 		end)
-	
-	def fun(observable, fun, _wrap = true \\ true), do:
+
+	@doc """
+	This function sets the internal action of received events before the event is
+	propagated to the subscribers. 
+
+	If the argument `wrap` is `:wrapped`, then the function is expected 
+	to return directly the new value. If it is `:unwrapped`, then it is the task of the function 
+	to return the complex value to signal propagation (`:cont`) or ignorance of events (`:ignore`).
+
+		{:cont, {:on_next, value}} | {:ignore, value}
+
+	"""	
+	@spec fun(Observable.t, 
+		(any -> any) | (any -> ({:cont, {:on_next, any}}|{:ignore, any})), 
+		:wrapped | :unwrapped) :: :ok
+	def fun(observable, fun, _wrap \\ :wrapped)
+	def fun(observable, fun, _wrap = :wrapped), do:
 		Agent.update(observable, fn(%__MODULE__{action: nil}= state) -> 
 			%__MODULE__{state | action: fn(v) -> {:cont, {:on_next, fun.(v)}} end}
+		end)
+	def fun(observable, fun, _wrap = :unwrapped), do:
+		Agent.update(observable, fn(%__MODULE__{action: nil}= state) -> 
+			%__MODULE__{state | action: fun}
 		end)
 
 	def on_next(observer, value), do: 
@@ -56,7 +75,14 @@ defmodule Reaxive.Rx.Impl do
 	def on_error(observer, exception), do:
 		:ok = Agent.cast(observer, &handle_value(&1, {:on_error, exception}))
 
-	@doc "Internal function to handle new values, errors or completions"
+	@doc """
+	Internal function to handle new values, errors or completions. If `state.action` is 
+	`:nil`, the value is propagated without any modification.
+	"""
+	def handle_value(%__MODULE__{active: true, action: nil} = state, v = {:on_next, value}) do
+		notify({:cont, v}, state)
+		state
+	end
 	def handle_value(%__MODULE__{active: true} = state, {:on_next, value}) do
 		try do 
 			new_v = state.action . (value)
@@ -76,9 +102,6 @@ defmodule Reaxive.Rx.Impl do
 		state.sources |> Enum.each &Disposable.dispose(&1) # disconnect from the sources
 		%__MODULE__{state | active: false, subscribers: []}
 	end
-	# def handle_value(%__MODULE__{active: false} = state, _) do
-	# 	state
-	# end
 
 	@doc "Internal function to notify subscribers, knows about ignoring notifies."
 	def notify({:ignore, _}, _), do: :ok
