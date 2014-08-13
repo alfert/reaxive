@@ -40,9 +40,9 @@ defmodule Reaxive.Rx.Impl do
 			%__MODULE__{state | sources: [disposable | src]}
 		end)
 	
-	def fun(observable, fun), do:
+	def fun(observable, fun, _wrap = true \\ true), do:
 		Agent.update(observable, fn(%__MODULE__{action: nil}= state) -> 
-			%__MODULE__{state | action: fun}
+			%__MODULE__{state | action: fn(v) -> {:cont, {:on_next, fun.(v)}} end}
 		end)
 
 	def on_next(observer, value), do: 
@@ -60,26 +60,35 @@ defmodule Reaxive.Rx.Impl do
 	def handle_value(%__MODULE__{active: true} = state, {:on_next, value}) do
 		try do 
 			new_v = state.action . (value)
-			state.subscribers |> Enum.each(&Observer.on_next(&1, new_v))
+			notify(new_v, state)
 			state
 		catch 
 			what, message -> handle_value(state, {:on_error, {what, message}})
 		end
 	end
-	def handle_value(%__MODULE__{active: true} = state, {:on_error, exception}) do
-		state.subscribers |> Enum.each(&Observer.on_error(&1, exception)) # propagate error
+	def handle_value(%__MODULE__{active: true} = state, e = {:on_error, exception}) do
+		notify({:cont, e}, state)
 		state.sources |> Enum.each &Disposable.dispose(&1) # disconnect from the sources
 		%__MODULE__{state | active: false, subscribers: []}
 	end
 	def handle_value(%__MODULE__{active: true} = state, :on_completed) do
-		state.subscribers |> Enum.each(&Observer.on_completed(&1)) # propagate completed
+		notify({:cont, :on_completed}, state)
 		state.sources |> Enum.each &Disposable.dispose(&1) # disconnect from the sources
 		%__MODULE__{state | active: false, subscribers: []}
 	end
 	# def handle_value(%__MODULE__{active: false} = state, _) do
 	# 	state
 	# end
-	
+
+	@doc "Internal function to notify subscribers, knows about ignoring notifies."
+	def notify({:ignore, _}, _), do: :ok
+	def notify({:cont, {:on_next, value}}, %__MODULE__{subscribers: subscribers}), do: 
+		subscribers |> Enum.each(&Observer.on_next(&1, value))
+	def notify({:cont, {:on_error, exception}}, %__MODULE__{subscribers: subscribers}), do: 
+		subscribers |> Enum.each(&Observer.on_error(&1, exception))
+	def notify({:cont, :on_completed}, %__MODULE__{subscribers: subscribers}), do: 
+		subscribers |> Enum.each(&Observer.on_completed(&1))
+			
 
 	@doc "Internal predication to check if we terminate ourselves."
 	def terminate?(%__MODULE__{options: options, subscribers: []}) do
