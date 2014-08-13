@@ -84,11 +84,18 @@ defmodule RxTest do
 		odds = values |> Rx.generate(1) |> Rx.filter(&Integer.odd?/1) |>
 			 Rx.stream |> Enum.to_list
 
-		assert Enum.all?(odds, &Integer.odd?/1)
 		assert odds == (values |> Enum.filter(&Integer.odd?/1))
+		assert Enum.all?(odds, &Integer.odd?/1)
 	end
 
 	test "fold the past" do 
+		values = 1..10
+
+		f = fn(event, accu) -> accu + event end
+		{:ok, sum} = values |> Rx.generate(1) |> Rx.foldp(0, f) |> Rx.stream |> 
+			Stream.take(-1) |> Enum.fetch(0)
+
+		assert sum == Enum.sum(values)
 
 	end
 end

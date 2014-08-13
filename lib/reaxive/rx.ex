@@ -103,19 +103,20 @@ defmodule Reaxive.Rx do
 				end
 			end 
 		{:ok, new_rx} = Reaxive.Rx.Impl.start()
-		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, :unwrapped)
+		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, nil, :unwrapped)
 		source = Reaxive.Rx.Impl.subscribe(rx, new_rx)
 		:ok = Reaxive.Rx.Impl.source(new_rx, source)
 		new_rx
 	end
 	
 
-	def collect(rx) do
+	def foldp(rx, acc, fun) when is_function(fun, 2) do
 		{:ok, new_rx} = Reaxive.Rx.Impl.start()
+		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, acc)
 		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
 		:ok = Reaxive.Rx.Impl.source(new_rx, disp)
 		# TODO: Here we need the accumulator ....
-		# :ok = Reaxive.Rx.Impl.fun(new_rx, fun)
+		
 		new_rx		
 	end
 	
