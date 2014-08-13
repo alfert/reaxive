@@ -126,5 +126,19 @@ defmodule Reaxive.Rx do
 		new_rx		
 	end
 	
+	def take(rx, n) do
+		fun = fn(v, n) -> {:cont, {:on_completed, nil}}
+		        (v, k) -> {:cont, {:on_next, v}} end
+		# this is not complete. 
+		# We need to change the accu, and the accu is (generally) independent from 
+		# the next value to be propagated. In the case of sum, max, min, prod, all, every, 
+		# which can easily be implemented as reducers, the sequence of events is reduced 
+		# to a single value, i.e. a sequence of one element. 
+		# We need a different way of calculating new events and the accu. 
+		# It might be helpful to to implement the calculation via a functional variable, 
+		# using helpers like notify to implement basic tasks. For the above mentioned 
+		# standard reducers, it would require to notify two times immediately after each one:
+		# to propagate the final accu, followed by an on_completed. 
+	end
 
 end
