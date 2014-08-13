@@ -42,7 +42,7 @@ defmodule Reaxive.Rx.Impl do
 
 	@doc """
 	This function sets the internal action of received events before the event is
-	propagated to the subscribers. 
+	propagated to the subscribers. An initial accumulator value can also be provided.
 
 	If the argument `wrap` is `:wrapped`, then the function is expected 
 	to return directly the new value. If it is `:unwrapped`, then it is the task of the function 
@@ -54,14 +54,19 @@ defmodule Reaxive.Rx.Impl do
 	@spec fun(Observable.t, 
 		(any -> any) | (any -> ({:cont, {:on_next, any}}|{:ignore, any})), 
 		:wrapped | :unwrapped) :: :ok
-	def fun(observable, fun, _wrap \\ :wrapped)
-	def fun(observable, fun, _wrap = :wrapped), do:
+	def fun(observable, fun, acc \\ nil, _wrap \\ :wrapped)
+		def fun(observable, fun, acc, _wrap = :wrapped) when is_function(fun, 2), do:
+		do_fun(observable, fn(v,accu) -> {:cont, {:on_next, fun.(v, accu)}} end, acc)
+	def fun(observable, fun, acc, _wrap = :unwrapped) when is_function(fun, 2), do:
+		do_fun(observable, fun, acc)
+	def fun(observable, fun, _acc = nil, _wrap = :wrapped), do:
+		do_fun(observable, fn(v) -> {:cont, {:on_next, fun.(v)}} end)
+	def fun(observable, fun, _acc = nil, _wrap = :unwrapped), do:
+		do_fun(observable, fun)
+	
+	defp do_fun(observable, fun, acc \\ nil), do:
 		Agent.update(observable, fn(%__MODULE__{action: nil}= state) -> 
-			%__MODULE__{state | action: fn(v) -> {:cont, {:on_next, fun.(v)}} end}
-		end)
-	def fun(observable, fun, _wrap = :unwrapped), do:
-		Agent.update(observable, fn(%__MODULE__{action: nil}= state) -> 
-			%__MODULE__{state | action: fun}
+			%__MODULE__{state | action: fun, accu: acc}
 		end)
 
 	def on_next(observer, value), do: 
@@ -85,9 +90,19 @@ defmodule Reaxive.Rx.Impl do
 	end
 	def handle_value(%__MODULE__{active: true} = state, {:on_next, value}) do
 		try do 
-			new_v = state.action . (value)
-			notify(new_v, state)
-			state
+			cond do
+			is_function(state.action, 1) -> 
+				new_v = state.action . (value)
+				notify(new_v, state)
+				state
+			is_function(state.action, 2) ->
+				new_v = state.action . (value, state.accu)
+				notify(new_v, state)
+				case new_v do 
+					{:cont, {:on_next, new_acc}} -> %__MODULE__{state | accu: new_acc}
+					{:ignore, _} -> state
+				end
+			end
 		catch 
 			what, message -> handle_value(state, {:on_error, {what, message}})
 		end
