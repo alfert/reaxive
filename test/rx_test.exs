@@ -1,6 +1,7 @@
 defmodule RxTest do
 	use ExUnit.Case
 	import ReaxiveTestTools
+	require Integer
 
 	test "map function works" do
 		value = 1
@@ -77,5 +78,14 @@ defmodule RxTest do
 			Reaxive.Rx.as_text |> Reaxive.Rx.stream |> Stream.take(5) |> Enum.to_list
 
 		assert five == (all |> Enum.take(5))
+	end
+
+	test "filter out all odd numbers" do
+		values = 1..20 |> Enum.to_list
+		odds = values |> Reaxive.Rx.generate(1) |> Reaxive.Rx.filter(&Integer.odd?/1) |>
+			 Reaxive.Rx.stream |> Enum.to_list
+
+		assert Enum.all?(odds, &Integer.odd?/1)
+		assert odds == (values |> Enum.filter(&Integer.odd?/1))
 	end
 end

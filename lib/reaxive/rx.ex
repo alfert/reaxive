@@ -95,8 +95,16 @@ defmodule Reaxive.Rx do
 	"""
 	@spec filter(Observable.t, (any -> boolean)) :: Observable.t
 	def filter(rx, pred) do
-		# do we need special internal function inside Rx such that
-		# we can ignore values?
+		fun = fn(v) -> case (pred.(v)) do 
+					true  -> {:cont, {:on_next, v}}
+					false -> {:ignore, v}
+				end
+			end 
+		{:ok, new_rx} = Reaxive.Rx.Impl.start()
+		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, :unwrapped)
+		source = Reaxive.Rx.Impl.subscribe(rx, new_rx)
+		:ok = Reaxive.Rx.Impl.source(new_rx, source)
+		new_rx
 	end
 	
 
