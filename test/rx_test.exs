@@ -6,8 +6,7 @@ defmodule RxTest do
 	test "map function works" do
 		value = 1
 		{:ok, rx} = Reaxive.Rx.Impl.start()
-		:ok = Reaxive.Rx.Impl.fun(rx, &identity/1) 
-
+		
 		rx1 = rx |> Reaxive.Rx.map &(&1 + 1) 
 		o = simple_observer_fun(self)
 		rx2 = Observable.subscribe(rx1, o)
@@ -25,7 +24,6 @@ defmodule RxTest do
 
 	test "map several values via |>" do
 		{:ok, rx} = Reaxive.Rx.Impl.start()
-		:ok = Reaxive.Rx.Impl.fun(rx, &identity/1) 
 		o = simple_observer_fun(self)
 
 		rx2 = rx |> Reaxive.Rx.map(&(&1 + 1)) |> Observable.subscribe(o)

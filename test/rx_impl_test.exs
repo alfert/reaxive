@@ -18,7 +18,6 @@ defmodule ReaxiveTest do
 	test "send values to rx" do
 		value = :x
 		{:ok, rx} = Reaxive.Rx.Impl.start()
-		:ok = Reaxive.Rx.Impl.fun(rx, &identity/1) 
 		disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
 		Reaxive.Rx.Impl.on_next(rx, value)
 		assert_receive {:on_next, value}
@@ -31,7 +30,6 @@ defmodule ReaxiveTest do
 		Process.link(rx)
 		Process.flag(:trap_exit, true)
 
-		:ok = Reaxive.Rx.Impl.fun(rx, &identity/1) 
 		disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
 		Reaxive.Rx.Impl.on_completed(rx)
 		assert_receive {:on_completed, nil}
@@ -58,7 +56,6 @@ defmodule ReaxiveTest do
 		Process.link(rx)
 		Process.flag(:trap_exit, true)
 
-		:ok = Reaxive.Rx.Impl.fun(rx, &identity/1) 
 		disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
 
 		# now use the protocol functions on rx
@@ -75,11 +72,9 @@ defmodule ReaxiveTest do
 	test "chaining two Rx streams" do
 		{:ok, rx1} = Reaxive.Rx.Impl.start()
 		Process.link(rx1) #  just to ensure that failures appear also here!
-		:ok = Reaxive.Rx.Impl.fun(rx1, &identity/1) 
 
 		{:ok, rx2} = Reaxive.Rx.Impl.start()
 		Process.link(rx2) #  just to ensure that failures appear also here!
-		:ok = Reaxive.Rx.Impl.fun(rx2, &identity/1) 
 		src = Reaxive.Rx.Impl.subscribe(rx1, rx2)
 		:ok = Reaxive.Rx.Impl.source(rx2, src)
 
@@ -143,11 +138,9 @@ defmodule ReaxiveTest do
 	test "Stopping processes after completion" do
 		{:ok, rx1} = Reaxive.Rx.Impl.start([auto_stop: true])
 		Process.link(rx1) #  just to ensure that failures appear also here!
-		:ok = Reaxive.Rx.Impl.fun(rx1, &identity/1) 
 
 		{:ok, rx2} = Reaxive.Rx.Impl.start([auto_stop: true])
 		Process.link(rx2) #  just to ensure that failures appear also here!
-		:ok = Reaxive.Rx.Impl.fun(rx2, &identity/1) 
 		src = Reaxive.Rx.Impl.subscribe(rx1, rx2)
 		:ok = Reaxive.Rx.Impl.source(rx2, src)
 
