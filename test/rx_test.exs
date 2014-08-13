@@ -64,15 +64,15 @@ defmodule RxTest do
 	end
 
 	test "create a stream from a sequence of events" do
-		values = 1..20 |> Enum.to_list
+		values = 1..20
 		l = values |> Rx.generate(1) |> 
 			Rx.as_text |> Rx.stream |> Enum.to_list
 		# l = s |> Enum.to_list
-		assert values == l
+		assert Enum.to_list(values) == l
 	end
 
 	test "abort a sequence early on via generate and stream" do
-		all = 1..1000 |> Enum.to_list
+		all = 1..1000
 		five = all |> Rx.generate(1) |>
 			Rx.as_text |> Rx.stream |> Stream.take(5) |> Enum.to_list
 
@@ -80,11 +80,15 @@ defmodule RxTest do
 	end
 
 	test "filter out all odd numbers" do
-		values = 1..20 |> Enum.to_list
+		values = 1..20 
 		odds = values |> Rx.generate(1) |> Rx.filter(&Integer.odd?/1) |>
 			 Rx.stream |> Enum.to_list
 
 		assert Enum.all?(odds, &Integer.odd?/1)
 		assert odds == (values |> Enum.filter(&Integer.odd?/1))
+	end
+
+	test "fold the past" do 
+
 	end
 end

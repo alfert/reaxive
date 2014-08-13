@@ -36,7 +36,9 @@ defmodule Reaxive.Rx do
 	  be changed in the future.
 	"""
 	@spec generate(Enumerable.t, pos_integer) :: Observable.t
-	def generate(collection, delay \\ 50) do
+	def generate(collection, delay \\ 50)
+	def generate(range = %Range{}, delay), do: generate(Enum.to_list(range), delay)
+	def generate(collection, delay) do
 		{:ok, rx} = Reaxive.Rx.Impl.start()
 		:ok = Reaxive.Rx.Impl.fun(rx, &(&1)) # identity fun
 		send_values = fn() -> 
