@@ -92,7 +92,7 @@ defmodule RxTest do
 		values = 1..10
 
 		f = fn(event, accu) -> accu + event end
-		{:ok, sum} = values |> Rx.generate(1) |> Rx.foldp(0, f) |> Rx.stream |> 
+		{:ok, sum} = values |> Rx.generate(1) |> Rx.reduce(0, f) |> Rx.stream |> 
 			Stream.take(-1) |> Enum.fetch(0)
 
 		assert sum == Enum.sum(values)

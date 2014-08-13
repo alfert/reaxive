@@ -110,13 +110,19 @@ defmodule Reaxive.Rx do
 	end
 	
 
-	def foldp(rx, acc, fun) when is_function(fun, 2) do
+	@doc """
+	This function considers the past events to produce new events. 
+	Therefore this function is called in ELM `foldp`, folding over the past. 
+
+	In Elixir, it is the convention to call the fold function `reduce`, therefore
+	we stick to this convention.
+	"""
+	@spec reduce(Observable.t, any, (any, Observable.t) -> Observable.t)
+	def reduce(rx, acc, fun) when is_function(fun, 2) do
 		{:ok, new_rx} = Reaxive.Rx.Impl.start()
 		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, acc)
 		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
 		:ok = Reaxive.Rx.Impl.source(new_rx, disp)
-		# TODO: Here we need the accumulator ....
-		
 		new_rx		
 	end
 	
