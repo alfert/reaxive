@@ -91,11 +91,18 @@ defmodule RxTest do
 	test "fold the past" do 
 		values = 1..10
 
-		f = fn(event, accu) -> accu + event end
+		f = fn(event, accu) -> {accu + event, accu + event} end
 		{:ok, sum} = values |> Rx.generate(1) |> Rx.reduce(0, f) |> Rx.stream |> 
 			Stream.take(-1) |> Enum.fetch(0)
 
 		assert sum == Enum.sum(values)
+	end
 
+	test "take 5" do
+		all = 1..2
+		five = all |> Rx.generate(1) |>
+			Rx.take(5) |> Rx.stream  |> Enum.to_list
+
+		assert five == (all |> Enum.take(5))
 	end
 end

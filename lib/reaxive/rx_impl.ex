@@ -5,6 +5,15 @@ defmodule Reaxive.Rx.Impl do
 	Internally, we use the `Agent` module to ease the implementation.
 	"""
 
+	@typedoc """
+	Internal message for propagating events. 
+	"""
+	@type rx_propagate :: {:on_next, term} | {:on_error, term} | {:on_completed, nil}
+	@typedoc "Tags for interacting between reduce-function and its reducers"
+	@type reduce_tag :: :cont | :halt | :ignore
+	@typedoc "Return value of reducers"
+	@type reducer :: {reduce_tag, rx_propagate, term}
+
 	defstruct id: nil, # might be handy to identify the Rx, but is it really required?
 		active: true, # if false, then an error has occurred or the calculation is completed
 		subscribers: [], # all interested observers
@@ -17,8 +26,8 @@ defmodule Reaxive.Rx.Impl do
 	Starts the Rx Impl. If `auto_stop` is true, the `Impl` finishes after completion or
 	after an error or after unsubscribing the last subscriber.
 	"""
-	def start(options \\ [auto_stop: true]), do: 
-		Agent.start(fn() -> %__MODULE__{id: :erlang.make_ref(), options: options} end)
+	def start(id \\ nil, options \\ [auto_stop: true]), do: 
+		Agent.start(fn() -> %__MODULE__{id: id, options: options} end)
 	
 	def subscribe(observable, observer) do
 		:ok = Agent.update(observable, fn(%__MODULE__{subscribers: sub}= state) -> 
@@ -55,14 +64,17 @@ defmodule Reaxive.Rx.Impl do
 		(any -> any) | (any -> ({:cont, {:on_next, any}}|{:ignore, any})), 
 		:wrapped | :unwrapped) :: :ok
 	def fun(observable, fun, acc \\ nil, _wrap \\ :wrapped)
-		def fun(observable, fun, acc, _wrap = :wrapped) when is_function(fun, 2), do:
-		do_fun(observable, fn(v,accu) -> {:cont, {:on_next, fun.(v, accu)}} end, acc)
+	
+	def fun(observable, fun, acc, _wrap = :wrapped) when is_function(fun, 2), do:
+		do_fun(observable, fn(v,accu) -> {value, new_accu} = fun.(v, accu)
+			{:cont, {:on_next, value}, new_accu} end, acc)
 	def fun(observable, fun, acc, _wrap = :unwrapped) when is_function(fun, 2), do:
 		do_fun(observable, fun, acc)
-	def fun(observable, fun, _acc = nil, _wrap = :wrapped), do:
-		do_fun(observable, fn(v) -> {:cont, {:on_next, fun.(v)}} end)
+	def fun(observable, fun, _acc = nil, _wrap = :wrapped) when is_function(fun, 1), do:
+		do_fun(observable, fn(v, _acc) -> {:cont, {:on_next, fun.(v)}, _acc} end)
 	def fun(observable, fun, _acc = nil, _wrap = :unwrapped), do:
-		do_fun(observable, fun)
+		do_fun(observable, fn(v, acc) -> {tag, value} = fun.(v)
+			{tag, value, acc} end)
 	
 	defp do_fun(observable, fun, acc \\ nil), do:
 		Agent.update(observable, fn(%__MODULE__{action: nil}= state) -> 
@@ -88,6 +100,24 @@ defmodule Reaxive.Rx.Impl do
 		notify({:cont, v}, state)
 		state
 	end
+	def handle_value(%__MODULE__{active: true, action: fun} = state, {:on_next, value}) 
+		#when is_function(fun, 2) 
+		do
+		try do
+#			IO.puts "Handle_value with v=#{inspect value} and #{inspect state}"
+			{tag, new_v, new_accu} = state.action . (value, state.accu)
+			:ok = notify({tag, new_v}, state)
+			%__MODULE__{state | accu: new_accu}
+		catch 
+			what, message -> 
+				IO.puts IO.ANSI.red <> "Got exception: #{inspect what}, #{inspect message} \n" <> 
+					"with value #{inspect value} in state #{inspect state}\n" <>
+					Exception.format(what, message) <>
+					IO.ANSI.default_color
+				handle_value(state, {:on_error, {what, message}})
+		end
+	end
+	
 	def handle_value(%__MODULE__{active: true} = state, {:on_next, value}) do
 		try do 
 			cond do
@@ -125,6 +155,8 @@ defmodule Reaxive.Rx.Impl do
 	def notify({:cont, {:on_error, exception}}, %__MODULE__{subscribers: subscribers}), do: 
 		subscribers |> Enum.each(&Observer.on_error(&1, exception))
 	def notify({:cont, :on_completed}, %__MODULE__{subscribers: subscribers}), do: 
+		subscribers |> Enum.each(&Observer.on_completed(&1))
+	def notify({:halt, :on_completed}, %__MODULE__{subscribers: subscribers}), do: 
 		subscribers |> Enum.each(&Observer.on_completed(&1))
 			
 

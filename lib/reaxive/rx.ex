@@ -39,7 +39,7 @@ defmodule Reaxive.Rx do
 	def generate(collection, delay \\ 50)
 	def generate(range = %Range{}, delay), do: generate(Enum.to_list(range), delay)
 	def generate(collection, delay) do
-		{:ok, rx} = Reaxive.Rx.Impl.start()
+		{:ok, rx} = Reaxive.Rx.Impl.start("generate")
 		:ok = Reaxive.Rx.Impl.fun(rx, &(&1)) # identity fun
 		send_values = fn() -> 
 			collection |> Enum.each(fn(element) -> 
@@ -117,18 +117,20 @@ defmodule Reaxive.Rx do
 	In Elixir, it is the convention to call the fold function `reduce`, therefore
 	we stick to this convention.
 	"""
-	@spec reduce(Observable.t, any, (any, Observable.t) -> Observable.t)
-	def reduce(rx, acc, fun) when is_function(fun, 2) do
-		{:ok, new_rx} = Reaxive.Rx.Impl.start()
-		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, acc)
+	@spec reduce(Observable.t, any, ((any, Observable.t) -> Observable.t)) :: Observable.t
+	def reduce(rx, acc, fun, wrapped \\ :wrapped) when is_function(fun, 2) do
+		{:ok, new_rx} = Reaxive.Rx.Impl.start("reduce")
+		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, acc, wrapped)
 		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
 		:ok = Reaxive.Rx.Impl.source(new_rx, disp)
 		new_rx		
 	end
 	
 	def take(rx, n) do
-		fun = fn(v, n) -> {:cont, {:on_completed, nil}}
-		        (v, k) -> {:cont, {:on_next, v}} end
+		stop = n
+		fun = fn(v, 0) -> {:cont, {:on_completed, nil}, n}
+		        (v, k) -> {:cont, {:on_next, v}, k-1} end
+		reduce(rx, n, fun, :unwrapped)
 		# this is not complete. 
 		# We need to change the accu, and the accu is (generally) independent from 
 		# the next value to be propagated. In the case of sum, max, min, prod, all, every, 
