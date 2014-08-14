@@ -117,26 +117,6 @@ defmodule Reaxive.Rx.Impl do
 				handle_value(state, {:on_error, {what, message}})
 		end
 	end
-	
-	def handle_value(%__MODULE__{active: true} = state, {:on_next, value}) do
-		try do 
-			cond do
-			is_function(state.action, 1) -> 
-				new_v = state.action . (value)
-				notify(new_v, state)
-				state
-			is_function(state.action, 2) ->
-				new_v = state.action . (value, state.accu)
-				notify(new_v, state)
-				case new_v do 
-					{:cont, {:on_next, new_acc}} -> %__MODULE__{state | accu: new_acc}
-					{:ignore, _} -> state
-				end
-			end
-		catch 
-			what, message -> handle_value(state, {:on_error, {what, message}})
-		end
-	end
 	def handle_value(%__MODULE__{active: true} = state, e = {:on_error, exception}) do
 		notify({:cont, e}, state)
 		state.sources |> Enum.each &Disposable.dispose(&1) # disconnect from the sources
