@@ -131,16 +131,24 @@ defmodule Reaxive.Rx do
 		fun = fn(v, 0) -> {:cont, {:on_completed, nil}, n}
 		        (v, k) -> {:cont, {:on_next, v}, k-1} end
 		reduce(rx, n, fun, :unwrapped)
-		# this is not complete. 
-		# We need to change the accu, and the accu is (generally) independent from 
-		# the next value to be propagated. In the case of sum, max, min, prod, all, every, 
-		# which can easily be implemented as reducers, the sequence of events is reduced 
-		# to a single value, i.e. a sequence of one element. 
-		# We need a different way of calculating new events and the accu. 
-		# It might be helpful to to implement the calculation via a functional variable, 
-		# using helpers like notify to implement basic tasks. For the above mentioned 
-		# standard reducers, it would require to notify two times immediately after each one:
-		# to propagate the final accu, followed by an on_completed. 
 	end
 
+	@doc """
+	The first element of the event sequence. Does return the first scalar value
+	and dispose the event sequence. The effect is similar to 
+
+		rx |> Rx.stream |> Stream.take(1) |> Enum.fetch(0)
+	"""
+	@spec first(Observable.t) :: Observable.t
+	def first(rx) do 
+		o = stream_observer(self)
+		rx2 = Observable.subscribe(rx, o)
+		val = receive do
+			{:on_next, value} -> value
+			{:on_completed, nil} -> nil
+			{:on_error, e} -> raise e
+		end
+		Disposable.dispose(rx2)
+		val
+	end
 end

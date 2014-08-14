@@ -99,10 +99,17 @@ defmodule RxTest do
 	end
 
 	test "take 5" do
-		all = 1..2
+		all = 1..1000
 		five = all |> Rx.generate(1) |>
 			Rx.take(5) |> Rx.stream  |> Enum.to_list
 
 		assert five == (all |> Enum.take(5))
+	end
+
+	test "First of all" do
+		values = 1..10
+		first = values |> Rx.generate(1) |> Rx.first
+
+		assert first == 1
 	end
 end
