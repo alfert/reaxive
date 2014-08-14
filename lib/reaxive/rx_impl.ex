@@ -143,7 +143,7 @@ defmodule Reaxive.Rx.Impl do
 		%__MODULE__{state | active: false, subscribers: []}
 	end
 	def handle_value(%__MODULE__{active: true} = state, :on_completed) do
-		notify({:cont, :on_completed}, state)
+		notify({:cont, {:on_completed, nil}}, state)
 		state.sources |> Enum.each &Disposable.dispose(&1) # disconnect from the sources
 		%__MODULE__{state | active: false, subscribers: []}
 	end
@@ -154,9 +154,9 @@ defmodule Reaxive.Rx.Impl do
 		subscribers |> Enum.each(&Observer.on_next(&1, value))
 	def notify({:cont, {:on_error, exception}}, %__MODULE__{subscribers: subscribers}), do: 
 		subscribers |> Enum.each(&Observer.on_error(&1, exception))
-	def notify({:cont, :on_completed}, %__MODULE__{subscribers: subscribers}), do: 
+	def notify({:cont, {:on_completed, nil}}, %__MODULE__{subscribers: subscribers}), do: 
 		subscribers |> Enum.each(&Observer.on_completed(&1))
-	def notify({:halt, :on_completed}, %__MODULE__{subscribers: subscribers}), do: 
+	def notify({:halt, {:on_completed, nil}}, %__MODULE__{subscribers: subscribers}), do: 
 		subscribers |> Enum.each(&Observer.on_completed(&1))
 			
 
