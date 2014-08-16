@@ -151,4 +151,12 @@ defmodule Reaxive.Rx do
 		Disposable.dispose(rx2)
 		val
 	end
+
+	def sum(rx) do
+		# this will not work, because we cannot handle values on a finished sequence
+		# so that we can propagate the accumulaotr. This could be configurable 
+		# behaviour or the entire handle_value implementation must be rewritten.
+		rx |> reduce(0, fn(e, acc) -> {:ignore, {nil, e + acc}} end) |> first
+	end
+	
 end

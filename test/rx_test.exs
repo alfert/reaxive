@@ -112,4 +112,11 @@ defmodule RxTest do
 
 		assert first == 1
 	end
+
+	test "sum it up" do
+		values = 1..10
+		sum = values |> Rx.generate(1) |> Rx.sum
+
+		assert sum == Enum.sum(values)
+	end
 end
