@@ -3,8 +3,8 @@ defmodule Reaxive.Mixfile do
 
   def project do
     [ app: :reaxive,
-      version: "0.0.1",
-      elixir: "~> 0.14",
+      version: "0.0.1-dev",
+      elixir: "~> 0.15",
       docs: [readme: true],
       deps: deps ]
   end
@@ -17,15 +17,11 @@ defmodule Reaxive.Mixfile do
     ]
   end
 
-  # Returns the list of dependencies in the format:
-  # { :foobar, git: "https://github.com/elixir-lang/foobar.git", tag: "0.1" }
-  #
-  # To specify particular versions, regardless of the tag, do:
-  # { :barbat, "~> 0.1", github: "elixir-lang/barbat" }
   defp deps do
     [      
       # Generate documentation with ex_doc, valid for Elixir 0.14.1
-      { :ex_doc, github: "elixir-lang/ex_doc", ref: "ca71b84b9" }
+      {:earmark, "~> 0.1", only: :dev},
+      {:ex_doc, "~> 0.5", only: :dev}
    ]
   end
 end
