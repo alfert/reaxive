@@ -1,5 +1,6 @@
 # Reaxive
 
+[![Build Status](https://travis-ci.org/alfert/reaxive.svg?branch=master)](https://travis-ci.org/alfert/reaxive)
 
 
 Reaxive is a reactive event handling library, inspired by Elm (http://elm-lang.org).
