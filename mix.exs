@@ -14,7 +14,7 @@ defmodule Reaxive.Mixfile do
   def application do
     [
       mod: { Reaxive, [] },
-      applications: [:kernel , :stdlib, :sasl]
+      applications: [:kernel , :stdlib, :sasl, :logger]
     ]
   end
 

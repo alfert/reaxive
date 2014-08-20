@@ -1,4 +1,7 @@
 defmodule Reaxive.Rx.Impl do
+
+	require Logger
+
 	@moduledoc """
 	Implements the Rx protocols and handles the contract. 
 
@@ -105,16 +108,15 @@ defmodule Reaxive.Rx.Impl do
 		#when is_function(fun, 2) 
 		do
 		try do
-#			IO.puts "Handle_value with v=#{inspect value} and #{inspect state}"
+			# Logger.debug "Handle_value with v=#{inspect value} and #{inspect state}"
 			{tag, new_v, new_accu} = fun . (value, accu)
 			:ok = notify({tag, new_v}, state)
 			%__MODULE__{state | accu: new_accu}
 		catch 
 			what, message -> 
-				IO.puts IO.ANSI.red <> "Got exception: #{inspect what}, #{inspect message} \n" <> 
+				Logger.error "Got exception: #{inspect what}, #{inspect message} \n" <> 
 					"with value #{inspect value} in state #{inspect state}\n" <>
-					Exception.format(what, message) <>
-					IO.ANSI.default_color
+					Exception.format(what, message)
 				handle_value(state, {:on_error, {what, message}})
 		end
 	end
