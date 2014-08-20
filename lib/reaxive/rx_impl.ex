@@ -14,6 +14,7 @@ defmodule Reaxive.Rx.Impl do
 	@typedoc "Return value of reducers"
 	@type reducer :: {reduce_tag, rx_propagate, term}
 
+	@derive Access
 	defstruct id: nil, # might be handy to identify the Rx, but is it really required?
 		active: true, # if false, then an error has occurred or the calculation is completed
 		subscribers: [], # all interested observers
@@ -47,7 +48,7 @@ defmodule Reaxive.Rx.Impl do
 	def source(observable, disposable), do:
 		:ok = Agent.update(observable, fn(%__MODULE__{sources: src}= state) -> 
 			%__MODULE__{state | sources: [disposable | src]}
-		end)
+		end)	
 
 	@doc """
 	This function sets the internal action of received events before the event is
@@ -100,12 +101,12 @@ defmodule Reaxive.Rx.Impl do
 		notify({:cont, v}, state)
 		state
 	end
-	def handle_value(%__MODULE__{active: true, action: fun} = state, {:on_next, value}) 
+	def handle_value(%__MODULE__{active: true, action: fun, accu: accu} = state, {:on_next, value}) 
 		#when is_function(fun, 2) 
 		do
 		try do
 #			IO.puts "Handle_value with v=#{inspect value} and #{inspect state}"
-			{tag, new_v, new_accu} = state.action . (value, state.accu)
+			{tag, new_v, new_accu} = fun . (value, accu)
 			:ok = notify({tag, new_v}, state)
 			%__MODULE__{state | accu: new_accu}
 		catch 
@@ -117,14 +118,14 @@ defmodule Reaxive.Rx.Impl do
 				handle_value(state, {:on_error, {what, message}})
 		end
 	end
-	def handle_value(%__MODULE__{active: true} = state, e = {:on_error, exception}) do
+	def handle_value(%__MODULE__{active: true, sources: src} = state, e = {:on_error, exception}) do
 		notify({:cont, e}, state)
-		state.sources |> Enum.each &Disposable.dispose(&1) # disconnect from the sources
+		src |> Enum.each &Disposable.dispose(&1) # disconnect from the sources
 		%__MODULE__{state | active: false, subscribers: []}
 	end
-	def handle_value(%__MODULE__{active: true} = state, :on_completed) do
+	def handle_value(%__MODULE__{active: true, sources: src} = state, :on_completed) do
 		notify({:cont, {:on_completed, nil}}, state)
-		state.sources |> Enum.each &Disposable.dispose(&1) # disconnect from the sources
+		src |> Enum.each &Disposable.dispose(&1) # disconnect from the sources
 		%__MODULE__{state | active: false, subscribers: []}
 	end
 
@@ -152,6 +153,9 @@ defmodule Reaxive.Rx.Impl do
 
 	def subscribers(observable), do: 
 		Agent.get(observable, fn(%__MODULE__{subscribers: sub}) -> sub end)
+
+	def acc(observable), do:
+		Agent.get(observable, fn(%__MODULE__{accu: acc}) -> acc end)
 
 
 	defimpl Disposable, for: Function do
