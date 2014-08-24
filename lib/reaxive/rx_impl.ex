@@ -80,22 +80,9 @@ defmodule Reaxive.Rx.Impl do
 
 	"""	
 	@spec fun(Observable.t, 
-		(any -> any) | (any -> ({:cont, {:on_next, any}}|{:ignore, any})), 
-		:wrapped | :unwrapped) :: :ok
-	def fun(observable, fun, acc \\ nil, _wrap \\ :wrapped)
+		(any -> any) | (any -> ({:cont, {:on_next, any}}|{:ignore, any}))) :: :ok
 	
-	def fun(observable, fun, acc, _wrap = :wrapped) when is_function(fun, 2), do:
-		do_fun(observable, fn(v,accu) -> {value, new_accu} = fun.(v, accu)
-			{:cont, {:on_next, value}, new_accu} end, acc)
-	def fun(observable, fun, acc, _wrap = :unwrapped) when is_function(fun, 2), do:
-		do_fun(observable, fun, acc)
-	def fun(observable, fun, _acc = nil, _wrap = :wrapped) when is_function(fun, 1), do:
-		do_fun(observable, fn(v, _acc) -> {:cont, {:on_next, fun.(v)}, _acc} end)
-	def fun(observable, fun, _acc = nil, _wrap = :unwrapped), do:
-		do_fun(observable, fn(v, acc) -> {tag, value} = fun.(v)
-			{tag, value, acc} end)
-	
-	defp do_fun(observable, fun, acc \\ nil), do:	
+	def fun(observable, fun, acc \\ nil), do:	
 		GenServer.call(observable, {:fun, fun, acc})
 
 	@doc "All subscribers of Rx. Useful for debugging."
