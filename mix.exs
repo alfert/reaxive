@@ -24,7 +24,8 @@ defmodule Reaxive.Mixfile do
       # {:coverex, "~> 0.0.7-dev", path: "../coverex", only: :test},
       {:earmark, "~> 0.1", only: :dev},
       {:ex_doc, "~> 0.5", only: :dev},
-      {:dialyze, "~> 0.1.2", only: :dev}
+      {:dialyze, "~> 0.1.2", only: :dev},
+      {:dbg, github: "fishcakez/dbg", only: :test}
    ]
   end
 end
