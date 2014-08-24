@@ -58,7 +58,7 @@ defmodule Reaxive.Rx.Impl do
 			try do 
 				unsubscribe(observable, observer) 
 			catch 
-				:exit, code -> Logger.error "No process #{inspect observable} - no problem #{inspect code}"
+				:exit, code -> Logger.debug "No process #{inspect observable} - no problem #{inspect code}"
 			end
 		end
 	end
