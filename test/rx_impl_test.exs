@@ -18,25 +18,28 @@ defmodule ReaxiveTest do
 	test "send values to rx" do
 		value = :x
 		{:ok, rx} = Reaxive.Rx.Impl.start()
-		disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
+		_disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
 		Reaxive.Rx.Impl.on_next(rx, value)
-		assert_receive {:on_next, value}
+		assert_receive {:on_next, ^value}
 		Reaxive.Rx.Impl.on_completed(rx)
 		assert_receive {:on_completed, nil}		
 	end
 
 	test "ensure monadic behavior in rx" do
+
 		{:ok, rx} = Reaxive.Rx.Impl.start()
+		# we need to link rx with the test process to receive the EXIT signal.
 		Process.link(rx)
 		Process.flag(:trap_exit, true)
 
-		disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
+
+		_disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
 		Reaxive.Rx.Impl.on_completed(rx)
 		assert_receive {:on_completed, nil}
 
-		# we need to link rx with the test process to receive the EXIT signal.
-		# catch_exit(Reaxive.Rx.Impl.on_next(rx, :x))
 		Reaxive.Rx.Impl.on_next(rx, :x)
+
+		# refute Process.alive? rx
 		assert_receive {:EXIT, ^rx, _}
 	end
 
@@ -70,16 +73,16 @@ defmodule ReaxiveTest do
 	end
 
 	test "chaining two Rx streams" do
-		{:ok, rx1} = Reaxive.Rx.Impl.start()
+		{:ok, rx1} = Reaxive.Rx.Impl.start("rx1", [auto_stop: false])
 		Process.link(rx1) #  just to ensure that failures appear also here!
 
-		{:ok, rx2} = Reaxive.Rx.Impl.start()
+		{:ok, rx2} = Reaxive.Rx.Impl.start("rx2", [auto_stop: false])
 		Process.link(rx2) #  just to ensure that failures appear also here!
 		src = Reaxive.Rx.Impl.subscribe(rx1, rx2)
 		:ok = Reaxive.Rx.Impl.source(rx2, src)
 
 		call_me = simple_observer_fun(self)
-		disp_me = Reaxive.Rx.Impl.subscribe(rx2, call_me)
+		_disp_me = Reaxive.Rx.Impl.subscribe(rx2, call_me)
 
 		assert Reaxive.Rx.Impl.subscribers(rx1) == [rx2]
 		assert Reaxive.Rx.Impl.subscribers(rx2) == [call_me]
@@ -107,7 +110,7 @@ defmodule ReaxiveTest do
 		:ok = Reaxive.Rx.Impl.source(rx2, src)
 
 		call_me = simple_observer_fun(self)
-		disp_me = Reaxive.Rx.Impl.subscribe(rx2, call_me)
+		_disp_me = Reaxive.Rx.Impl.subscribe(rx2, call_me)
 
 		assert Reaxive.Rx.Impl.subscribers(rx1) == [rx2]
 		assert Reaxive.Rx.Impl.subscribers(rx2) == [call_me]
@@ -123,7 +126,8 @@ defmodule ReaxiveTest do
 	end
 
 	test "Stopping processes after unsubscribe" do
-		{:ok, rx} = Reaxive.Rx.Impl.start([auto_stop: true])
+		# {:ok, rx} = Reaxive.Rx.Impl.start("rx", [auto_stop: true])
+		{:ok, rx} = Reaxive.Rx.Impl.start()
 		disp_me = Reaxive.Rx.Impl.subscribe(rx, :me)
 		disp_you = Reaxive.Rx.Impl.subscribe(rx, :you)
 
@@ -136,10 +140,10 @@ defmodule ReaxiveTest do
 	end
 
 	test "Stopping processes after completion" do
-		{:ok, rx1} = Reaxive.Rx.Impl.start([auto_stop: true])
+		{:ok, rx1} = Reaxive.Rx.Impl.start("rx1", [auto_stop: true])
 		Process.link(rx1) #  just to ensure that failures appear also here!
 
-		{:ok, rx2} = Reaxive.Rx.Impl.start([auto_stop: true])
+		{:ok, rx2} = Reaxive.Rx.Impl.start("rx2", [auto_stop: true])
 		Process.link(rx2) #  just to ensure that failures appear also here!
 		src = Reaxive.Rx.Impl.subscribe(rx1, rx2)
 		:ok = Reaxive.Rx.Impl.source(rx2, src)

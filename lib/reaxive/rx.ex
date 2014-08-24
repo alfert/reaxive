@@ -12,7 +12,12 @@ defmodule Reaxive.Rx do
 	@spec map(Observable.t, (... ->any) ) :: Observable.t
 	def map(rx, fun) do
 		{:ok, new_rx} = Reaxive.Rx.Impl.start()
-		:ok = Reaxive.Rx.Impl.fun(new_rx, fun)
+
+		mapper = fn
+			({:on_next, v}, acc) -> {:cont, {:on_next, fun.(v)}, acc}
+			({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
+		end
+		:ok = Reaxive.Rx.Impl.fun(new_rx, mapper)
 		source = Reaxive.Rx.Impl.subscribe(rx, new_rx)
 		:ok = Reaxive.Rx.Impl.source(new_rx, source)
 		new_rx
@@ -39,8 +44,7 @@ defmodule Reaxive.Rx do
 	def generate(collection, delay \\ 50)
 	def generate(range = %Range{}, delay), do: generate(Enum.to_list(range), delay)
 	def generate(collection, delay) do
-		{:ok, rx} = Reaxive.Rx.Impl.start("generate")
-		:ok = Reaxive.Rx.Impl.fun(rx, &(&1)) # identity fun
+		{:ok, rx} = Reaxive.Rx.Impl.start("generate", [auto_stop: true])
 		send_values = fn() -> 
 			collection |> Enum.each(fn(element) -> 
 				:timer.sleep(delay)
@@ -97,13 +101,16 @@ defmodule Reaxive.Rx do
 	"""
 	@spec filter(Observable.t, (any -> boolean)) :: Observable.t
 	def filter(rx, pred) do
-		fun = fn(v) -> case (pred.(v)) do 
-					true  -> {:cont, {:on_next, v}}
-					false -> {:ignore, v}
+		filter_fun = fn
+			({:on_next, v}, acc) -> case pred.(v) do 
+					true  -> {:cont, {:on_next, v}, acc}
+					false -> {:ignore, v, acc}
 				end
-			end 
+			({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
+		end
+		
 		{:ok, new_rx} = Reaxive.Rx.Impl.start()
-		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, nil, :unwrapped)
+		:ok = Reaxive.Rx.Impl.fun(new_rx, filter_fun)
 		source = Reaxive.Rx.Impl.subscribe(rx, new_rx)
 		:ok = Reaxive.Rx.Impl.source(new_rx, source)
 		new_rx
@@ -116,11 +123,13 @@ defmodule Reaxive.Rx do
 
 	In Elixir, it is the convention to call the fold function `reduce`, therefore
 	we stick to this convention.
+
+	This fold-function itself is somewhat complicated. 
 	"""
 	@spec reduce(Observable.t, any, ((any, Observable.t) -> Observable.t)) :: Observable.t
-	def reduce(rx, acc, fun, wrapped \\ :wrapped) when is_function(fun, 2) do
-		{:ok, new_rx} = Reaxive.Rx.Impl.start("reduce")
-		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, acc, wrapped)
+	def reduce(rx, acc, fun) when is_function(fun, 2) do
+		{:ok, new_rx} = Reaxive.Rx.Impl.start("reduce", [auto_stop: true])
+		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, acc)
 		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
 		:ok = Reaxive.Rx.Impl.source(new_rx, disp)
 		new_rx		
@@ -128,9 +137,12 @@ defmodule Reaxive.Rx do
 	
 	def take(rx, n) do
 		stop = n
-		fun = fn(v, 0) -> {:cont, {:on_completed, nil}, n}
-		        (v, k) -> {:cont, {:on_next, v}, k-1} end
-		reduce(rx, n, fun, :unwrapped)
+		fun = fn
+			({:on_next, v}, 0) -> {:cont, {:on_completed, nil}, n}
+		    ({:on_next, v}, k) -> {:cont, {:on_next, v}, k-1} 
+			({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
+		end
+		reduce(rx, n, fun)
 	end
 
 	@doc """
@@ -139,7 +151,7 @@ defmodule Reaxive.Rx do
 
 		rx |> Rx.stream |> Stream.take(1) |> Enum.fetch(0)
 	"""
-	@spec first(Observable.t) :: Observable.t
+	@spec first(Observable.t) :: term
 	def first(rx) do 
 		o = stream_observer(self)
 		rx2 = Observable.subscribe(rx, o)
@@ -153,10 +165,25 @@ defmodule Reaxive.Rx do
 	end
 
 	def sum(rx) do
-		# this will not work, because we cannot handle values on a finished sequence
-		# so that we can propagate the accumulaotr. This could be configurable 
-		# behaviour or the entire handle_value implementation must be rewritten.
-		rx |> reduce(0, fn(e, acc) -> {:ignore, {nil, e + acc}} end) |> first
+		fun = fn
+			({:on_next, entry}, acc) -> {:ignore, nil, entry + acc} 
+			({:on_completed, _}, acc) -> {:halt, {:on_next, acc}, acc}
+		end
+
+		rx |> reduce(0, fun) |> first
 	end
 	
+	def accumulator(rx) do
+		# This is not the proper solution. We need something, that is handled differently
+		# in the handle_value implementation and sends the final value of the accu
+		# after receiving the :on_completed message.
+
+		# ==> It might be useful to consider the Enum-Protocol for reducers
+		# to communicate between rx_impl nodes and the reducer functions. Interestingly, 
+		# Enum has {:cont, term} and {:halt, term}, which might be useful here. If we change
+		# from {:on_completed, nil} to {:on_completed, term}, we also have to change the 
+		# Observer protocol!
+
+		Reaxive.Rx.Impl.acc(rx)
+	end
 end
