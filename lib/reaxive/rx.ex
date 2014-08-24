@@ -123,11 +123,13 @@ defmodule Reaxive.Rx do
 
 	In Elixir, it is the convention to call the fold function `reduce`, therefore
 	we stick to this convention.
+
+	This fold-function itself is somewhat complicated. 
 	"""
 	@spec reduce(Observable.t, any, ((any, Observable.t) -> Observable.t)) :: Observable.t
-	def reduce(rx, acc, fun, wrapped \\ :wrapped) when is_function(fun, 2) do
+	def reduce(rx, acc, fun) when is_function(fun, 2) do
 		{:ok, new_rx} = Reaxive.Rx.Impl.start("reduce", [auto_stop: true])
-		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, acc, wrapped)
+		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, acc)
 		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
 		:ok = Reaxive.Rx.Impl.source(new_rx, disp)
 		new_rx		
@@ -137,7 +139,7 @@ defmodule Reaxive.Rx do
 		stop = n
 		fun = fn(v, 0) -> {:cont, {:on_completed, nil}, n}
 		        (v, k) -> {:cont, {:on_next, v}, k-1} end
-		reduce(rx, n, fun, :unwrapped)
+		reduce(rx, n, fun)
 	end
 
 	@doc """
@@ -146,7 +148,7 @@ defmodule Reaxive.Rx do
 
 		rx |> Rx.stream |> Stream.take(1) |> Enum.fetch(0)
 	"""
-	@spec first(Observable.t) :: Observable.t
+	@spec first(Observable.t) :: term
 	def first(rx) do 
 		o = stream_observer(self)
 		rx2 = Observable.subscribe(rx, o)
