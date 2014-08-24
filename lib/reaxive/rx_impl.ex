@@ -51,7 +51,13 @@ defmodule Reaxive.Rx.Impl do
 	@spec subscribe(Observable.t, Observer.t) :: (() -> :ok)
 	def subscribe(observable, observer) do
 		:ok = GenServer.call(observable, {:subscribe, observer})
-		fn() -> unsubscribe(observable, observer) end
+		fn() -> 
+			try do 
+				unsubscribe(observable, observer) 
+			catch 
+				:exit, code -> Logger.error "No process #{inspect observable} - no problem #{inspect code}"
+			end
+		end
 	end
 	
 	def unsubscribe(observable, observer), do:
@@ -167,10 +173,7 @@ defmodule Reaxive.Rx.Impl do
 				handle_value(state, {:on_error, {what, message}})
 		end
 	end 
-	def handle_value(%__MODULE__{active: false} = state, _value) do
-		if terminate?(state), do:
-			:ok = Agent.stop(self)
-	end
+	def handle_value(%__MODULE__{active: false} = state, _value), do: state
 	
 
 	@doc "disconnect from the sources"
