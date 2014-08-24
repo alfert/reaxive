@@ -73,10 +73,10 @@ defmodule ReaxiveTest do
 	end
 
 	test "chaining two Rx streams" do
-		{:ok, rx1} = Reaxive.Rx.Impl.start()
+		{:ok, rx1} = Reaxive.Rx.Impl.start("rx1", [auto_stop: false])
 		Process.link(rx1) #  just to ensure that failures appear also here!
 
-		{:ok, rx2} = Reaxive.Rx.Impl.start()
+		{:ok, rx2} = Reaxive.Rx.Impl.start("rx2", [auto_stop: false])
 		Process.link(rx2) #  just to ensure that failures appear also here!
 		src = Reaxive.Rx.Impl.subscribe(rx1, rx2)
 		:ok = Reaxive.Rx.Impl.source(rx2, src)
@@ -126,7 +126,7 @@ defmodule ReaxiveTest do
 	end
 
 	test "Stopping processes after unsubscribe" do
-		{:ok, rx} = Reaxive.Rx.Impl.start([auto_stop: true])
+		{:ok, rx} = Reaxive.Rx.Impl.start("rx", [auto_stop: true])
 		disp_me = Reaxive.Rx.Impl.subscribe(rx, :me)
 		disp_you = Reaxive.Rx.Impl.subscribe(rx, :you)
 
@@ -139,10 +139,10 @@ defmodule ReaxiveTest do
 	end
 
 	test "Stopping processes after completion" do
-		{:ok, rx1} = Reaxive.Rx.Impl.start([auto_stop: true])
+		{:ok, rx1} = Reaxive.Rx.Impl.start("rx1", [auto_stop: true])
 		Process.link(rx1) #  just to ensure that failures appear also here!
 
-		{:ok, rx2} = Reaxive.Rx.Impl.start([auto_stop: true])
+		{:ok, rx2} = Reaxive.Rx.Impl.start("rx2", [auto_stop: true])
 		Process.link(rx2) #  just to ensure that failures appear also here!
 		src = Reaxive.Rx.Impl.subscribe(rx1, rx2)
 		:ok = Reaxive.Rx.Impl.source(rx2, src)
