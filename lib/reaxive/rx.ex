@@ -165,13 +165,12 @@ defmodule Reaxive.Rx do
 	end
 
 	def sum(rx) do
-		# this will not work, because we cannot handle values on a finished sequence
-		# so that we can propagate the accumulaotr. This could be configurable 
-		# behaviour or the entire handle_value implementation must be rewritten.
-		rx |> reduce(0, 
-			fn(:on_next, entry, acc) -> {:ignore, {nil, entry + acc}} 
-			  (:on_completed, _, acc) -> {:halt, {:on_next, acc}}
-		end) |> accumulator
+		fun = fn
+			({:on_next, entry}, acc) -> {:ignore, nil, entry + acc} 
+			({:on_completed, _}, acc) -> {:halt, {:on_next, acc}, acc}
+		end
+
+		rx |> reduce(0, fun) |> first
 	end
 	
 	def accumulator(rx) do
