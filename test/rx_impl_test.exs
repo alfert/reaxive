@@ -126,7 +126,8 @@ defmodule ReaxiveTest do
 	end
 
 	test "Stopping processes after unsubscribe" do
-		{:ok, rx} = Reaxive.Rx.Impl.start("rx", [auto_stop: true])
+		# {:ok, rx} = Reaxive.Rx.Impl.start("rx", [auto_stop: true])
+		{:ok, rx} = Reaxive.Rx.Impl.start()
 		disp_me = Reaxive.Rx.Impl.subscribe(rx, :me)
 		disp_you = Reaxive.Rx.Impl.subscribe(rx, :you)
 

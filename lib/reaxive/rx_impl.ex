@@ -40,11 +40,14 @@ defmodule Reaxive.Rx.Impl do
 	Starts the Rx Impl. If `auto_stop` is true, the `Impl` finishes after completion or
 	after an error or after unsubscribing the last subscriber.
 	"""
-	def start(id \\ nil, options \\ [auto_stop: true]), do: 
+	def start(), do: start(nil, [auto_stop: true])
+	def start(id, options), do: 
 		GenServer.start(__MODULE__, [id, options])
 	
 	def init([id, options]) do
-		{:ok, %__MODULE__{id: id, options: options}}
+		s = %__MODULE__{id: id, options: options}
+		# Logger.info "init - state = #{inspect s}"
+		{:ok, s}
 	end
 	
 	@doc "Subscribes a new observer. Returns a function for unsubscription"
@@ -198,7 +201,7 @@ defmodule Reaxive.Rx.Impl do
 		subscribers |> Enum.each(&Observer.on_completed(&1))
 			
 
-	@doc "Internal predication to check if we terminate ourselves."
+	@doc "Internal predicate to check if we terminate ourselves."
 	def terminate?(%__MODULE__{options: options, subscribers: []}) do
 		Keyword.get(options, :auto_stop, false)
 	end
