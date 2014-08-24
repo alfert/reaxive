@@ -18,7 +18,7 @@ defmodule ReaxiveTest do
 	test "send values to rx" do
 		value = :x
 		{:ok, rx} = Reaxive.Rx.Impl.start()
-		disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
+		_disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
 		Reaxive.Rx.Impl.on_next(rx, value)
 		assert_receive {:on_next, value}
 		Reaxive.Rx.Impl.on_completed(rx)
@@ -26,17 +26,20 @@ defmodule ReaxiveTest do
 	end
 
 	test "ensure monadic behavior in rx" do
+
 		{:ok, rx} = Reaxive.Rx.Impl.start()
+		# we need to link rx with the test process to receive the EXIT signal.
 		Process.link(rx)
 		Process.flag(:trap_exit, true)
 
-		disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
+
+		_disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
 		Reaxive.Rx.Impl.on_completed(rx)
 		assert_receive {:on_completed, nil}
 
-		# we need to link rx with the test process to receive the EXIT signal.
-		# catch_exit(Reaxive.Rx.Impl.on_next(rx, :x))
 		Reaxive.Rx.Impl.on_next(rx, :x)
+
+		# refute Process.alive? rx
 		assert_receive {:EXIT, ^rx, _}
 	end
 
@@ -79,7 +82,7 @@ defmodule ReaxiveTest do
 		:ok = Reaxive.Rx.Impl.source(rx2, src)
 
 		call_me = simple_observer_fun(self)
-		disp_me = Reaxive.Rx.Impl.subscribe(rx2, call_me)
+		_disp_me = Reaxive.Rx.Impl.subscribe(rx2, call_me)
 
 		assert Reaxive.Rx.Impl.subscribers(rx1) == [rx2]
 		assert Reaxive.Rx.Impl.subscribers(rx2) == [call_me]
@@ -107,7 +110,7 @@ defmodule ReaxiveTest do
 		:ok = Reaxive.Rx.Impl.source(rx2, src)
 
 		call_me = simple_observer_fun(self)
-		disp_me = Reaxive.Rx.Impl.subscribe(rx2, call_me)
+		_disp_me = Reaxive.Rx.Impl.subscribe(rx2, call_me)
 
 		assert Reaxive.Rx.Impl.subscribers(rx1) == [rx2]
 		assert Reaxive.Rx.Impl.subscribers(rx2) == [call_me]
