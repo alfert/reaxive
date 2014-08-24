@@ -12,7 +12,12 @@ defmodule Reaxive.Rx do
 	@spec map(Observable.t, (... ->any) ) :: Observable.t
 	def map(rx, fun) do
 		{:ok, new_rx} = Reaxive.Rx.Impl.start()
-		:ok = Reaxive.Rx.Impl.fun(new_rx, fun)
+
+		mapper = fn
+			({:on_next, v}, acc) -> {:cont, {:on_next, fun.(v)}, acc}
+			({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
+		end
+		:ok = Reaxive.Rx.Impl.fun(new_rx, mapper)
 		source = Reaxive.Rx.Impl.subscribe(rx, new_rx)
 		:ok = Reaxive.Rx.Impl.source(new_rx, source)
 		new_rx
@@ -39,8 +44,7 @@ defmodule Reaxive.Rx do
 	def generate(collection, delay \\ 50)
 	def generate(range = %Range{}, delay), do: generate(Enum.to_list(range), delay)
 	def generate(collection, delay) do
-		{:ok, rx} = Reaxive.Rx.Impl.start("generate")
-		:ok = Reaxive.Rx.Impl.fun(rx, &(&1)) # identity fun
+		{:ok, rx} = Reaxive.Rx.Impl.start("generate", [auto_stop: true])
 		send_values = fn() -> 
 			collection |> Enum.each(fn(element) -> 
 				:timer.sleep(delay)
@@ -156,7 +160,23 @@ defmodule Reaxive.Rx do
 		# this will not work, because we cannot handle values on a finished sequence
 		# so that we can propagate the accumulaotr. This could be configurable 
 		# behaviour or the entire handle_value implementation must be rewritten.
-		rx |> reduce(0, fn(e, acc) -> {:ignore, {nil, e + acc}} end) |> first
+		rx |> reduce(0, 
+			fn(:on_next, entry, acc) -> {:ignore, {nil, entry + acc}} 
+			  (:on_completed, _, acc) -> {:halt, {:on_next, acc}}
+		end) |> accumulator
 	end
 	
+	def accumulator(rx) do
+		# This is not the proper solution. We need something, that is handled differently
+		# in the handle_value implementation and sends the final value of the accu
+		# after receiving the :on_completed message.
+
+		# ==> It might be useful to consider the Enum-Protocol for reducers
+		# to communicate between rx_impl nodes and the reducer functions. Interestingly, 
+		# Enum has {:cont, term} and {:halt, term}, which might be useful here. If we change
+		# from {:on_completed, nil} to {:on_completed, term}, we also have to change the 
+		# Observer protocol!
+
+		Reaxive.Rx.Impl.acc(rx)
+	end
 end
