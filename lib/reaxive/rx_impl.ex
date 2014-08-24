@@ -1,5 +1,6 @@
 defmodule Reaxive.Rx.Impl do
 
+	use GenServer
 	require Logger
 
 	@moduledoc """
@@ -40,28 +41,24 @@ defmodule Reaxive.Rx.Impl do
 	after an error or after unsubscribing the last subscriber.
 	"""
 	def start(id \\ nil, options \\ [auto_stop: true]), do: 
-		Agent.start(fn() -> %__MODULE__{id: id, options: options} end)
+		GenServer.start(__MODULE__, [id, options])
 	
+	def init([id, options]) do
+		{:ok, %__MODULE__{id: id, options: options}}
+	end
+	
+	@doc "Subscribes a new observer. Returns a function for unsubscription"
+	@spec subscribe(Observable.t, Observer.t) :: (() -> :ok)
 	def subscribe(observable, observer) do
-		:ok = Agent.update(observable, fn(%__MODULE__{subscribers: sub}= state) -> 
-			%__MODULE__{state | subscribers: [observer | sub]}
-		end)
+		:ok = GenServer.call(observable, {:subscribe, observer})
 		fn() -> unsubscribe(observable, observer) end
 	end
 	
-	def unsubscribe(observable, observer) do
-		finish? = Agent.get_and_update(observable, fn(%__MODULE__{subscribers: sub}= state) -> 
-			new_state = %__MODULE__{state | subscribers: List.delete(sub, observer)}
-			{terminate?(new_state), new_state}
-		end)
-		if finish?, do: :ok = Agent.stop(observable), else: :ok
-	end
+	def unsubscribe(observable, observer), do:
+		GenServer.call(observable, {:unsubscribe, observer})
 	
 	def source(observable, disposable), do:
-		:ok = Agent.update(observable, fn(%__MODULE__{sources: src}= state) -> 
-			%__MODULE__{state | sources: [disposable | src]}
-		end)	
-
+		GenServer.call(observable, {:source, disposable})
 	@doc """
 	This function sets the internal action of received events before the event is
 	propagated to the subscribers. An initial accumulator value can also be provided.
@@ -89,21 +86,52 @@ defmodule Reaxive.Rx.Impl do
 		do_fun(observable, fn(v, acc) -> {tag, value} = fun.(v)
 			{tag, value, acc} end)
 	
-	defp do_fun(observable, fun, acc \\ nil), do:
-		Agent.update(observable, fn(%__MODULE__{action: nil}= state) -> 
-			%__MODULE__{state | action: fun, accu: acc}
-		end)
+	defp do_fun(observable, fun, acc \\ nil), do:	
+		GenServer.call(observable, {:fun, fun, acc})
 
+	@doc "All subscribers of Rx. Useful for debugging."
+	def subscribers(observable), do: GenServer.call(observable, :subscribers)
+
+	@doc "The accu value. Useful for debugging"
+	def acc(observable), do: GenServer.call(observable, :accu)
+
+	@doc "All request-reply calls for setting up the Rx."
+	def handle_call({:subscribe, observer}, _from, %__MODULE__{subscribers: sub}= state), do:
+		{:reply, :ok, %__MODULE__{state | subscribers: [observer | sub]}}
+	def handle_call({:unsubscribe, observer}, _from, %__MODULE__{subscribers: sub}= state) do
+		new_state = %__MODULE__{state | subscribers: List.delete(sub, observer)}
+		case terminate?(new_state) do
+			true  -> {:stop, :ok, new_state}
+			false -> {:reply, :ok, new_state}
+		end
+	end
+	def handle_call({:source, disposable}, _from, %__MODULE__{sources: src}= state), do:
+		{:reply, :ok, %__MODULE__{state | sources: [disposable | src]}}
+	def handle_call({:fun, fun, acc}, _from, %__MODULE__{action: nil}= state), do:
+		{:reply, :ok, %__MODULE__{state | action: fun, accu: acc}}
+	def handle_call(:subscribers, _from, %__MODULE__{subscribers: sub} = s), do: {:reply, sub, s}
+	def handle_call(:accu, _from, %__MODULE__{accu: acc} = s), do: {:reply, acc, s}
+
+	@doc "Process the next value"
 	def on_next(observer, value), do: 
-		:ok = Agent.cast(observer, &handle_value(&1, {:on_next, value}))
+		:ok = GenServer.cast(observer, {:on_next, value})
 
-	# Here we need to end the process. To synchronize behaviour, we need 
-	# call the Agent. Is this really the sensible case or do we block outselves?
+	@doc "The last regular message"
 	def on_completed(observer), do:
-		:ok = Agent.cast(observer, &handle_value(&1, {:on_completed, nil}))
+		:ok = GenServer.cast(observer, {:on_completed, nil})
 
+	@doc "An error has occured, the pipeline will be aborted."
 	def on_error(observer, exception), do:
-		:ok = Agent.cast(observer, &handle_value(&1, {:on_error, exception}))
+		:ok = GenServer.cast(observer, {:on_error, exception})
+
+	@doc "Asynchronous callback. Used for processing values."
+	def handle_cast({tag, value}, state) do
+		new_state = handle_value(state, value)
+		case terminate?(new_state) do
+			true  -> {:stop, :ok, new_state}
+			false -> {:noreply, new_state}
+		end
+	end
 
 	@doc """
 	Internal function to handle new values, errors or completions. If `state.action` is 
@@ -176,13 +204,6 @@ defmodule Reaxive.Rx.Impl do
 	end
 	def terminate?(%__MODULE__{}), do: false
 	
-
-	def subscribers(observable), do: 
-		Agent.get(observable, fn(%__MODULE__{subscribers: sub}) -> sub end)
-
-	def acc(observable), do:
-		Agent.get(observable, fn(%__MODULE__{accu: acc}) -> acc end)
-
 
 	defimpl Disposable, for: Function do
 		def dispose(fun), do: fun.()
