@@ -101,7 +101,7 @@ defmodule Reaxive.Rx.Impl do
 	def handle_call({:unsubscribe, observer}, _from, %__MODULE__{subscribers: sub}= state) do
 		new_state = %__MODULE__{state | subscribers: List.delete(sub, observer)}
 		case terminate?(new_state) do
-			true  -> {:stop, :ok, new_state}
+			true  -> {:stop, :normal, new_state}
 			false -> {:reply, :ok, new_state}
 		end
 	end
@@ -128,7 +128,7 @@ defmodule Reaxive.Rx.Impl do
 	def handle_cast({tag, v} = value, state) do
 		new_state = handle_value(state, value)
 		case terminate?(new_state) do
-			true  -> {:stop, :ok, new_state}
+			true  -> {:stop, :normal, new_state}
 			false -> {:noreply, new_state}
 		end
 	end
