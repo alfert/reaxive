@@ -137,8 +137,11 @@ defmodule Reaxive.Rx do
 	
 	def take(rx, n) do
 		stop = n
-		fun = fn(v, 0) -> {:cont, {:on_completed, nil}, n}
-		        (v, k) -> {:cont, {:on_next, v}, k-1} end
+		fun = fn
+			({:on_next, v}, 0) -> {:cont, {:on_completed, nil}, n}
+		    ({:on_next, v}, k) -> {:cont, {:on_next, v}, k-1} 
+			({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
+		end
 		reduce(rx, n, fun)
 	end
 
