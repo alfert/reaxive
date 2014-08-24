@@ -20,7 +20,7 @@ defmodule ReaxiveTest do
 		{:ok, rx} = Reaxive.Rx.Impl.start()
 		_disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
 		Reaxive.Rx.Impl.on_next(rx, value)
-		assert_receive {:on_next, value}
+		assert_receive {:on_next, ^value}
 		Reaxive.Rx.Impl.on_completed(rx)
 		assert_receive {:on_completed, nil}		
 	end
