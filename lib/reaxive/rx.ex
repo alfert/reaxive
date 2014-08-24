@@ -44,7 +44,7 @@ defmodule Reaxive.Rx do
 	def generate(collection, delay \\ 50)
 	def generate(range = %Range{}, delay), do: generate(Enum.to_list(range), delay)
 	def generate(collection, delay) do
-		{:ok, rx} = Reaxive.Rx.Impl.start("generate", [auto_stop: true])
+		{:ok, rx} = Reaxive.Rx.Impl.start("generate", [auto_stop: false])
 		send_values = fn() -> 
 			collection |> Enum.each(fn(element) -> 
 				:timer.sleep(delay)
