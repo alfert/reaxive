@@ -101,13 +101,16 @@ defmodule Reaxive.Rx do
 	"""
 	@spec filter(Observable.t, (any -> boolean)) :: Observable.t
 	def filter(rx, pred) do
-		fun = fn(v) -> case (pred.(v)) do 
-					true  -> {:cont, {:on_next, v}}
-					false -> {:ignore, v}
+		filter_fun = fn
+			({:on_next, v}, acc) -> case pred.(v) do 
+					true  -> {:cont, {:on_next, v}, acc}
+					false -> {:ignore, v, acc}
 				end
-			end 
+			({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
+		end
+		
 		{:ok, new_rx} = Reaxive.Rx.Impl.start()
-		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, nil, :unwrapped)
+		:ok = Reaxive.Rx.Impl.fun(new_rx, filter_fun)
 		source = Reaxive.Rx.Impl.subscribe(rx, new_rx)
 		:ok = Reaxive.Rx.Impl.source(new_rx, source)
 		new_rx
@@ -123,7 +126,7 @@ defmodule Reaxive.Rx do
 	"""
 	@spec reduce(Observable.t, any, ((any, Observable.t) -> Observable.t)) :: Observable.t
 	def reduce(rx, acc, fun, wrapped \\ :wrapped) when is_function(fun, 2) do
-		{:ok, new_rx} = Reaxive.Rx.Impl.start("reduce")
+		{:ok, new_rx} = Reaxive.Rx.Impl.start("reduce", [auto_stop: true])
 		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, acc, wrapped)
 		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
 		:ok = Reaxive.Rx.Impl.source(new_rx, disp)
