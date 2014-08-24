@@ -125,7 +125,7 @@ defmodule Reaxive.Rx.Impl do
 		:ok = GenServer.cast(observer, {:on_error, exception})
 
 	@doc "Asynchronous callback. Used for processing values."
-	def handle_cast({tag, value}, state) do
+	def handle_cast({tag, v} = value, state) do
 		new_state = handle_value(state, value)
 		case terminate?(new_state) do
 			true  -> {:stop, :ok, new_state}
