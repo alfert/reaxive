@@ -47,7 +47,7 @@ defmodule ReaxiveTest do
 		{:ok, rx} = Reaxive.Rx.Impl.start()
 		Process.link(rx)
 		Process.flag(:trap_exit, true)
-		:ok = Reaxive.Rx.Impl.fun(rx, fn(_) -> 1/0 end) # a failing fun
+		:ok = Reaxive.Rx.Impl.fun(rx, fn(_,_) -> 1/0 end) # a failing fun
 		_disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
 
 		Reaxive.Rx.Impl.on_next(rx, :x)
@@ -104,7 +104,7 @@ defmodule ReaxiveTest do
 
 		{:ok, rx2} = Reaxive.Rx.Impl.start("chain 2", [auto_stop: false])
 		Process.link(rx2) #  just to ensure that failures appear also here!
-		:ok = Reaxive.Rx.Impl.fun(rx2, fn(x) -> 1/0 end) # will always fail 
+		:ok = Reaxive.Rx.Impl.fun(rx2, fn(_x, _acc) -> 1/0 end) # will always fail 
 		src = Reaxive.Rx.Impl.subscribe(rx1, rx2)
 		:ok = Reaxive.Rx.Impl.source(rx2, src)
 
