@@ -48,10 +48,10 @@ defmodule ReaxiveTest do
 		Process.link(rx)
 		Process.flag(:trap_exit, true)
 		:ok = Reaxive.Rx.Impl.fun(rx, fn(_) -> 1/0 end) # a failing fun
-		disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
+		_disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
 
 		Reaxive.Rx.Impl.on_next(rx, :x)
-		assert_receive {:on_error, msg}
+		assert_receive {:on_error, _msg}
 	end
 
 	test "protocol for PID works" do
@@ -59,7 +59,7 @@ defmodule ReaxiveTest do
 		Process.link(rx)
 		Process.flag(:trap_exit, true)
 
-		disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
+		_disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
 
 		# now use the protocol functions on rx
 		Observer.on_next(rx, :x)
