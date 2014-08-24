@@ -101,7 +101,6 @@ defmodule ReaxiveTest do
 		Process.flag(:trap_exit, true)
 		{:ok, rx1} = Reaxive.Rx.Impl.start("chain 1", [auto_stop: false])
 		Process.link(rx1) #  just to ensure that failures appear also here!
-		:ok = Reaxive.Rx.Impl.fun(rx1, &identity/1) 
 
 		{:ok, rx2} = Reaxive.Rx.Impl.start("chain 2", [auto_stop: false])
 		Process.link(rx2) #  just to ensure that failures appear also here!
