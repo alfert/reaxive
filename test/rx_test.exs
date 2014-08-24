@@ -4,6 +4,8 @@ defmodule RxTest do
 	require Integer
 	require Reaxive.Rx, as: Rx
 
+	require Logger
+
 	test "map function works" do
 		{:ok, rx} = Rx.Impl.start()
 		
@@ -50,11 +52,18 @@ defmodule RxTest do
 	test "generate some values" do
 		values = [1, 2, 3, 4]
 		o = simple_observer_fun(self)
+		list1 = Process.list()
 		values |> Rx.generate |> Observable.subscribe(o)
-		
+
 		values |> Enum.each fn(v) ->
 			assert_receive{:on_next, ^v} end
 		assert_receive {:on_completed, nil}
+		list2 = Process.list()
+		new_procs = Enum.reject(list2, &Enum.member?(list1, &1))
+		refute new_procs == []
+		assert length(new_procs) == 1
+		assert Reaxive.Rx.Impl.subscribers(hd new_procs) == []
+		Logger.error "Leak: Generator is still running."
 	end
 
 	test "print out generated values" do
