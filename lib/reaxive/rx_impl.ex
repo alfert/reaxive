@@ -12,10 +12,19 @@ defmodule Reaxive.Rx.Impl do
 	Internal message for propagating events. 
 	"""
 	@type rx_propagate :: {:on_next, term} | {:on_error, term} | {:on_completed, nil}
-	@typedoc "Tags for interacting between reduce-function and its reducers"
+	@typedoc """
+	Tags for interacting between reduce-function and its reducers. They have the following 
+	implications: 
+
+	* `:cont`: continue with the iteration and send the current value to subscribers
+	* `:ignore`: continue the iteration, but do not set anything to subscribers (i.e. ignore the value)
+	* `:halt`: stop the iteration and send the current value to subscribers
+	"""
 	@type reduce_tag :: :cont | :halt | :ignore
 	@typedoc "Return value of reducers"
 	@type reducer :: {reduce_tag, rx_propagate, term}
+
+	@type t :: %__MODULE__{}
 
 	@derive Access
 	defstruct id: nil, # might be handy to identify the Rx, but is it really required?
@@ -91,7 +100,7 @@ defmodule Reaxive.Rx.Impl do
 	# Here we need to end the process. To synchronize behaviour, we need 
 	# call the Agent. Is this really the sensible case or do we block outselves?
 	def on_completed(observer), do:
-		:ok = Agent.cast(observer, &handle_value(&1, :on_completed))
+		:ok = Agent.cast(observer, &handle_value(&1, {:on_completed, nil}))
 
 	def on_error(observer, exception), do:
 		:ok = Agent.cast(observer, &handle_value(&1, {:on_error, exception}))
@@ -100,18 +109,28 @@ defmodule Reaxive.Rx.Impl do
 	Internal function to handle new values, errors or completions. If `state.action` is 
 	`:nil`, the value is propagated without any modification.
 	"""
-	def handle_value(%__MODULE__{active: true, action: nil} = state, v = {:on_next, value}) do
+	def handle_value(%__MODULE__{active: true, action: nil} = state, {:on_completed, nil}) do
+		notify({:cont, {:on_completed, nil}}, state)
+		disconnect(state)
+	end
+	def handle_value(%__MODULE__{active: true, action: nil} = state, v) do #  = {:on_next, value}) do
 		notify({:cont, v}, state)
 		state
 	end
-	def handle_value(%__MODULE__{active: true, action: fun, accu: accu} = state, {:on_next, value}) 
-		#when is_function(fun, 2) 
-		do
+	def handle_value(%__MODULE__{active: true, sources: src} = state, e = {:on_error, exception}) do
+		notify({:cont, e}, state)
+		disconnect(state)
+	end
+	def handle_value(%__MODULE__{active: true, action: fun, accu: accu} = state, value) do
 		try do
 			# Logger.debug "Handle_value with v=#{inspect value} and #{inspect state}"
 			{tag, new_v, new_accu} = fun . (value, accu)
 			:ok = notify({tag, new_v}, state)
-			%__MODULE__{state | accu: new_accu}
+			new_state = %__MODULE__{state | accu: new_accu}
+			case tag do 
+				:halt -> disconnect(new_state)
+				_ -> new_state
+			end
 		catch 
 			what, message -> 
 				Logger.error "Got exception: #{inspect what}, #{inspect message} \n" <> 
@@ -119,15 +138,16 @@ defmodule Reaxive.Rx.Impl do
 					Exception.format(what, message)
 				handle_value(state, {:on_error, {what, message}})
 		end
+	end 
+	def handle_value(%__MODULE__{active: false} = state, _value) do
+		if terminate?(state), do:
+			:ok = Agent.stop(self)
 	end
-	def handle_value(%__MODULE__{active: true, sources: src} = state, e = {:on_error, exception}) do
-		notify({:cont, e}, state)
-		src |> Enum.each &Disposable.dispose(&1) # disconnect from the sources
-		%__MODULE__{state | active: false, subscribers: []}
-	end
-	def handle_value(%__MODULE__{active: true, sources: src} = state, :on_completed) do
-		notify({:cont, {:on_completed, nil}}, state)
-		src |> Enum.each &Disposable.dispose(&1) # disconnect from the sources
+	
+
+	@doc "disconnect from the sources"
+	def disconnect(%__MODULE__{active: true, sources: src} = state) do
+		src |> Enum.each &Disposable.dispose(&1) 
 		%__MODULE__{state | active: false, subscribers: []}
 	end
 
@@ -139,6 +159,10 @@ defmodule Reaxive.Rx.Impl do
 		subscribers |> Enum.each(&Observer.on_error(&1, exception))
 	def notify({:cont, {:on_completed, nil}}, %__MODULE__{subscribers: subscribers}), do: 
 		subscribers |> Enum.each(&Observer.on_completed(&1))
+	def notify({:halt, {:on_next, value}}, %__MODULE__{subscribers: subscribers}) do
+		subscribers |> Enum.each(&Observer.on_next(&1, value))
+		subscribers |> Enum.each(&Observer.on_completed(&1))
+	end
 	def notify({:halt, {:on_completed, nil}}, %__MODULE__{subscribers: subscribers}), do: 
 		subscribers |> Enum.each(&Observer.on_completed(&1))
 			
