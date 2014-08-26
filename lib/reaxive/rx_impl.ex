@@ -89,7 +89,7 @@ defmodule Reaxive.Rx.Impl do
 	@doc "Returns the accu value. Useful for debugging"
 	def acc(observable), do: GenServer.call(observable, :accu)
 
-	@doc "Sets the on_subscribe function."
+	@doc "Sets the on_subscribe function, which is called for the first subscription."
 	def on_subscribe(observable, on_subscribe), do: 
 		GenServer.call(observable, {:on_subscribe, on_subscribe})
 
