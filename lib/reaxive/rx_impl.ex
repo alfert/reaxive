@@ -34,6 +34,7 @@ defmodule Reaxive.Rx.Impl do
 		sources: [], # list of disposables
 		action: nil, # the function to be applied to the values
 		options: [], #  behavior options
+		on_subscribe: nil, # function called at first subscription 
 		accu: nil # accumulator 
 
 	@doc """
@@ -63,38 +64,49 @@ defmodule Reaxive.Rx.Impl do
 		end
 	end
 	
+	@doc """
+	Unsubscribes an `observer` from the event sequence.
+	"""
 	def unsubscribe(observable, observer), do:
 		GenServer.call(observable, {:unsubscribe, observer})
-	
+
+	@doc """
+	Sets the disposable event sequence `source`. This is needed for proper unsubscribing
+	from the `source` when terminating the sequence.
+	"""	
 	def source(observable, disposable), do:
 		GenServer.call(observable, {:source, disposable})
 	@doc """
 	This function sets the internal action of received events before the event is
 	propagated to the subscribers. An initial accumulator value can also be provided.
-
-	If the argument `wrap` is `:wrapped`, then the function is expected 
-	to return directly the new value. If it is `:unwrapped`, then it is the task of the function 
-	to return the complex value to signal propagation (`:cont`) or ignorance of events (`:ignore`).
-
-		{:cont, {:on_next, value}} | {:ignore, value}
-
 	"""	
-	@spec fun(Observable.t, 
-		(any -> any) | (any -> ({:cont, {:on_next, any}}|{:ignore, any}))) :: :ok
-	
 	def fun(observable, fun, acc \\ nil), do:	
 		GenServer.call(observable, {:fun, fun, acc})
 
 	@doc "All subscribers of Rx. Useful for debugging."
 	def subscribers(observable), do: GenServer.call(observable, :subscribers)
 
-	@doc "The accu value. Useful for debugging"
+	@doc "Returns the accu value. Useful for debugging"
 	def acc(observable), do: GenServer.call(observable, :accu)
 
+	@doc "Sets the on_subscribe function."
+	def on_subscribe(observable, on_subscribe), do: 
+		GenServer.call(observable, {:on_subscribe, on_subscribe})
+
 	@doc "All request-reply calls for setting up the Rx."
-	def handle_call({:subscribe, observer}, _from, %__MODULE__{subscribers: sub}= state), do:
-		{:reply, :ok, %__MODULE__{state | subscribers: [observer | sub]}}
-	def handle_call({:unsubscribe, observer}, _from, %__MODULE__{subscribers: sub}= state) do
+	def handle_call({:subscribe, observer}, _from, 
+			%__MODULE__{subscribers: [], on_subscribe: nil} = state), do:
+		do_subscribe(state, observer)
+	def handle_call({:subscribe, observer}, _from, 
+			%__MODULE__{subscribers: [], on_subscribe: on_subscribe} = state) do
+		# If the on_subscribe hook is set, we call it on first subscription.
+		# Introduced for properly implementing the Enum/Stream generator
+		on_subscribe.()
+		do_subscribe(state, observer)
+	end
+	def handle_call({:subscribe, observer}, _from, %__MODULE__{subscribers: sub} = state), do:
+		do_subscribe(state, observer)
+	def handle_call({:unsubscribe, observer}, _from, %__MODULE__{subscribers: sub} = state) do
 		new_state = %__MODULE__{state | subscribers: List.delete(sub, observer)}
 		case terminate?(new_state) do
 			true  -> {:stop, :normal, new_state}
@@ -166,11 +178,15 @@ defmodule Reaxive.Rx.Impl do
 	def handle_value(%__MODULE__{active: false} = state, _value), do: state
 	
 
-	@doc "disconnect from the sources"
+	@doc "Internal function to disconnect from the sources"
 	def disconnect(%__MODULE__{active: true, sources: src} = state) do
 		src |> Enum.each &Disposable.dispose(&1) 
 		%__MODULE__{state | active: false, subscribers: []}
 	end
+
+	@doc "Internal function for subscribing a new `observer`"
+	def do_subscribe(%__MODULE__{subscribers: sub}= state, observer), do:
+		{:reply, :ok, %__MODULE__{state | subscribers: [observer | sub]}}
 
 	@doc "Internal function to notify subscribers, knows about ignoring notifies."
 	def notify({:ignore, _}, _), do: :ok
