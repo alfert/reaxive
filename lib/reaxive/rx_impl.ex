@@ -119,6 +119,8 @@ defmodule Reaxive.Rx.Impl do
 		{:reply, :ok, %__MODULE__{state | action: fun, accu: acc}}
 	def handle_call(:subscribers, _from, %__MODULE__{subscribers: sub} = s), do: {:reply, sub, s}
 	def handle_call(:accu, _from, %__MODULE__{accu: acc} = s), do: {:reply, acc, s}
+	def handle_call({:on_subscribe, fun}, _from, %__MODULE__{on_subscribe: nil}= state), do:
+		{:reply, :ok, %__MODULE__{state | on_subscribe: fun}}
 
 	@doc "Process the next value"
 	def on_next(observer, value), do: 
