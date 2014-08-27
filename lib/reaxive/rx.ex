@@ -42,7 +42,6 @@ defmodule Reaxive.Rx do
 	"""
 	@spec generate(Enumerable.t, pos_integer, pos_integer) :: Observable.t
 	def generate(collection, delay \\ 50, timeout \\ 5_000)
-	def generate(range = %Range{}, delay, timeout), do: generate(Enum.to_list(range), delay, timeout)
 	def generate(collection, delay, timeout) do
 		{:ok, rx} = Reaxive.Rx.Impl.start("generate", [auto_stop: true])
 		send_values = fn() -> 
