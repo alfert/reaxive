@@ -40,19 +40,25 @@ defmodule Reaxive.Rx do
 	  elements may be swalloed because no subscriber is available. This might
 	  be changed in the future.
 	"""
-	@spec generate(Enumerable.t, pos_integer) :: Observable.t
-	def generate(collection, delay \\ 50)
-	def generate(range = %Range{}, delay), do: generate(Enum.to_list(range), delay)
-	def generate(collection, delay) do
-		{:ok, rx} = Reaxive.Rx.Impl.start("generate", [auto_stop: false])
+	@spec generate(Enumerable.t, pos_integer, pos_integer) :: Observable.t
+	def generate(collection, delay \\ 50, timeout \\ 5_000)
+	def generate(range = %Range{}, delay, timeout), do: generate(Enum.to_list(range), delay, timeout)
+	def generate(collection, delay, timeout) do
+		{:ok, rx} = Reaxive.Rx.Impl.start("generate", [auto_stop: true])
 		send_values = fn() -> 
-			collection |> Enum.each(fn(element) -> 
-				:timer.sleep(delay)
-				Observer.on_next(rx, element)
-			end) 
-			Observer.on_completed(rx)
+			receive do
+				:go -> 
+					collection |> Enum.each(fn(element) -> 
+						:timer.sleep(delay)
+						Observer.on_next(rx, element)
+					end) 
+					Observer.on_completed(rx)
+			after timeout ->
+				Observer.on_error(rx, :timeout)
+			end
 		end
-		spawn(send_values)
+		pid = spawn(send_values)
+		Reaxive.Rx.Impl.on_subscribe(rx, fn()-> send(pid, :go) end)
 		rx
 	end
 	
