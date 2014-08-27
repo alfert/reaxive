@@ -53,22 +53,21 @@ defmodule RxTest do
 		values = [1, 2, 3, 4]
 		o = simple_observer_fun(self)
 		list1 = Process.list()
-		values |> Rx.generate |> Observable.subscribe(o)
+		values |> Rx.generate(1) |> Observable.subscribe(o)
 
 		values |> Enum.each fn(v) ->
 			assert_receive{:on_next, ^v} end
 		assert_receive {:on_completed, nil}
-		list2 = Process.list()
-		new_procs = Enum.reject(list2, &Enum.member?(list1, &1))
-		refute new_procs == []
-		assert length(new_procs) == 1
-		assert Reaxive.Rx.Impl.subscribers(hd new_procs) == []
-		Logger.error "Leak: Generator is still running."
+		assert process_leak?(list1)
 	end
 
 	test "print out generated values" do
 		values = [1, 2, 3, 4]
-		values |> Rx.generate |> Rx.as_text
+		o = simple_observer_fun(self)
+		list1 = Process.list()
+		values |> Rx.generate(0) |> Rx.as_text |> Observable.subscribe(o)
+		assert_receive {:on_completed, nil}
+		assert process_leak?(list1)
 	end
 
 	test "create a stream from a sequence of events" do
@@ -130,4 +129,12 @@ defmodule RxTest do
 
 		assert sum == Enum.sum(values)
 	end
+
+	def process_leak?(initial_processes) do
+		list2 = Process.list()
+		new_procs = Enum.reject(list2, &Enum.member?(initial_processes, &1))
+		assert new_procs == []
+		true
+	end
+	
 end
