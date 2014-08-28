@@ -28,7 +28,8 @@ defmodule RxTest do
 		{:ok, rx} = Rx.Impl.start()
 		o = simple_observer_fun(self)
 
-		rx2 = rx |> Rx.map(&(&1 + 1)) |> Observable.subscribe(o)
+		rx2 = rx |> Rx.map(&(&1 + 1)) 
+		rx3 = rx2 |> Observable.subscribe(o)
 
 		Rx.Impl.on_next(rx, 1)
 		assert_receive {:on_next, 2}
@@ -45,8 +46,9 @@ defmodule RxTest do
 		Observer.on_completed(rx)
 		assert_receive {:on_completed, nil}
 		
-		Disposable.dispose(rx2)
+		Disposable.dispose(rx3)
 		refute Process.alive?(rx)
+		refute Process.alive?(rx2)
 	end
 
 	test "generate some values" do
@@ -65,8 +67,9 @@ defmodule RxTest do
 		values = [1, 2, 3, 4]
 		o = simple_observer_fun(self)
 		list1 = Process.list()
-		values |> Rx.generate(0) |> Rx.as_text |> Observable.subscribe(o)
+		disp_me = values |> Rx.generate(1) |> Rx.as_text |> Observable.subscribe(o)
 		assert_receive {:on_completed, nil}
+		disp_me.()
 		assert process_leak?(list1)
 	end
 
@@ -132,7 +135,10 @@ defmodule RxTest do
 
 	def process_leak?(initial_processes) do
 		list2 = Process.list()
+		#:timer.sleep(100)
 		new_procs = Enum.reject(list2, &Enum.member?(initial_processes, &1))
+		if length(new_procs) > 0, do: 
+			new_procs |> Enum.each(fn (p) -> IO.inspect Process.info(p) end)
 		assert new_procs == []
 		true
 	end
