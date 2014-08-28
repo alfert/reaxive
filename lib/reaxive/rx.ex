@@ -1,4 +1,6 @@
 defmodule Reaxive.Rx do
+
+	@rx_defaults [auto_stop: true]
 	
 	@doc """
 	The `map` functions takes an observable `rx` and applies function `fun` to 
@@ -11,7 +13,7 @@ defmodule Reaxive.Rx do
 	"""
 	@spec map(Observable.t, (... ->any) ) :: Observable.t
 	def map(rx, fun) do
-		{:ok, new_rx} = Reaxive.Rx.Impl.start()
+		{:ok, new_rx} = Reaxive.Rx.Impl.start("map", @rx_defaults)
 
 		mapper = fn
 			({:on_next, v}, acc) -> {:cont, {:on_next, fun.(v)}, acc}
@@ -133,7 +135,7 @@ defmodule Reaxive.Rx do
 	"""
 	@spec reduce(Observable.t, any, ((any, Observable.t) -> Observable.t)) :: Observable.t
 	def reduce(rx, acc, fun) when is_function(fun, 2) do
-		{:ok, new_rx} = Reaxive.Rx.Impl.start("reduce", [auto_stop: true])
+		{:ok, new_rx} = Reaxive.Rx.Impl.start("reduce", @rx_defaults)
 		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, acc)
 		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
 		:ok = Reaxive.Rx.Impl.source(new_rx, disp)
