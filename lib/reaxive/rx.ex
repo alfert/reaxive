@@ -1,5 +1,15 @@
 defmodule Reaxive.Rx do
 
+	@moduledoc """
+	This module implements the combinator on reactive streams of events. 
+
+	The functionality is closely modelled after Reactive Extensions and after ELM. 
+	However, names of function follow the tradition of Elixir's `Enum` and 
+	`Stream` modules, if applicable.
+
+	See the test cases in `rx_test.exs` for usage patterns. 
+	"""
+
 	@rx_defaults [auto_stop: true]
 	@rx_timeout 5_000
 	
