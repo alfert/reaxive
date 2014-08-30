@@ -22,6 +22,20 @@ defmodule Reaxive.Rx do
 			Observer.on_error(rx, exception) end, "error")
 	end
 	
+	@doc """
+	The function `start_with` takes a stream of events `prev_rx` and a collection. 
+	The resulting stream of events has all elements of the colletion, 
+	followed by the events of `prev_rx`.
+	"""
+	@spec start_with(Observable.t, Enumerable.t) :: Observable.t
+	def start_with(prev_rx, collection) do
+		delayed_start(fn(rx) -> 
+			for e <- collection, do: Observer.on_next(rx, e)
+			source = Reaxive.Rx.Impl.subscribe(prev_rx, rx)
+			:ok = Reaxive.Rx.Impl.source(rx, source)
+		end, "start_with")
+	end
+	
 
 	@doc """
 	The `map` functions takes an observable `rx` and applies function `fun` to 

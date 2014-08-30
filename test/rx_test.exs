@@ -149,6 +149,16 @@ defmodule RxTest do
 		refute Process.alive?(error)
 	end
 
+	test "starts with a few numbers" do
+		first = 1..10
+		second = 11..20
+		all = second |> Rx.generate(1) |> Rx.start_with(first) |>
+			Rx.as_text |> 
+			Rx.stream |> Enum.to_list
+
+		assert Enum.concat(first, second) == all
+	end
+
 	def process_leak?(initial_processes, delay \\ 100) do
 		:timer.sleep(delay)
 		list2 = Process.list()
