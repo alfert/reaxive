@@ -76,12 +76,25 @@ defmodule Reaxive.Rx do
 		delayed_start(send_values, "generate", timeout)
 	end
 
-	@spec delayed_start(((Observable.t) -> any), string, pos_integer) :: Observable.t
-	def delayed_start(fun, id \\ "delayed_start", timeout \\ @rx_timeout) do
+	@doc """
+	The `delayed_start` function starts a generator after the first 
+	subscription has arrived. The `generator` gets as argument `rx` the
+	new creately `Rx_Impl` and sends is internally encoded values via 
+
+		Observer.on_next(rx, some_value)
+
+	All other functions on `Rx_Impl` and `Observer`, respectivley, can be called 
+	within `generator` as well. 
+
+	If within `timeout` milliseconds no subscriber has arrived, the 
+	stream of events is stopped. This ensures that we get no memory leak. 
+	"""
+	@spec delayed_start(((Observer.t) -> any), string, pos_integer) :: Observable.t
+	def delayed_start(generator, id \\ "delayed_start", timeout \\ @rx_timeout) do
 		{:ok, rx} = Reaxive.Rx.Impl.start(id, [auto_stop: true])
 		delayed = fn() -> 
 			receive do
-				:go -> fun.(rx)
+				:go -> generator.(rx)
 			after timeout ->
 				Observer.on_error(rx, :timeout)
 			end
