@@ -149,9 +149,9 @@ defmodule RxTest do
 		refute Process.alive?(error)
 	end
 
-	def process_leak?(initial_processes) do
+	def process_leak?(initial_processes, delay \\ 100) do
+		:timer.sleep(delay)
 		list2 = Process.list()
-		#:timer.sleep(100)
 		new_procs = Enum.reject(list2, &Enum.member?(initial_processes, &1))
 		if length(new_procs) > 0, do: 
 			new_procs |> Enum.each(fn (p) -> IO.inspect Process.info(p) end)
