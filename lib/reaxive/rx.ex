@@ -1,7 +1,28 @@
 defmodule Reaxive.Rx do
 
 	@rx_defaults [auto_stop: true]
+	@rx_timeout 5_000
 	
+	@doc """
+	The `never`function creates a stream of events that never pushes anything. 
+	"""
+	def never() do
+		{:ok, new_rx} = Reaxive.Rx.Impl.start("never", @rx_defaults)
+		silence = fn(event, acc) -> {:ignore, event, acc} end
+		:ok = Reaxive.Rx.Impl.fun(new_rx, silence)
+		new_rx
+	end
+
+	@doc """
+	The `error` function takes an in Elixir defined exception and generate a stream with the 
+	exception as the only element. The stream starts after the first subscription. 
+	"""
+	def error(%{__exception__: true} = exception, timeout \\ @rx_timeout) do
+		delayed_start(fn(rx) -> 
+			Observer.on_error(rx, exception) end, "error")
+	end
+	
+
 	@doc """
 	The `map` functions takes an observable `rx` and applies function `fun` to 
 	each of its values.
@@ -43,24 +64,31 @@ defmodule Reaxive.Rx do
 	  be changed in the future.
 	"""
 	@spec generate(Enumerable.t, pos_integer, pos_integer) :: Observable.t
-	def generate(collection, delay \\ 50, timeout \\ 5_000)
+	def generate(collection, delay \\ 50, timeout \\ @rx_timeout)
 	def generate(collection, delay, timeout) do
-		{:ok, rx} = Reaxive.Rx.Impl.start("generate", [auto_stop: true])
-		send_values = fn() -> 
+		send_values = fn(rx) -> 
+			collection |> Enum.each(fn(element) -> 
+				:timer.sleep(delay)
+				Observer.on_next(rx, element)
+			end) 
+			Observer.on_completed(rx)
+		end	
+		delayed_start(send_values, "generate", timeout)
+	end
+
+	@spec delayed_start(((Observable.t) -> any), string, pos_integer) :: Observable.t
+	def delayed_start(fun, id \\ "delayed_start", timeout \\ @rx_timeout) do
+		{:ok, rx} = Reaxive.Rx.Impl.start(id, [auto_stop: true])
+		delayed = fn() -> 
 			receive do
-				:go -> 
-					collection |> Enum.each(fn(element) -> 
-						:timer.sleep(delay)
-						Observer.on_next(rx, element)
-					end) 
-					Observer.on_completed(rx)
+				:go -> fun.(rx)
 			after timeout ->
 				Observer.on_error(rx, :timeout)
 			end
 		end
-		pid = spawn(send_values)
+		pid = spawn(delayed)
 		Reaxive.Rx.Impl.on_subscribe(rx, fn()-> send(pid, :go) end)
-		rx
+		rx		
 	end
 	
 	@doc """

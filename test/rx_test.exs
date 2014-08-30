@@ -2,7 +2,7 @@ defmodule RxTest do
 	use ExUnit.Case
 	import ReaxiveTestTools
 	require Integer
-	require Reaxive.Rx, as: Rx
+	alias Reaxive.Rx
 
 	require Logger
 
@@ -131,6 +131,22 @@ defmodule RxTest do
 		sum = values |> Rx.generate(1) |> Rx.sum
 
 		assert sum == Enum.sum(values)
+	end
+
+	test "never sends no events" do
+		o = simple_observer_fun(self)
+		Rx.never |> Observable.subscribe(o)
+		refute_receive _, 500, "Rx.never has send a msg!" 
+	end
+
+	test "error sends an exception and terminates" do
+		exception = RuntimeError.exception("check it out man")
+		o = simple_observer_fun(self)
+		error = Rx.error(exception) 
+		disp_me = error |> Observable.subscribe(o)
+		assert_receive {:on_error, ^exception}
+		disp_me.()
+		refute Process.alive?(error)
 	end
 
 	def process_leak?(initial_processes) do
