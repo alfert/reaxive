@@ -247,7 +247,10 @@ defmodule Reaxive.Rx do
 	end
 
 	@doc """
-	Merges two event sequences in a non-deterministic order. 
+	Merges two or more event sequences in a non-deterministic order. 
+
+	The result sequences finishes after all sequences have finished without errors 
+	or immediately after the first error.
 	"""
 	@spec merge(Observable.t, Observable.t) :: Observable.t
 	def merge(rx1, rx2), do: merge([rx1, rx2])
