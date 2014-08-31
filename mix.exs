@@ -4,7 +4,7 @@ defmodule Reaxive.Mixfile do
   def project do
     [ app: :reaxive,
       version: "0.0.1-dev",
-      elixir: "~> 0.15",
+      elixir: "~> 1.0.0-rc1",
       docs: [readme: true],
       test_coverage: [tool: Coverex.Task, log: :info],
       deps: deps ]
