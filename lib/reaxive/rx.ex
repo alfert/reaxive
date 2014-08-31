@@ -254,6 +254,7 @@ defmodule Reaxive.Rx do
 	"""
 	@spec merge(Observable.t, Observable.t) :: Observable.t
 	def merge(rx1, rx2), do: merge([rx1, rx2])
+	@spec merge([Observable.t]) :: Observable.t
 	def merge(rxs) when is_list(rxs) do
 		{:ok, rx} = Reaxive.Rx.Impl.start("merge", @rx_defaults)
 
@@ -274,7 +275,59 @@ defmodule Reaxive.Rx do
 		rx
 	end
 	
+	@doc """
+	Concatenates serveral event sequences. 
 
+	Makes only sense, if the sequences are finite, because all events 
+	from the later sequences need to buffered until the earlier 
+	sequences finish. If any of the sequences produce an error, the concatenation 
+	is aborted.
+
+	This function cannot easily implemented here. 
+	"""
+	@spec concat([Observable.t]) :: Observable.t
+	def concat(rxs) when is_list(rxs) do
+		{:ok, rx} = Reaxive.Rx.Impl.start("concat", @rx_defaults)
+		# we need a reduce like function, that
+		#  a) aborts immediately if an Exception occurs
+		#  b) finishes only after all sources have finished
+		#  c) buffers all events that are coming from the current
+		#     event sequence 
+		# 
+		n = length(rxs)
+		# add to each rx a mapped rx which returns {number_of_rx, event} pairs
+		indexed = rxs |> Enum.with_index |> 
+			Enum.map (fn({rx, i}) -> map(rx, fn(v) -> {i, v} end) end)
+
+		fold_fun = fn
+			# a value of the current sequence is pushed out
+		    ({:on_next, {i, v}}, {i, buffer}) -> {:cont, {:on_next, v}, {i, buffer}} 
+		    # a value of not current sequences is buffered
+		    ({:on_next, {i, v}}, {k, buffer}) -> {:ignore, {:on_next, v}, {k, update_buffer(buffer, i, v)}} 
+			# the final sequence is finished. Now finish the entíre sequence
+			({:on_completed, {n, v}}, n) -> {:cont, {:on_completed, v}, {i + 1, Dict.delete(buffer, i)}}
+		    # the current sequence is finished. Take the next one, push all ot its buffered events out
+		    # (in reverse order) and ignore the complete
+			({:on_completed, {i, v}}, i) -> 
+				# This won't work, since we need the state of Rx. Hmmmm.
+				Reaxive.Rx.Impl.notify({:cont, {:on_next, v}, {i, buffer}} )
+				{:ignore, {:on_completed, v}, {i + 1, Dict.delete(buffer, i)}}
+			({:on_completed, {i, v}}, k) -> {:ignore, {:on_completed, v}, k-1}
+		end
+
+		Reaxive.Rx.Impl.fun(rx, fold_fun, n)
+		# subscribe to all originating sequences ...
+		disposes = rxs |> Enum.map &Observable.subscribe(&1, rx)
+		# and set the new disposables as sources.
+		:ok = Reaxive.Rx.Impl.source(rx, disposes)
+		rx
+	end
+	
+	@nodoc
+	@spec update_buffer(%{pos_integer => term}, pos_integer, term) :: %{}
+	def update_buffer(buffer = %{index => old_value}, index, value) do
+		Dict.update(buffer, i, fn(old) -> [value | old] end)
+	end
 
 	def sum(rx) do
 		fun = fn
