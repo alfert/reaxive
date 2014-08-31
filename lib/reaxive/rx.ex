@@ -151,9 +151,9 @@ defmodule Reaxive.Rx do
 			# next element is taken from the message queue
 			fn(acc) -> 
 				receive do
-					{:on_next, value} -> {value, acc}
-					{:on_completed, nil} -> nil
-					{:on_error, _e} -> nil
+					{:on_next, value} -> {[value], acc}
+					{:on_completed, nil} -> {:halt, acc}
+					{:on_error, _e} -> {:halt, acc}
 				end
 			end,
 			# resource deallocation
@@ -245,6 +245,33 @@ defmodule Reaxive.Rx do
 		Disposable.dispose(rx2)
 		val
 	end
+
+	@doc """
+	Merges two event sequences in a non-deterministic order. 
+	"""
+	@spec merge(Observable.t, Observable.t) :: Observable.t
+	def merge(rx1, rx2), do: merge([rx1, rx2])
+	def merge(rxs) when is_list(rxs) do
+		{:ok, rx} = Reaxive.Rx.Impl.start("merge", @rx_defaults)
+
+		# we need a reduce like function, that
+		#  a) aborts immediately if an Exception occurs
+		#  b) finishes only after all sources have finished
+		n = length(rxs)
+		fold_fun = fn
+		    ({:on_next, v}, k) -> {:cont, {:on_next, v}, k} 
+			({:on_completed, v}, 1) -> {:cont, {:on_completed, v}, 0}
+			({:on_completed, v}, k) -> {:ignore, {:on_completed, v}, k-1}
+		end
+		Reaxive.Rx.Impl.fun(rx, fold_fun, n)
+		# subscribe to all originating sequences ...
+		disposes = rxs |> Enum.map &Observable.subscribe(&1, rx)
+		# and set the new disposables as sources.
+		:ok = Reaxive.Rx.Impl.source(rx, disposes)
+		rx
+	end
+	
+
 
 	def sum(rx) do
 		fun = fn
