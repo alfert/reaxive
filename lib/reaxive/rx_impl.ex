@@ -5,8 +5,6 @@ defmodule Reaxive.Rx.Impl do
 
 	@moduledoc """
 	Implements the Rx protocols and handles the contract. 
-
-	Internally, we use the `Agent` module to ease the implementation.
 	"""
 
 	@typedoc """
@@ -113,6 +111,10 @@ defmodule Reaxive.Rx.Impl do
 			false -> {:reply, :ok, new_state}
 		end
 	end
+	def handle_call({:source, disposable}, _from, %__MODULE__{sources: []}= state) when is_list(disposable), do:
+		{:reply, :ok, %__MODULE__{state | sources: disposable}}
+	def handle_call({:source, disposable}, _from, %__MODULE__{sources: src}= state) when is_list(disposable), do:
+		{:reply, :ok, %__MODULE__{state | sources: disposable ++ src}}
 	def handle_call({:source, disposable}, _from, %__MODULE__{sources: src}= state), do:
 		{:reply, :ok, %__MODULE__{state | sources: [disposable | src]}}
 	def handle_call({:fun, fun, acc}, _from, %__MODULE__{action: nil}= state), do:
