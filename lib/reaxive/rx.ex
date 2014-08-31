@@ -207,7 +207,17 @@ defmodule Reaxive.Rx do
 		new_rx		
 	end
 	
-	def take(rx, n) do
+	@doc """
+	This function produces only the first `n` elements of the event sequence. 
+	`n` must be positive. 
+
+	A negative `n` would take elements from the back (the last `n` elements.) 
+	This can be achieved by converting the sequence into a stream and back again: 
+
+		rx |> Rx.stream |> Stream.take(-n) |> Rx.generate	
+	"""
+	@spec take(Observable.t, pos_integer) :: Observable.t
+	def take(rx, n) when n >= 0 do
 		stop = n
 		fun = fn
 			({:on_next, v}, 0) -> {:cont, {:on_completed, nil}, n}
