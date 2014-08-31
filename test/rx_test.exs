@@ -159,6 +159,18 @@ defmodule RxTest do
 		assert Enum.concat(first, second) == all
 	end
 
+	test "merge a pair of streams" do
+		first = 1..10
+		second = 11..20
+		first_rx = first |> Rx.generate(50) 
+		second_rx = second |> Rx.generate(100)
+		all = Rx.merge(first_rx, second_rx) |> 
+			Rx.as_text |>
+			Rx.stream |> Enum.sort
+
+		assert Enum.concat(first, second) == all
+	end
+
 	def process_leak?(initial_processes, delay \\ 100) do
 		:timer.sleep(delay)
 		list2 = Process.list()
