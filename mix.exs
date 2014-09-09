@@ -6,7 +6,7 @@ defmodule Reaxive.Mixfile do
       version: "0.0.1-dev",
       elixir: "~> 1.0.0-rc1",
       docs: [readme: true],
-      test_coverage: [tool: Coverex.Task, log: :info],
+      test_coverage: [tool: Coverex.Task, log: :info, coveralls: true],
       deps: deps ]
   end
 
