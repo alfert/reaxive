@@ -20,7 +20,7 @@ defmodule Reaxive.Mixfile do
 
   defp deps do
     [      
-      {:coverex, "~> 0.0.7", only: :test},
+      {:coverex, "~> 0.0.8", only: :test},
       # {:coverex, "~> 0.0.7-dev", path: "../coverex", only: :test},
       {:earmark, "~> 0.1", only: :dev},
       {:ex_doc, "~> 0.5", only: :dev},
