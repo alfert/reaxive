@@ -94,8 +94,8 @@ defmodule RxTest do
 		odds = values |> Rx.generate(1) |> Rx.filter(&Integer.odd?/1) |>
 			 Rx.stream |> Enum.to_list
 
-		assert odds == (values |> Enum.filter(&Integer.odd?/1))
-		assert Enum.all?(odds, &Integer.odd?/1)
+		assert odds == (values |> Enum.filter(&Integer.is_odd/1))
+		assert Enum.all?(odds, &Integer.is_odd/1)
 	end
 
 	test "fold the past" do 
