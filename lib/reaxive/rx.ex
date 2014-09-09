@@ -302,13 +302,13 @@ defmodule Reaxive.Rx do
 		fold_fun = fn
 			# a value of the current sequence is pushed out
 		    ({:on_next, {i, v}}, {i, buffer}) -> {:cont, {:on_next, v}, {i, buffer}} 
-		    # a value of not current sequences is buffered
+		    # a value of a not current sequence is buffered
 		    ({:on_next, {i, v}}, {k, buffer}) -> {:ignore, {:on_next, v}, {k, update_buffer(buffer, i, v)}} 
 			# the final sequence is finished. Now finish the entíre sequence
-			({:on_completed, {n, v}}, n) -> {:cont, {:on_completed, v}, {i + 1, Dict.delete(buffer, i)}}
+			({:on_completed, {n, v}}, {i, buffer}) -> {:cont, {:on_completed, v}, {n, Dict.delete(buffer, i)}}
 		    # the current sequence is finished. Take the next one, push all ot its buffered events out
 		    # (in reverse order) and ignore the complete
-			({:on_completed, {i, v}}, i) -> 
+			({:on_completed, {i, v}}, {i, buffer}) -> 
 				# This won't work, since we need the state of Rx. Hmmmm.
 				Reaxive.Rx.Impl.notify({:cont, {:on_next, v}, {i, buffer}} )
 				{:ignore, {:on_completed, v}, {i + 1, Dict.delete(buffer, i)}}
@@ -323,10 +323,9 @@ defmodule Reaxive.Rx do
 		rx
 	end
 	
-	@nodoc
 	@spec update_buffer(%{pos_integer => term}, pos_integer, term) :: %{}
-	def update_buffer(buffer = %{index => old_value}, index, value) do
-		Dict.update(buffer, i, fn(old) -> [value | old] end)
+	def update_buffer(buffer = %{}, index, value) do
+		Dict.update(buffer, index, fn(old) -> [value | old] end)
 	end
 
 	def sum(rx) do
