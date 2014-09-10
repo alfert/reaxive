@@ -91,7 +91,7 @@ defmodule RxTest do
 
 	test "filter out all odd numbers" do
 		values = 1..20 
-		odds = values |> Rx.generate(1) |> Rx.filter(&Integer.odd?/1) |>
+		odds = values |> Rx.generate(1) |> Rx.filter(&Integer.is_odd/1) |>
 			 Rx.stream |> Enum.to_list
 
 		assert odds == (values |> Enum.filter(&Integer.is_odd/1))
