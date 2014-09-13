@@ -52,7 +52,23 @@ defmodule Reaxive.Rx.Impl do
 	@doc "Subscribes a new observer. Returns a function for unsubscription"
 	@spec subscribe(Observable.t, Observer.t) :: (() -> :ok)
 	def subscribe(observable, observer) do
-		:ok = GenServer.call(observable, {:subscribe, observer})
+		try do
+			:ok = GenServer.call(observable, {:subscribe, observer})
+		catch
+			#########################
+			##  Hier kann viel schief gehen, sobald der observable bereits fertig ist
+			##  Dann schlagen die Aufrufe fehl, weil das Ziel nicht mehr da ist. 
+			##  
+			##  Diese Situation muss über den komplette Code hinweg 
+			##  systematisch überprüft werden, da dies eine Race-Condition ist, 
+			##  die immer mal wieder auftreten kann. 
+			#########################
+
+			:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] -> 
+				Logger.debug "subscribe failed because observable does not exist anymore"
+				Observer.on_error(observer, :subscribe_failed)
+				:ok
+		end
 		fn() -> 
 			try do 
 				unsubscribe(observable, observer) 
@@ -72,8 +88,17 @@ defmodule Reaxive.Rx.Impl do
 	Sets the disposable event sequence `source`. This is needed for proper unsubscribing
 	from the `source` when terminating the sequence.
 	"""	
-	def source(observable, disposable), do:
-		GenServer.call(observable, {:source, disposable})
+	def source(observable, disposable) do
+		try do
+			GenServer.call(observable, {:source, disposable})
+		catch
+			:exit, {:normal, {GenServer, :call, _}} -> 
+				Logger.debug "source failed because observable does not exist anymore"
+				Disposable.dispose disposable
+#				throw RuntimeError.exception("subscribe to observable failed")
+		end
+	end
+
 	@doc """
 	This function sets the internal action of received events before the event is
 	propagated to the subscribers. An initial accumulator value can also be provided.
