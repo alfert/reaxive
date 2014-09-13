@@ -92,10 +92,9 @@ defmodule Reaxive.Rx.Impl do
 		try do
 			GenServer.call(observable, {:source, disposable})
 		catch
-			:exit, {:normal, {GenServer, :call, _}} -> 
+			:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] -> 
 				Logger.debug "source failed because observable does not exist anymore"
 				Disposable.dispose disposable
-#				throw RuntimeError.exception("subscribe to observable failed")
 		end
 	end
 
