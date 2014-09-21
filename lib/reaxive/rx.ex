@@ -29,7 +29,7 @@ defmodule Reaxive.Rx do
 	"""
 	def error(%{__exception__: true} = exception, timeout \\ @rx_timeout) do
 		delayed_start(fn(rx) -> 
-			Observer.on_error(rx, exception) end, "error")
+			Observer.on_error(rx, exception) end, "error", timeout)
 	end
 	
 	@doc """
@@ -113,7 +113,7 @@ defmodule Reaxive.Rx do
 	If within `timeout` milliseconds no subscriber has arrived, the 
 	stream of events is stopped. This ensures that we get no memory leak. 
 	"""
-	@spec delayed_start(((Observer.t) -> any), string, pos_integer) :: Observable.t
+	@spec delayed_start(((Observer.t) -> any), String.t, pos_integer) :: Observable.t
 	def delayed_start(generator, id \\ "delayed_start", timeout \\ @rx_timeout) do
 		{:ok, rx} = Reaxive.Rx.Impl.start(id, [auto_stop: true])
 		delayed = fn() -> 
@@ -218,9 +218,8 @@ defmodule Reaxive.Rx do
 	"""
 	@spec take(Observable.t, pos_integer) :: Observable.t
 	def take(rx, n) when n >= 0 do
-		stop = n
 		fun = fn
-			({:on_next, v}, 0) -> {:cont, {:on_completed, nil}, n}
+			({:on_next, _v}, 0) -> {:cont, {:on_completed, nil}, n}
 		    ({:on_next, v}, k) -> {:cont, {:on_next, v}, k-1} 
 			({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
 		end
