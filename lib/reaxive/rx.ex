@@ -13,6 +13,36 @@ defmodule Reaxive.Rx do
 	@rx_defaults [auto_stop: true]
 	@rx_timeout 5_000
 	
+	defmodule Lazy do
+		@moduledoc """
+		Datastructure to encode a lazy thunk.
+		"""
+		defstruct expr: nil	
+	end
+
+
+	@doc """
+	This macros suspends an expression and replaces is with an `Rx.Lazy` thunk.
+	"""
+	defmacro lazy([{:do, expr}]) do
+		quote do
+			%Lazy{expr: fn() -> unquote(expr) end}
+		end
+	end
+	defmacro lazy(expr) do
+		quote do
+			%Lazy{expr: fn() -> unquote(expr) end}
+		end
+	end
+
+	@doc """
+	Evaluates a lazy expression, encoded in `Rx.Lazy`. Returns the argument
+	if it is not an `Rx.Lazy` encoded 
+	"""
+	def eval(%Lazy{expr: exp}), do: exp.()
+	def eval(exp), do: exp
+	
+	
 	@doc """
 	The `never`function creates a stream of events that never pushes anything. 
 	"""
