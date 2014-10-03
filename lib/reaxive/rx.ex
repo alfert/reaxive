@@ -46,6 +46,7 @@ defmodule Reaxive.Rx do
 	@doc """
 	The `never`function creates a stream of events that never pushes anything. 
 	"""
+	@spec never() :: Observable.t
 	def never() do
 		{:ok, new_rx} = Reaxive.Rx.Impl.start("never", @rx_defaults)
 		silence = fn(event, acc) -> {:ignore, event, acc} end
