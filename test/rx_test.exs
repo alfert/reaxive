@@ -81,9 +81,19 @@ defmodule RxTest do
 	test "create a stream from a sequence of events" do
 		values = 1..20
 		l = values |> Rx.generate(1) |> 
-			Rx.as_text |> Rx.stream |> Enum.to_list
+			# Rx.as_text |> 
+			Rx.stream |> Enum.to_list
 		# l = s |> Enum.to_list
 		assert Enum.to_list(values) == l
+	end
+
+	test "map a stream from a sequence of events" do
+		values = 1..20
+		l = values |> Rx.generate(1) |> 
+			# Rx.as_text |> 
+			Rx.map(&(&1+1)) |>
+			Rx.stream |> Enum.to_list
+		assert Enum.to_list(values)|>Enum.map(&(&1+1)) == l
 	end
 
 	test "abort a sequence early on via generate and stream" do
