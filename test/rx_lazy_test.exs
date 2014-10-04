@@ -38,7 +38,8 @@ defmodule ReaxiveLazyTest do
 		o = simple_observer_fun(self)
 		rx2 = Observable.subscribe(rx1, o)
 
-		assert_receive {:on_next, 2}
+		refute_receive {:on_completed, x}
+		Disposable.dispose(rx2)
 	end
 
 
