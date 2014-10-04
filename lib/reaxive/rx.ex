@@ -86,7 +86,7 @@ defmodule Reaxive.Rx do
 	def start_with(prev_rx, collection) do
 		delayed_start(fn(rx) -> 
 			for e <- collection, do: Observer.on_next(rx, e)
-			source = Reaxive.Rx.Impl.subscribe(prev_rx, rx)
+			source = Observable.subscribe(prev_rx, rx)
 			:ok = Reaxive.Rx.Impl.source(rx, source)
 		end, "start_with")
 	end
@@ -111,7 +111,7 @@ defmodule Reaxive.Rx do
 				({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
 			end
 			:ok = Reaxive.Rx.Impl.fun(new_rx, mapper)
-			source = Reaxive.Rx.Impl.subscribe(rx, new_rx)
+			source = Observable.subscribe(rx, new_rx)
 			:ok = Reaxive.Rx.Impl.source(new_rx, source)
 			new_rx
 		end
@@ -236,7 +236,7 @@ defmodule Reaxive.Rx do
 			
 			{:ok, new_rx} = Reaxive.Rx.Impl.start()
 			:ok = Reaxive.Rx.Impl.fun(new_rx, filter_fun)
-			source = Reaxive.Rx.Impl.subscribe(rx, new_rx)
+			source = Observable.subscribe(rx, new_rx)
 			:ok = Reaxive.Rx.Impl.source(new_rx, source)
 			new_rx
 		end
@@ -257,7 +257,7 @@ defmodule Reaxive.Rx do
 		lazy do 
 			{:ok, new_rx} = Reaxive.Rx.Impl.start("reduce", @rx_defaults)
 			:ok = Reaxive.Rx.Impl.fun(new_rx, fun, acc)
-			disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
+			disp = Observable.subscribe(rx, new_rx)
 			:ok = Reaxive.Rx.Impl.source(new_rx, disp)
 			new_rx		
 		end
