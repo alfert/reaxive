@@ -72,9 +72,16 @@ defmodule RxTest do
 		values = [1, 2, 3, 4]
 		o = simple_observer_fun(self)
 		list1 = Process.list()
-		disp_me = values |> Rx.generate(1) |> Rx.as_text |> Observable.subscribe(o)
+#		disp_me = values |> Rx.generate(1) |> Rx.as_text |> Observable.subscribe(o)
+		rxs = values |> Rx.generate(1) |> Rx.map(&(IO.inspect &1))
+		assert %Rx.Lazy{} = rxs
+		disp_me =  rxs |> Observable.subscribe(o)
+		#
+		# Auto_stop: true ==> what does it do?
+		#
+#		disp_me = values |> Rx.generate(1) |> Rx.map(&(&1)) |> Observable.subscribe(o)
 		assert_receive {:on_completed, nil}
-		disp_me.()
+		Disposable.dispose(disp_me)
 		assert process_leak?(list1)
 	end
 
