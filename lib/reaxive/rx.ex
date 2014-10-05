@@ -12,6 +12,9 @@ defmodule Reaxive.Rx do
 	See the test cases in `rx_test.exs` for usage patterns. 
 	"""
 
+	# The Rx implementation expect generally to be disposed properly after
+	# usage. Using auto_stop too aggressively is risky, because every event sent to 
+	# the Rx which is not properly subscribed might stop the Rx prematurely. Too bad!
 	@rx_defaults [auto_stop: true]
 	@rx_timeout 5_000
 	
@@ -45,7 +48,7 @@ defmodule Reaxive.Rx do
 		Logger.info "Evaluating #{inspect e}"
 		exp.()
 	end
-	def eval(exp), do: exp
+	# def eval(exp), do: exp
 	
 	defimpl Observable, for: Reaxive.Rx.Lazy do
 		def subscribe(observable, observer) do
@@ -163,7 +166,7 @@ defmodule Reaxive.Rx do
 	@spec delayed_start(((Observer.t) -> any), String.t, pos_integer) :: Observable.t
 	def delayed_start(generator, id \\ "delayed_start", timeout \\ @rx_timeout) do
 		lazy do 
-			{:ok, rx} = Reaxive.Rx.Impl.start(id, [auto_stop: true])
+			{:ok, rx} = Reaxive.Rx.Impl.start(id, @rx_defaults)
 			delayed = fn() -> 
 				receive do
 					:go -> generator.(rx)
