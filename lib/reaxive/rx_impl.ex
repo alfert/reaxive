@@ -65,7 +65,8 @@ defmodule Reaxive.Rx.Impl do
 			#########################
 
 			:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] -> 
-				Logger.debug "subscribe failed because observable does not exist anymore"
+				Logger.debug "subscribe failed because observable #{inspect observable} does not exist anymore"
+				Logger.debug Exception.format_stacktrace()
 				Observer.on_error(observer, :subscribe_failed)
 				:ok
 		end
@@ -129,7 +130,9 @@ defmodule Reaxive.Rx.Impl do
 	def handle_call({:subscribe, observer}, _from, %__MODULE__{subscribers: sub} = state), do:
 		do_subscribe(state, observer)
 	def handle_call({:unsubscribe, observer}, _from, %__MODULE__{subscribers: sub} = state) do
-		new_state = %__MODULE__{state | subscribers: List.delete(sub, observer)}
+		new_sub = List.delete(sub, observer)
+		new_state = %__MODULE__{state | subscribers: new_sub}
+		new_state = disconnect(new_state)
 		case terminate?(new_state) do
 			true  -> {:stop, :normal, new_state}
 			false -> {:reply, :ok, new_state}
@@ -162,11 +165,15 @@ defmodule Reaxive.Rx.Impl do
 
 	@doc "Asynchronous callback. Used for processing values."
 	def handle_cast({tag, v} = value, state) do
+		# Logger.info "RxImpl #{inspect self} got message #{inspect value} in state #{inspect state}"
 		new_state = handle_value(state, value)
-		case terminate?(new_state) do
-			true  -> {:stop, :normal, new_state}
-			false -> {:noreply, new_state}
-		end
+		# checking for termination after every messages makes no sense. 
+		# TODO: Check whether auto termination after on_error / on_complete is helpful
+		# case terminate?(new_state) do
+		# 	true  -> {:stop, :normal, new_state}
+		# 	false -> {:noreply, new_state}
+		# end
+		{:noreply, new_state}
 	end
 
 	@doc """
@@ -204,7 +211,12 @@ defmodule Reaxive.Rx.Impl do
 		end
 	end 
 	def handle_value(%__MODULE__{active: false} = state, _value), do: state
-	
+
+	@doc "Internal callback function at termination for clearing resources"
+	def terminate(reason, state) do
+		Logger.info("Terminating #{inspect self} for reason #{inspect reason} in state #{inspect state}")		
+	end
+			
 
 	@doc "Internal function to disconnect from the sources"
 	def disconnect(%__MODULE__{active: true, sources: src} = state) do
@@ -213,8 +225,10 @@ defmodule Reaxive.Rx.Impl do
 	end
 
 	@doc "Internal function for subscribing a new `observer`"
-	def do_subscribe(%__MODULE__{subscribers: sub}= state, observer), do:
+	def do_subscribe(%__MODULE__{subscribers: sub}= state, observer) do
+		# Logger.info "RxImpl #{inspect self} subscribes to #{inspect observer} in state #{inspect state}"
 		{:reply, :ok, %__MODULE__{state | subscribers: [observer | sub]}}
+	end
 
 	@doc "Internal function to notify subscribers, knows about ignoring notifies."
 	def notify({:ignore, _}, _), do: :ok
