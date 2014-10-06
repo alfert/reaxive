@@ -27,6 +27,7 @@ defmodule RxTest do
 	end
 
 	test "map several values via |>" do
+		proc_list = Process.list
 		{:ok, rx} = Rx.Impl.start()
 		o = simple_observer_fun(self)
 
@@ -49,11 +50,8 @@ defmodule RxTest do
 		assert_receive {:on_completed, nil}
 		
 		Disposable.dispose(rx3)
-		refute Process.alive?(rx)
-		# TODO find process for rx2 somehow
-		# However, if rx is dead after dispose of rx3, then
-		# rx2 must be dead as well.
-		# refute Process.alive?(rx2)
+
+		assert process_leak?(proc_list)
 	end
 
 	test "generate some values" do
@@ -72,19 +70,10 @@ defmodule RxTest do
 		values = [1, 2, 3, 4]
 		o = simple_observer_fun(self)
 		list1 = Process.list()
-#		disp_me = values |> Rx.generate(1) |> Rx.as_text |> Observable.subscribe(o)
-		rxs = values |> Rx.generate(1) |> Rx.map(&(IO.inspect &1))
+		rxs = values |> Rx.generate(1) |> Rx.as_text 
 		assert %Rx.Lazy{} = rxs
 		disp_me =  rxs |> Observable.subscribe(o)
-		#
-		# Auto_stop: true ==> what does it do?
-		#
-#		disp_me = values |> Rx.generate(1) |> Rx.map(&(&1)) |> Observable.subscribe(o)
 		assert_receive {:on_completed, nil}
-
-		#
-		# TODO: Check for the crashes, this does not look right...
-		# 
 
 		Disposable.dispose(disp_me)
 		assert process_leak?(list1)
