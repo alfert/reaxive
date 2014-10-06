@@ -81,6 +81,11 @@ defmodule RxTest do
 		#
 #		disp_me = values |> Rx.generate(1) |> Rx.map(&(&1)) |> Observable.subscribe(o)
 		assert_receive {:on_completed, nil}
+
+		#
+		# TODO: Check for the crashes, this does not look right...
+		# 
+
 		Disposable.dispose(disp_me)
 		assert process_leak?(list1)
 	end
@@ -163,12 +168,14 @@ defmodule RxTest do
 
 	test "error sends an exception and terminates" do
 		exception = RuntimeError.exception("check it out man")
+		all_procs = Process.list()
 		o = simple_observer_fun(self)
 		error = Rx.error(exception) 
 		disp_me = error |> Observable.subscribe(o)
 		assert_receive {:on_error, ^exception}
 		disp_me.()
-		refute Process.alive?(error)
+		# refute Process.alive?(error)
+		process_leak?(all_procs)
 	end
 
 	test "starts with a few numbers" do
