@@ -223,6 +223,9 @@ defmodule Reaxive.Rx.Impl do
 		src |> Enum.each &Disposable.dispose(&1) 
 		%__MODULE__{state | active: false, subscribers: []}
 	end
+	# disconnecting from a disconnected state does not change anything
+	def disconnect(%__MODULE__{active: false, subscribers: []} = state), do: state
+	
 
 	@doc "Internal function for subscribing a new `observer`"
 	def do_subscribe(%__MODULE__{subscribers: sub}= state, observer) do
