@@ -190,6 +190,21 @@ defmodule RxTest do
 		assert Enum.concat(first, second) == all
 	end
 
+	test "merge a triple of streams" do
+		first = 1..10
+		second = 11..20
+		third = 21..30
+		first_rx = first |> Rx.generate(50) 
+		second_rx = second |> Rx.generate(100)
+		third_rx = third |> Rx.generate(75)
+		all = Rx.merge([first_rx, second_rx, third_rx]) |> 
+			Rx.as_text |>
+			Rx.stream |> Enum.sort
+
+		assert Enum.concat([first, second, third]) == all
+	end
+
+	@tag timeout: 1_000
 	test "merge streams with errors" do
 		first = 1..10
 		second = 11..20
