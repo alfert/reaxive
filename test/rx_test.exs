@@ -80,6 +80,18 @@ defmodule RxTest do
 		assert process_leak?(list1)
 	end
 
+	test "handle errors" do 
+		o = simple_observer_fun(self)
+		list1 = Process.list()
+		rxs = Rx.error(RuntimeError.exception("check it out man")) |> Rx.as_text 
+		disp_me =  rxs |> Observable.subscribe(o)
+		assert_receive {:on_error, _}
+
+		Disposable.dispose(disp_me)
+		assert process_leak?(list1)
+		
+	end
+
 	test "create a stream from a sequence of events" do
 		values = 1..20
 		l = values |> Rx.generate(1) |> 
