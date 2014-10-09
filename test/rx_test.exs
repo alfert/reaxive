@@ -6,6 +6,9 @@ defmodule RxTest do
 
 	require Logger
 
+	# one 1 second instead of 30 seconds
+	@tag timeout: 1_000
+
 	test "map function works" do
 		{:ok, rx} = Rx.Impl.start()
 		
@@ -216,7 +219,6 @@ defmodule RxTest do
 		assert Enum.concat([first, second, third]) == all
 	end
 
-	@tag timeout: 1_000
 	test "merge streams with errors" do
 		first = 1..10
 		second = 11..20
