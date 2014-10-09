@@ -60,38 +60,38 @@ defmodule RxTest do
 	test "generate some values" do
 		values = [1, 2, 3, 4]
 		o = simple_observer_fun(self)
-		list1 = Process.list()
+		all_procs = Process.list()
 		disp_me = values |> Rx.generate(1) |> Observable.subscribe(o)
 
 		values |> Enum.each fn(v) ->
 			assert_receive{:on_next, ^v} end
 		assert_receive {:on_completed, nil}
 		Disposable.dispose(disp_me)
-		assert process_leak?(list1)
+		assert process_leak?(all_procs)
 	end
 
 	test "print out generated values" do
 		values = [1, 2, 3, 4]
 		o = simple_observer_fun(self)
-		list1 = Process.list()
+		all_procs = Process.list()
 		rxs = values |> Rx.generate(1) |> Rx.as_text 
 		assert %Rx.Lazy{} = rxs
 		disp_me =  rxs |> Observable.subscribe(o)
 		assert_receive {:on_completed, nil}
 
 		Disposable.dispose(disp_me)
-		assert process_leak?(list1)
+		assert process_leak?(all_procs)
 	end
 
 	test "handle errors" do 
 		o = simple_observer_fun(self)
-		list1 = Process.list()
+		all_procs = Process.list()
 		rxs = Rx.error(RuntimeError.exception("check it out man")) |> Rx.as_text 
 		disp_me =  rxs |> Observable.subscribe(o)
 		assert_receive {:on_error, _}
 
 		Disposable.dispose(disp_me)
-		assert process_leak?(list1)
+		assert process_leak?(all_procs)
 		
 	end
 
