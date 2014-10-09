@@ -58,11 +58,12 @@ defmodule RxTest do
 		values = [1, 2, 3, 4]
 		o = simple_observer_fun(self)
 		list1 = Process.list()
-		values |> Rx.generate(1) |> Observable.subscribe(o)
+		disp_me = values |> Rx.generate(1) |> Observable.subscribe(o)
 
 		values |> Enum.each fn(v) ->
 			assert_receive{:on_next, ^v} end
 		assert_receive {:on_completed, nil}
+		Disposable.dispose(disp_me)
 		assert process_leak?(list1)
 	end
 
