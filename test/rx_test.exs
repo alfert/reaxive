@@ -83,18 +83,6 @@ defmodule RxTest do
 		assert process_leak?(all_procs)
 	end
 
-	test "handle errors" do 
-		o = simple_observer_fun(self)
-		all_procs = Process.list()
-		rxs = Rx.error(RuntimeError.exception("check it out man")) |> Rx.as_text 
-		disp_me =  rxs |> Observable.subscribe(o)
-		assert_receive {:on_error, _}
-
-		Disposable.dispose(disp_me)
-		assert process_leak?(all_procs)
-		
-	end
-
 	test "create a stream from a sequence of events" do
 		values = 1..20
 		l = values |> Rx.generate(1) |> 
@@ -183,6 +171,14 @@ defmodule RxTest do
 		process_leak?(all_procs)
 	end
 
+	test "handle errors within a stream" do 
+		o = simple_observer_fun(self)
+		all_procs = Process.list()
+		all = Rx.error(RuntimeError.exception("check it out man")) |> Rx.stream |> Enum.to_list
+		assert all == []
+		assert process_leak?(all_procs)		
+	end
+
 	test "starts with a few numbers" do
 		first = 1..10
 		second = 11..20
@@ -219,6 +215,8 @@ defmodule RxTest do
 		assert Enum.concat([first, second, third]) == all
 	end
 
+	# one 1 second instead of 30 seconds
+	@tag timeout: 1_000
 	test "merge streams with errors" do
 		first = 1..10
 		second = 11..20
