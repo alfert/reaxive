@@ -49,6 +49,11 @@ defmodule Reaxive.Rx.Impl do
 		{:ok, s}
 	end
 	
+	# TODO:
+	# Provide a function "connect" that is used to connect Rxs, similar as 
+	# subscribe does now. But connect does not start any actions, this happens 
+	# only after calling subscribe.
+
 	@doc "Subscribes a new observer. Returns a function for unsubscription"
 	@spec subscribe(Observable.t, Observer.t) :: (() -> :ok)
 	def subscribe(observable, observer) do
