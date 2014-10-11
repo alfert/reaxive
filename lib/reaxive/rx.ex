@@ -45,7 +45,7 @@ defmodule Reaxive.Rx do
 	if it is not an `Rx.Lazy` encoded 
 	"""
 	def eval(%Lazy{expr: exp} = e) do 
-		Logger.info "Evaluating #{inspect e}"
+		# Logger.info "Evaluating #{inspect e}"
 		exp.()
 	end
 	# def eval(exp), do: exp
@@ -53,7 +53,7 @@ defmodule Reaxive.Rx do
 	defimpl Observable, for: Reaxive.Rx.Lazy do
 		def subscribe(observable, observer) do
 			rx = Reaxive.Rx.eval(observable)
-			Logger.info "Evaluated #{inspect observable} to #{inspect rx}"
+			# Logger.info "Evaluated #{inspect observable} to #{inspect rx}"
  			Observable.subscribe(rx, observer)
 		end
 	end
@@ -196,9 +196,7 @@ defmodule Reaxive.Rx do
 	@spec stream(Observable.t) :: Enumerable.t
 	def stream(rx) do
 		# queue all events in an process and collect them.
-		# the accumulator is the function, which gets the next 
-		# element element from the enclosed process. 
-		#
+		# the accumulator is the disposable, which does not change. 
 		o = stream_observer()
 		Stream.resource(
 			# initialize the stream: Connect with rx
@@ -208,11 +206,15 @@ defmodule Reaxive.Rx do
 				receive do
 					{:on_next, value} -> {[value], acc}
 					{:on_completed, nil} -> {:halt, acc}
-					{:on_error, _e} -> {:halt, acc}
+					{:on_error, e} -> {:halt, {acc, e}} # should throw exception e!
 				end
 			end,
 			# resource deallocation
-			fn(rx2) -> Disposable.dispose(rx2) end)
+			fn({rx2, e}) -> Disposable.dispose(rx2)
+				 			e
+			  (rx2) -> Disposable.dispose(rx2) 
+
+			end)
 	end
 	
 	@doc "A simple observer function, sending tag and value as composed message to the process."
@@ -327,6 +329,7 @@ defmodule Reaxive.Rx do
 			    ({:on_next, v}, k) -> {:cont, {:on_next, v}, k} 
 				({:on_completed, v}, 1) -> {:cont, {:on_completed, v}, 0}
 				({:on_completed, v}, k) -> {:ignore, {:on_completed, v}, k-1}
+				({:on_error, v}, k) -> {:cont, {:on_error, v}, k}
 			end
 			Reaxive.Rx.Impl.fun(rx, fold_fun, n)
 			# subscribe to all originating sequences ...
