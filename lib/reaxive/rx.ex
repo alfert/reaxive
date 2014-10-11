@@ -1,5 +1,7 @@
 defmodule Reaxive.Rx do
 
+	require Logger
+
 	@moduledoc """
 	This module implements the combinator on reactive streams of events. 
 
@@ -10,17 +12,63 @@ defmodule Reaxive.Rx do
 	See the test cases in `rx_test.exs` for usage patterns. 
 	"""
 
+	# The Rx implementation expect generally to be disposed properly after
+	# usage. Using auto_stop too aggressively is risky, because every event sent to 
+	# the Rx which is not properly subscribed might stop the Rx prematurely. Too bad!
 	@rx_defaults [auto_stop: true]
 	@rx_timeout 5_000
+	
+	defmodule Lazy do
+		@moduledoc """
+		Datastructure to encode a lazy thunk.
+		"""
+		defstruct expr: nil	
+	end
+
+
+	@doc """
+	This macros suspends an expression and replaces is with an `Rx.Lazy` thunk.
+	"""
+	defmacro lazy([{:do, expr}]) do
+		quote do
+			%Lazy{expr: fn() -> unquote(expr) end}
+		end
+	end
+	defmacro lazy(expr) do
+		quote do
+			%Lazy{expr: fn() -> unquote(expr) end}
+		end
+	end
+
+	@doc """
+	Evaluates a lazy expression, encoded in `Rx.Lazy`. Returns the argument
+	if it is not an `Rx.Lazy` encoded 
+	"""
+	def eval(%Lazy{expr: exp} = e) do 
+		# Logger.info "Evaluating #{inspect e}"
+		exp.()
+	end
+	# def eval(exp), do: exp
+	
+	defimpl Observable, for: Reaxive.Rx.Lazy do
+		def subscribe(observable, observer) do
+			rx = Reaxive.Rx.eval(observable)
+			# Logger.info "Evaluated #{inspect observable} to #{inspect rx}"
+ 			Observable.subscribe(rx, observer)
+		end
+	end
 	
 	@doc """
 	The `never`function creates a stream of events that never pushes anything. 
 	"""
+	@spec never() :: Observable.t
 	def never() do
-		{:ok, new_rx} = Reaxive.Rx.Impl.start("never", @rx_defaults)
-		silence = fn(event, acc) -> {:ignore, event, acc} end
-		:ok = Reaxive.Rx.Impl.fun(new_rx, silence)
-		new_rx
+		lazy do
+			{:ok, new_rx} = Reaxive.Rx.Impl.start("never", @rx_defaults)
+			silence = fn(event, acc) -> {:ignore, event, acc} end
+			:ok = Reaxive.Rx.Impl.fun(new_rx, silence)
+			new_rx
+		end
 	end
 
 	@doc """
@@ -41,7 +89,7 @@ defmodule Reaxive.Rx do
 	def start_with(prev_rx, collection) do
 		delayed_start(fn(rx) -> 
 			for e <- collection, do: Observer.on_next(rx, e)
-			source = Reaxive.Rx.Impl.subscribe(prev_rx, rx)
+			source = Observable.subscribe(prev_rx, rx)
 			:ok = Reaxive.Rx.Impl.source(rx, source)
 		end, "start_with")
 	end
@@ -58,16 +106,18 @@ defmodule Reaxive.Rx do
 	"""
 	@spec map(Observable.t, (... ->any) ) :: Observable.t
 	def map(rx, fun) do
-		{:ok, new_rx} = Reaxive.Rx.Impl.start("map", @rx_defaults)
+		lazy do 
+			{:ok, new_rx} = Reaxive.Rx.Impl.start("map", @rx_defaults)
 
-		mapper = fn
-			({:on_next, v}, acc) -> {:cont, {:on_next, fun.(v)}, acc}
-			({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
+			mapper = fn
+				({:on_next, v}, acc) -> {:cont, {:on_next, fun.(v)}, acc}
+				({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
+			end
+			:ok = Reaxive.Rx.Impl.fun(new_rx, mapper)
+			source = Observable.subscribe(rx, new_rx)
+			:ok = Reaxive.Rx.Impl.source(new_rx, source)
+			new_rx
 		end
-		:ok = Reaxive.Rx.Impl.fun(new_rx, mapper)
-		source = Reaxive.Rx.Impl.subscribe(rx, new_rx)
-		:ok = Reaxive.Rx.Impl.source(new_rx, source)
-		new_rx
 	end
 	
 	@doc """
@@ -115,17 +165,19 @@ defmodule Reaxive.Rx do
 	"""
 	@spec delayed_start(((Observer.t) -> any), String.t, pos_integer) :: Observable.t
 	def delayed_start(generator, id \\ "delayed_start", timeout \\ @rx_timeout) do
-		{:ok, rx} = Reaxive.Rx.Impl.start(id, [auto_stop: true])
-		delayed = fn() -> 
-			receive do
-				:go -> generator.(rx)
-			after timeout ->
-				Observer.on_error(rx, :timeout)
+		lazy do 
+			{:ok, rx} = Reaxive.Rx.Impl.start(id, @rx_defaults)
+			delayed = fn() -> 
+				receive do
+					:go -> generator.(rx)
+				after timeout ->
+					Observer.on_error(rx, :timeout)
+				end
 			end
+			pid = spawn(delayed)
+			Reaxive.Rx.Impl.on_subscribe(rx, fn()-> send(pid, :go) end)
+			rx		
 		end
-		pid = spawn(delayed)
-		Reaxive.Rx.Impl.on_subscribe(rx, fn()-> send(pid, :go) end)
-		rx		
 	end
 	
 	@doc """
@@ -137,13 +189,14 @@ defmodule Reaxive.Rx do
 	
 	@doc """
 	Converts a sequence of events into a (infinite) stream of events. 
+
+	This operator is not lazy, but eager, as it forces the subscribe and 
+	therefore the evaluation of the subscription.
 	"""
 	@spec stream(Observable.t) :: Enumerable.t
 	def stream(rx) do
 		# queue all events in an process and collect them.
-		# the accumulator is the function, which gets the next 
-		# element element from the enclosed process. 
-		#
+		# the accumulator is the disposable, which does not change. 
 		o = stream_observer()
 		Stream.resource(
 			# initialize the stream: Connect with rx
@@ -153,11 +206,15 @@ defmodule Reaxive.Rx do
 				receive do
 					{:on_next, value} -> {[value], acc}
 					{:on_completed, nil} -> {:halt, acc}
-					{:on_error, _e} -> {:halt, acc}
+					{:on_error, e} -> {:halt, {acc, e}} # should throw exception e!
 				end
 			end,
 			# resource deallocation
-			fn(rx2) -> Disposable.dispose(rx2) end)
+			fn({rx2, e}) -> Disposable.dispose(rx2)
+				 			e
+			  (rx2) -> Disposable.dispose(rx2) 
+
+			end)
 	end
 	
 	@doc "A simple observer function, sending tag and value as composed message to the process."
@@ -173,19 +230,21 @@ defmodule Reaxive.Rx do
 	"""
 	@spec filter(Observable.t, (any -> boolean)) :: Observable.t
 	def filter(rx, pred) do
-		filter_fun = fn
-			({:on_next, v}, acc) -> case pred.(v) do 
-					true  -> {:cont, {:on_next, v}, acc}
-					false -> {:ignore, v, acc}
-				end
-			({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
+		lazy do
+			filter_fun = fn
+				({:on_next, v}, acc) -> case pred.(v) do 
+						true  -> {:cont, {:on_next, v}, acc}
+						false -> {:ignore, v, acc}
+					end
+				({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
+			end
+			
+			{:ok, new_rx} = Reaxive.Rx.Impl.start()
+			:ok = Reaxive.Rx.Impl.fun(new_rx, filter_fun)
+			source = Observable.subscribe(rx, new_rx)
+			:ok = Reaxive.Rx.Impl.source(new_rx, source)
+			new_rx
 		end
-		
-		{:ok, new_rx} = Reaxive.Rx.Impl.start()
-		:ok = Reaxive.Rx.Impl.fun(new_rx, filter_fun)
-		source = Reaxive.Rx.Impl.subscribe(rx, new_rx)
-		:ok = Reaxive.Rx.Impl.source(new_rx, source)
-		new_rx
 	end
 	
 
@@ -200,11 +259,13 @@ defmodule Reaxive.Rx do
 	"""
 	@spec reduce(Observable.t, any, ((any, Observable.t) -> Observable.t)) :: Observable.t
 	def reduce(rx, acc, fun) when is_function(fun, 2) do
-		{:ok, new_rx} = Reaxive.Rx.Impl.start("reduce", @rx_defaults)
-		:ok = Reaxive.Rx.Impl.fun(new_rx, fun, acc)
-		disp = Reaxive.Rx.Impl.subscribe(rx, new_rx)
-		:ok = Reaxive.Rx.Impl.source(new_rx, disp)
-		new_rx		
+		lazy do 
+			{:ok, new_rx} = Reaxive.Rx.Impl.start("reduce", @rx_defaults)
+			:ok = Reaxive.Rx.Impl.fun(new_rx, fun, acc)
+			disp = Observable.subscribe(rx, new_rx)
+			:ok = Reaxive.Rx.Impl.source(new_rx, disp)
+			new_rx		
+		end
 	end
 	
 	@doc """
@@ -231,6 +292,8 @@ defmodule Reaxive.Rx do
 	and dispose the event sequence. The effect is similar to 
 
 		rx |> Rx.stream |> Stream.take(1) |> Enum.fetch(0)
+
+	This function is not lazy, but evaluates eagerly and forces the subscription.
 	"""
 	@spec first(Observable.t) :: term
 	def first(rx) do 
@@ -255,23 +318,26 @@ defmodule Reaxive.Rx do
 	def merge(rx1, rx2), do: merge([rx1, rx2])
 	@spec merge([Observable.t]) :: Observable.t
 	def merge(rxs) when is_list(rxs) do
-		{:ok, rx} = Reaxive.Rx.Impl.start("merge", @rx_defaults)
+		lazy do 
+			{:ok, rx} = Reaxive.Rx.Impl.start("merge", @rx_defaults)
 
-		# we need a reduce like function, that
-		#  a) aborts immediately if an Exception occurs
-		#  b) finishes only after all sources have finished
-		n = length(rxs)
-		fold_fun = fn
-		    ({:on_next, v}, k) -> {:cont, {:on_next, v}, k} 
-			({:on_completed, v}, 1) -> {:cont, {:on_completed, v}, 0}
-			({:on_completed, v}, k) -> {:ignore, {:on_completed, v}, k-1}
+			# we need a reduce like function, that
+			#  a) aborts immediately if an Exception occurs
+			#  b) finishes only after all sources have finished
+			n = length(rxs)
+			fold_fun = fn
+			    ({:on_next, v}, k) -> {:cont, {:on_next, v}, k} 
+				({:on_completed, v}, 1) -> {:cont, {:on_completed, v}, 0}
+				({:on_completed, v}, k) -> {:ignore, {:on_completed, v}, k-1}
+				({:on_error, v}, k) -> {:cont, {:on_error, v}, k}
+			end
+			Reaxive.Rx.Impl.fun(rx, fold_fun, n)
+			# subscribe to all originating sequences ...
+			disposes = rxs |> Enum.map &Observable.subscribe(&1, rx)
+			# and set the new disposables as sources.
+			:ok = Reaxive.Rx.Impl.source(rx, disposes)
+			rx
 		end
-		Reaxive.Rx.Impl.fun(rx, fold_fun, n)
-		# subscribe to all originating sequences ...
-		disposes = rxs |> Enum.map &Observable.subscribe(&1, rx)
-		# and set the new disposables as sources.
-		:ok = Reaxive.Rx.Impl.source(rx, disposes)
-		rx
 	end
 	
 	@doc """
@@ -286,40 +352,42 @@ defmodule Reaxive.Rx do
 	"""
 	@spec concat([Observable.t]) :: Observable.t
 	def concat(rxs) when is_list(rxs) do
-		{:ok, rx} = Reaxive.Rx.Impl.start("concat", @rx_defaults)
-		# we need a reduce like function, that
-		#  a) aborts immediately if an Exception occurs
-		#  b) finishes only after all sources have finished
-		#  c) buffers all events that are coming from the current
-		#     event sequence 
-		# 
-		n = length(rxs)
-		# add to each rx a mapped rx which returns {number_of_rx, event} pairs
-		indexed = rxs |> Enum.with_index |> 
-			Enum.map (fn({rx, i}) -> map(rx, fn(v) -> {i, v} end) end)
+		lazy do 
+			{:ok, rx} = Reaxive.Rx.Impl.start("concat", @rx_defaults)
+			# we need a reduce like function, that
+			#  a) aborts immediately if an Exception occurs
+			#  b) finishes only after all sources have finished
+			#  c) buffers all events that are coming from the current
+			#     event sequence 
+			# 
+			n = length(rxs)
+			# add to each rx a mapped rx which returns {number_of_rx, event} pairs
+			indexed = rxs |> Enum.with_index |> 
+				Enum.map (fn({rx, i}) -> map(rx, fn(v) -> {i, v} end) end)
 
-		fold_fun = fn
-			# a value of the current sequence is pushed out
-		    ({:on_next, {i, v}}, {i, buffer}) -> {:cont, {:on_next, v}, {i, buffer}} 
-		    # a value of a not current sequence is buffered
-		    ({:on_next, {i, v}}, {k, buffer}) -> {:ignore, {:on_next, v}, {k, update_buffer(buffer, i, v)}} 
-			# the final sequence is finished. Now finish the entíre sequence
-			({:on_completed, {n, v}}, {i, buffer}) -> {:cont, {:on_completed, v}, {n, Dict.delete(buffer, i)}}
-		    # the current sequence is finished. Take the next one, push all ot its buffered events out
-		    # (in reverse order) and ignore the complete
-			({:on_completed, {i, v}}, {i, buffer}) -> 
-				# This won't work, since we need the state of Rx. Hmmmm.
-				Reaxive.Rx.Impl.notify({:cont, {:on_next, v}, {i, buffer}} )
-				{:ignore, {:on_completed, v}, {i + 1, Dict.delete(buffer, i)}}
-			({:on_completed, {i, v}}, k) -> {:ignore, {:on_completed, v}, k-1}
+			fold_fun = fn
+				# a value of the current sequence is pushed out
+			    ({:on_next, {i, v}}, {i, buffer}) -> {:cont, {:on_next, v}, {i, buffer}} 
+			    # a value of a not current sequence is buffered
+			    ({:on_next, {i, v}}, {k, buffer}) -> {:ignore, {:on_next, v}, {k, update_buffer(buffer, i, v)}} 
+				# the final sequence is finished. Now finish the entíre sequence
+				({:on_completed, {n, v}}, {i, buffer}) -> {:cont, {:on_completed, v}, {n, Dict.delete(buffer, i)}}
+			    # the current sequence is finished. Take the next one, push all ot its buffered events out
+			    # (in reverse order) and ignore the complete
+				({:on_completed, {i, v}}, {i, buffer}) -> 
+					# This won't work, since we need the state of Rx. Hmmmm.
+					Reaxive.Rx.Impl.notify({:cont, {:on_next, v}, {i, buffer}} )
+					{:ignore, {:on_completed, v}, {i + 1, Dict.delete(buffer, i)}}
+				({:on_completed, {i, v}}, k) -> {:ignore, {:on_completed, v}, k-1}
+			end
+
+			Reaxive.Rx.Impl.fun(rx, fold_fun, n)
+			# subscribe to all originating sequences ...
+			disposes = rxs |> Enum.map &Observable.subscribe(&1, rx)
+			# and set the new disposables as sources.
+			:ok = Reaxive.Rx.Impl.source(rx, disposes)
+			rx
 		end
-
-		Reaxive.Rx.Impl.fun(rx, fold_fun, n)
-		# subscribe to all originating sequences ...
-		disposes = rxs |> Enum.map &Observable.subscribe(&1, rx)
-		# and set the new disposables as sources.
-		:ok = Reaxive.Rx.Impl.source(rx, disposes)
-		rx
 	end
 	
 	@spec update_buffer(%{pos_integer => term}, pos_integer, term) :: %{}

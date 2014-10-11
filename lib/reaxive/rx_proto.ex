@@ -5,7 +5,7 @@ defprotocol Observable do
 	new values, errors and the completion of the calculation.
 	"""
 	@spec subscribe(Observable.t, Observer.t) :: Disposable.t
-	def subscribe(obserable, observer)
+	def subscribe(observable, observer)
 end
 
 defprotocol Observer do
