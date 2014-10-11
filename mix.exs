@@ -3,7 +3,7 @@ defmodule Reaxive.Mixfile do
 
   def project do
     [ app: :reaxive,
-      version: "0.0.1-dev",
+      version: "0.0.1",
       elixir: "~> 1.0.0",
       docs: [readme: true],
 
