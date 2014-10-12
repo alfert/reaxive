@@ -6,22 +6,31 @@ defmodule Reaxive.Transducer do
 	
 	We follow at first the path of Ritch Hickey's Strange Loop 2014 Talk 
 	(https://www.youtube.com/watch?v=6mTbuzafcII)
+
+	A transducer is a function, that expects a `step` function. The `step`
+	function  decouples how the transducers work is conjoined, e.g. into an
+	list, a stream or  an observable. The `step` function may be called 0, 1,
+	or even more times. The  transducer must call `step` with the previous
+	`result` as next result as first argument.
+
+	
 	"""
+	
 	@doc "Transducer map"
 	def mapping(fun) do
 		fn(step) -> 
-			fn(elem, rest) -> 
-				# Logger.debug("mapping: rest = #{inspect rest}, elem = #{inspect elem}")
-				step . (rest, fun.(elem))  end
+			fn(elem, result) -> 
+				# Logger.debug("mapping: result = #{inspect result}, elem = #{inspect elem}")
+				step . (result, fun.(elem))  end
 		end	
 	end
 
 	@doc "Transducer filter"
 	def filtering(pred) do
 		fn(step) ->
-			fn(elem, rest) -> case (pred.(elem)) do
-				true  -> step . (rest, elem)
-				false -> rest
+			fn(elem, result) -> case (pred.(elem)) do
+				true  -> step . (result, elem)
+				false -> result
 				end
 			end
 		end
@@ -30,7 +39,7 @@ defmodule Reaxive.Transducer do
 	@doc "Transducer cat"
 	def cat() do
 		fn(step) -> 
-			fn(elem, rest) -> Enum.reduce(rest, elem, step) end
+			fn(elem, result) -> Enum.reduce(result, elem, step) end
 		end
 	end
 
