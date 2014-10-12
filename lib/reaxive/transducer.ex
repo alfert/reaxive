@@ -50,7 +50,7 @@ defmodule Reaxive.Transducer do
 	def taking_while(pred) do
 		fn(step) ->
 			fn(elem, result) -> 
-				if (pred.(elem)), do: step.(result, elem), else: {:reduced, result}
+				if (pred.(elem)), do: {:cont, step.(result, elem)}, else: {:halt, result}
 			end
 		end
 	end
@@ -75,6 +75,10 @@ defmodule Reaxive.Transducer do
 		list |> Enum.reduce([], f) |> Enum.reverse
 	end
 	
-
+	@doc "Take while on lists"
+	def take_while(list, pred) do
+		f = taking_while(pred) . (&join/2)
+		list |> Enumerable.reduce({:cont, []}, f) |> elem(1)|> Enum.reverse
+	end	
 
 end
