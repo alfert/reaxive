@@ -28,10 +28,8 @@ defmodule Reaxive.Transducer do
 	@doc "Transducer filter"
 	def filtering(pred) do
 		fn(step) ->
-			fn(elem, result) -> case (pred.(elem)) do
-				true  -> step . (result, elem)
-				false -> result
-				end
+			fn(elem, result) -> 
+				if (pred.(elem)), do: step . (result, elem), else: result
 			end
 		end
 	end
@@ -48,6 +46,15 @@ defmodule Reaxive.Transducer do
 		compose(mapping(fun), cat)
 	end
 
+	@doc "Transducer take-while"
+	def taking_while(pred) do
+		fn(step) ->
+			fn(elem, result) -> 
+				if (pred.(elem)), do: step.(result, elem), else: {:reduced, result}
+			end
+		end
+	end
+	
 	@doc "Compose two functions"
 	def compose(f1, f2) do
 		fn(arg) -> f2.(f1.(arg)) end
@@ -58,10 +65,16 @@ defmodule Reaxive.Transducer do
 
 	@doc "Map on lists"
 	def map(list, f) do
-		list |> Enum.reduce([], mapping(f).(&join/2)) |> Enum.reverse
+		mapper = mapping(f) . (&join/2)
+		list |> Enum.reduce([], mapper)  |> Enum.reverse
 	end
 	
-
+	@doc "Filter on lists"
+	def filter(list, pred) do
+		f = filtering(pred) . (&join/2)
+		list |> Enum.reduce([], f) |> Enum.reverse
+	end
+	
 
 
 end
