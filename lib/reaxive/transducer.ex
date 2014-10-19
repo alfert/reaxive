@@ -3,24 +3,22 @@ defmodule Reaxive.Transducer do
 
 	@moduledoc """
 	A transducer library inspired by [Clojure](http://clojure.org/transducers).
-	
-	We follow at first the path of Ritch Hickey's Strange Loop 2014 Talk 
+	We follow the path of Ritch Hickey's Strange Loop 2014 Talk 
 	(https://www.youtube.com/watch?v=6mTbuzafcII)
 
-	A transducers is a function, that expects a `step` function. The `step`
-	function  decouples how the transducers work is conjoined, e.g. into an
-	list, a stream or  an observable. The `step` function may be called 0, 1,
-	or even more times. The  transducer must call `step` with the previous
-	`result` as next result as first argument.
+	### What is a transducer?
 
-	######################################################
-	## New theory about transducers
+	A transducers is a reducer-like function, that decouples how the
+	the current value is taken from the source and how the new accumulator 
+	is build up. The decoupling is realized with an additional function
+	parameter, which is essentially the next transducer to call or a functional 
+	to determine the accumulator.
 
-	A transducer takes an element and a current reduced value. It calculates
-	a (new, unchanged or modified) element and a (new, unchanged or modified)
-	reduced value. With this, it calls the next transducer (which is given as 
-	a parameter within the closure defining the transducer), if further processing 
-	of the element is required. 
+	A transducer function takes an element and a current reduced value. It
+	calculates a (new, unchanged or modified) element and a (new, unchanged or
+	modified) reduced value. With this, it calls the next transducer (which is
+	given as a parameter within the closure defining the transducer), if
+	further processing  of the element is required.
 
 	### Consequences
 
@@ -28,11 +26,26 @@ defmodule Reaxive.Transducer do
 	  to a an observer, is also a transducer. 
 	* The return value of a transducer is a tuple similar to `Enumerable.acc` which
 	  controls the reducing process, but with three elements, since the element and
-	  the reduced value are moved towards the next  nested call. 
+	  the reduced value are moved towards the next nested call. 
 	* A filter transducer simply does call the next transducer, if the element is 
 	  to be filtered. 
 	* A take transducer returns `{:halt, value}` to stop the reducing process, if 
 	  the take condition is true. 
+	* A transducer build up from many steps does not require to build up any interim 
+	  temporal data structures. This is different from the `Enum` functions in Elixir - 
+	  however those are very fast by using Erlang's built-in functions. On the other 
+	  side, this feature makes transducer a perfect vehicle to construct sequential 
+	  Reactive Extension operators. 
+
+	### How to use transducers with Observables?
+
+	* The final transducer does not build up a data structure but sends the reduced
+	  value to all observers. 
+	* Events coming from an observable are fed into the transducer chain to calculate
+	  the next values.
+	* Building Reactive Extension operator with transducers requires a generic constructor
+	  which handles all the subscription stuff as well as handling the return values
+	  of the transducer chain properly. 
 
 	### Open Issues
 
@@ -47,6 +60,10 @@ defmodule Reaxive.Transducer do
 	  the final transducer (exception: `OnException` transducer as in RX.)
 	
 	"""
+	
+	@compile :inline_list_funcs
+	@compile :inline
+
 	@typedoc "Similar to Enumerable.acc"
 	@type acc_to_do :: :cont | :halt 
 
@@ -168,5 +185,8 @@ defmodule Reaxive.Transducer do
 	def do_trans([head | tail], {:cont, acc}, f) do
 		do_trans(tail, f.({:cont, head}, acc), f)
 	end		
-
+	def do_trans(coll, a = {:cont, acc}, f) do
+		{:done, v} = Enumerable.reduce(coll, a, fn(x, ac) -> f.({:cont, x}, ac) end)
+		v
+	end
 end
