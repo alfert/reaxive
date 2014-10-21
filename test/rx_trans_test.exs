@@ -61,6 +61,7 @@ defmodule RxTransduceTest do
 		assert f.(0) == inc(inc(inc 0))
 	end
 
+	@tag :performance
 	test "performance test transduce" do
 		r = 1..1_000_000
 		l = r |> Enum.to_list
