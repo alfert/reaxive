@@ -42,21 +42,21 @@ defmodule RxTransduceTest do
 
 	test "combine 1 inc" do 
 		ts = [&inc/1]
-		f = Trans.make_transducer(ts)
+		f = Trans.comp(ts)
 		assert is_function(f)
 		assert f.(0) == inc 0
 	end
 
 	test "combine 2 incs" do 
 		ts = [&inc/1, &inc/1]
-		f = Trans.make_transducer(ts)
+		f = Trans.comp(ts)
 		assert is_function(f)
 		assert f.(0) == inc(inc 0)
 	end
 
 	test "combine 3 incs" do 
 		ts = [&inc/1, &inc/1, &inc/1]
-		f = Trans.make_transducer(ts)
+		f = Trans.comp(ts)
 		assert is_function(f)
 		assert f.(0) == inc(inc(inc 0))
 	end
