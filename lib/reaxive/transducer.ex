@@ -61,8 +61,8 @@ defmodule Reaxive.Transducer do
 	
 	"""
 	
-	@compile :inline_list_funcs
-	@compile :inline
+	#@compile :inline_list_funcs
+	#@compile :inline
 
 	@typedoc "Similar to Enumerable.acc"
 	@type acc_to_do :: :cont | :halt 
@@ -96,22 +96,24 @@ defmodule Reaxive.Transducer do
 		end
 	end
 
-	@doc "apply first t1, then t2"
-	def make_transducer(t1, t2) do # t1, t2 :: (make_acc) -> ((a, b) -> {:cont, x, y})
-		fn(make_acc) -> 
-			trans2 = t2 . (make_acc)
-			trans1 = t1 . (trans2)
-			trans1
-		end
-	end
+	@doc """
+	Composes two or more functions (with one argument) and returns the 
+	composition as a single function with one argument.
+	"""
+	def comp(ts) when is_list(ts), do: 
+		ts |> Enum.reduce(fn(x) -> (x) end, &comp/2)
+	def comp(f, g), do: fn(x) -> f . (g . (x)) end
+	def comp(f1, f2, f3), do: comp([f1, f2, f3])
+	def comp(f1, f2, f3, f4), do: comp([f1, f2, f3, f4])
+	def comp(f1, f2, f3, f4, f5), do: comp([f1, f2, f3, f4, f5])
+	def comp(f1, f2, f3, f4, f5, f6), do: comp([f1, f2, f3, f4, f5, f6])
 
 	@doc "A manually combined transducer, that first mapps the element and then filters it."
 	def mapped_filtering(mf, p) do
 		fn(make_acc) -> 
 			f = filtering(p) # :: (a, b) -> {acc_to_do, a, b})
 			m = mapping(mf) #  :: (a, b) -> {acc_to_do, c, b}
-			t = make_transducer(m, f)
-			t.(make_acc)
+			comp(m, f).(make_acc)
 		end
 	end
 
@@ -157,14 +159,12 @@ defmodule Reaxive.Transducer do
 
 	@doc "Map on lists"
 	def map(list, f) do
-		mapper = mapping(f) . (&prepend/2)
-		list |> Enum.reduce([], mapper)  |> Enum.reverse
+		list |> transduce(mapping(f)) |> Enum.reverse
 	end
 	
 	@doc "Filter on lists"
 	def filter(list, pred) do
-		f = filtering(pred) . (&prepend/2)
-		list |> Enum.reduce([], f) |> Enum.reverse
+		list |> transduce(filtering(pred)) |> Enum.reverse
 	end
 	
 	@doc "Take while on lists"
