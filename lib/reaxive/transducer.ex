@@ -61,8 +61,8 @@ defmodule Reaxive.Transducer do
 	
 	"""
 	
-	#@compile :inline_list_funcs
-	#@compile :inline
+	@compile :inline_list_funcs
+	@compile :inline
 
 	@typedoc "Similar to Enumerable.acc"
 	@type acc_to_do :: :cont | :halt 
