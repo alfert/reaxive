@@ -40,6 +40,27 @@ defmodule RxTransduceTest do
 		assert m == l |> Enum.map(&inc/1) |> Enum.filter(&Integer.is_odd/1)
 	end
 
+	test "combine 1 inc" do 
+		ts = [&inc/1]
+		f = Trans.make_transducer(ts)
+		assert is_function(f)
+		assert f.(0) == inc 0
+	end
+
+	test "combine 2 incs" do 
+		ts = [&inc/1, &inc/1]
+		f = Trans.make_transducer(ts)
+		assert is_function(f)
+		assert f.(0) == inc(inc 0)
+	end
+
+	test "combine 3 incs" do 
+		ts = [&inc/1, &inc/1, &inc/1]
+		f = Trans.make_transducer(ts)
+		assert is_function(f)
+		assert f.(0) == inc(inc(inc 0))
+	end
+
 	test "performance test transduce" do
 		r = 1..1_000_000
 		l = r |> Enum.to_list
@@ -58,7 +79,25 @@ defmodule RxTransduceTest do
 		assert dur_trans * 1.5 < dur_enum
 	end
 
-	test "memory test transduce" do
+	test "memory test transduce vs streams" do
+		r = 1..1_000_000
+		l = r |> Enum.to_list
+		e = fn() -> r |> Stream.map(&inc/1) |> Stream.filter(&Integer.is_odd/1) |> Enum.to_list end
+		t = fn() -> 
+			mf = Trans.mapped_filtering(&inc/1, &Integer.is_odd/1)
+			r |> Trans.transduce(mf) |> Enum.reverse
+		end
+
+		{r1, i1, f1} = memory_profiler(e)
+		{r2, i2, f2} = memory_profiler(t)
+
+		assert r1 == r2
+		assert i1 == i2
+		assert f1[:memory] == f2[:memory]
+		assert f1[:total_heap_size] == f2[:total_heap_size]
+	end
+
+	test "memory test transduce vs lists" do
 		r = 1..1_000_000
 		l = r |> Enum.to_list
 		e = fn() -> r |> Enum.map(&inc/1) |> Enum.filter(&Integer.is_odd/1) |> Enum.to_list end
