@@ -75,7 +75,7 @@ defmodule RxTest do
 		o = simple_observer_fun(self)
 		all_procs = Process.list()
 		rxs = values |> Rx.generate(1) |> Rx.as_text 
-		assert %Rx.Lazy{} = rxs
+		assert is_pid(rxs)
 		disp_me =  rxs |> Observable.subscribe(o)
 		assert_receive {:on_completed, nil}
 
