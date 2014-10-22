@@ -165,7 +165,7 @@ defmodule Reaxive.Rx do
 	"""
 	@spec delayed_start(((Observer.t) -> any), String.t, pos_integer) :: Observable.t
 	def delayed_start(generator, id \\ "delayed_start", timeout \\ @rx_timeout) do
-		lazy do 
+#		lazy do 
 			{:ok, rx} = Reaxive.Rx.Impl.start(id, @rx_defaults)
 			delayed = fn() -> 
 				receive do
@@ -177,7 +177,7 @@ defmodule Reaxive.Rx do
 			pid = spawn(delayed)
 			Reaxive.Rx.Impl.on_subscribe(rx, fn()-> send(pid, :go) end)
 			rx		
-		end
+#		end
 	end
 	
 	@doc """
@@ -230,6 +230,20 @@ defmodule Reaxive.Rx do
 	"""
 	@spec filter(Observable.t, (any -> boolean)) :: Observable.t
 	def filter(rx, pred) do
+#		lazy do
+			filter_fun = fn
+				({:on_next, v}, acc) -> case pred.(v) do 
+						true  -> {:cont, {:on_next, v}, acc}
+						false -> {:ignore, v, acc}
+					end
+				({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
+			end
+			:ok = Reaxive.Rx.Impl.compose(rx, filter_fun)
+			rx
+#		end
+	end
+	
+	def filter_old(rx, pred) do
 		lazy do
 			filter_fun = fn
 				({:on_next, v}, acc) -> case pred.(v) do 
@@ -246,7 +260,6 @@ defmodule Reaxive.Rx do
 			new_rx
 		end
 	end
-	
 
 	@doc """
 	This function considers the past events to produce new events. 
