@@ -118,6 +118,15 @@ defmodule RxTest do
 		assert Enum.all?(odds, &Integer.is_odd/1)
 	end
 
+	test "map and filter compose together" do
+		values = 1..20 
+		odds = values |> Rx.generate(1) |> Rx.filter(&Integer.is_odd/1) |>
+			Rx.map(&inc/1) |> Rx.map(&inc/1) |> Rx.stream |> Enum.to_list
+
+		assert odds == (values |> Enum.filter(&Integer.is_odd/1) |> Enum.map(&inc/1) |> Enum.map(&inc/1))
+		assert Enum.all?(odds, &Integer.is_odd/1)
+	end
+
 	test "fold the past" do 
 		values = 1..10
 
