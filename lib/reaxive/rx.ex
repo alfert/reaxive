@@ -106,7 +106,7 @@ defmodule Reaxive.Rx do
 	"""
 	@spec map(Observable.t, (... ->any) ) :: Observable.t
 	def map(rx, fun) do
-		lazy do 
+	#	lazy do 
 			{:ok, new_rx} = Reaxive.Rx.Impl.start("map", @rx_defaults)
 
 			mapper = fn
@@ -117,7 +117,7 @@ defmodule Reaxive.Rx do
 			source = Observable.subscribe(rx, new_rx)
 			:ok = Reaxive.Rx.Impl.source(new_rx, source)
 			new_rx
-		end
+	#	end
 	end
 	
 	@doc """
@@ -224,7 +224,7 @@ defmodule Reaxive.Rx do
 
 	@doc """
 	This function filter the event sequence such that only those
-	events ŕemain in the sequence for which `pred` returns true. 
+	events remain in the sequence for which `pred` returns true. 
 
 	In Reactive Extensions, this function is called `Where`. 
 	"""
