@@ -93,33 +93,7 @@ defmodule Reaxive.Rx do
 			:ok = Reaxive.Rx.Impl.source(rx, source)
 		end, "start_with")
 	end
-	
-
-	@doc """
-	The `map` functions takes an observable `rx` and applies function `fun` to 
-	each of its values.
-
-	In ELM, this function is called `lift`, since it lifts a pure function into 
-	a signal, i.e. into an observable. 
-
-	In Reactive Extensions, this function is called `Select`. 
-	"""
-	@spec map_old(Observable.t, (... ->any) ) :: Observable.t
-	def map_old(rx, fun) do
-	#	lazy do 
-			{:ok, new_rx} = Reaxive.Rx.Impl.start("map", @rx_defaults)
-
-			mapper = fn
-				({:on_next, v}, acc) -> {:cont, {:on_next, fun.(v)}, acc}
-				({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
-			end
-			:ok = Reaxive.Rx.Impl.fun(new_rx, mapper)
-			source = Observable.subscribe(rx, new_rx)
-			:ok = Reaxive.Rx.Impl.source(new_rx, source)
-			new_rx
-	#	end
-	end
-	
+		
 	@doc """
 	The `generate` function takes a collection and generates for each 
 	element of the collection an event. The delay between the events 
@@ -222,13 +196,23 @@ defmodule Reaxive.Rx do
 		fn(tag, value) -> send(pid, {tag, value}) end
 	end	
 
+	@doc """
+	This macro encodes the default behavior for reduction functions, which is capable of 
+	ignoring values, of continuing work with `:on_next`, and of piping values for `:on_completed`
+	and `:on_error`.
+
+	You must provide the implementation for the `:on_next` branch. Implicit parameters are the 
+	value `v` and the accumulator list `acc`. 
+
+	"""
 	defmacro default_behavior(do: clause) do
 		quote do
 			fn
-				({{:on_next, var!(v)}, var!(acc)}) -> unquote(clause)
-				({{:on_completed, v}, acc})        -> {:cont, {:on_completed, v}, acc}
-				{:cont, {:on_completed, v}, acc}   -> {:cont, {:on_completed, v}, acc}
+				({{:on_next, var!(v)}, var!(acc), var!(new_acc)}) -> unquote(clause)
+				({{:on_completed, v}, acc, new_acc})        -> {:cont, {:on_completed, v}, acc, new_acc}
+				{:cont, {:on_completed, v}, acc, new_acc}   -> {:cont, {:on_completed, v}, acc, new_acc}
 				({:ignore, v, acc})                -> {:ignore, v, acc}
+				({{:on_error, v}, acc})            -> {:cont, {:on_error, v}, acc}
 			end
 		end
 	end
@@ -243,16 +227,27 @@ defmodule Reaxive.Rx do
 	def filter(rx, pred) do
 		filter_fun = default_behavior() do
 			case pred.(v) do 
-				true  -> {{:on_next, v}, acc}
-				false -> {:ignore, v, acc}
+				true  -> {{:on_next, v}, acc, new_acc}
+				false -> {:ignore, v, acc, new_acc}
 			end
 		end
 		:ok = Reaxive.Rx.Impl.compose(rx, filter_fun)
 		rx
 	end
 
+
+	@doc """
+	The `map` functions takes an observable `rx` and applies function `fun` to 
+	each of its values.
+
+	In ELM, this function is called `lift`, since it lifts a pure function into 
+	a signal, i.e. into an observable. 
+
+	In Reactive Extensions, this function is called `Select`. 
+	"""
+	@spec map(Observable.t, (... ->any) ) :: Observable.t
 	def map(rx, fun) do
-		mapper = default_behavior do: {{:on_next, fun.(v)}, acc}
+		mapper = default_behavior do: {{:on_next, fun.(v)}, acc, new_acc}
 		:ok = Reaxive.Rx.Impl.compose(rx, mapper)
 		rx
 	end
@@ -288,6 +283,14 @@ defmodule Reaxive.Rx do
 	"""
 	@spec take(Observable.t, pos_integer) :: Observable.t
 	def take(rx, n) when n >= 0 do
+		take_fun = default_behavior do
+			[k | old_acc] = acc
+			if k == 0, then: {:halt, k, acc}, else:
+				{{:on_next, v}, acc, [k-1 | new_acc]}
+		end
+	end
+	
+	def take_old(rx, n) when n >= 0 do
 		fun = fn
 			({:on_next, _v}, 0) -> {:cont, {:on_completed, nil}, n}
 		    ({:on_next, v}, k) -> {:cont, {:on_next, v}, k-1} 
@@ -327,7 +330,7 @@ defmodule Reaxive.Rx do
 	def merge(rx1, rx2), do: merge([rx1, rx2])
 	@spec merge([Observable.t]) :: Observable.t
 	def merge(rxs) when is_list(rxs) do
-		lazy do 
+#		lazy do 
 			{:ok, rx} = Reaxive.Rx.Impl.start("merge", @rx_defaults)
 
 			# we need a reduce like function, that
@@ -346,7 +349,7 @@ defmodule Reaxive.Rx do
 			# and set the new disposables as sources.
 			:ok = Reaxive.Rx.Impl.source(rx, disposes)
 			rx
-		end
+#		end
 	end
 	
 	@doc """
