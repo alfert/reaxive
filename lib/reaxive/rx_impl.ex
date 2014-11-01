@@ -211,9 +211,9 @@ defmodule Reaxive.Rx.Impl do
 	def handle_value(%__MODULE__{active: true, action: fun, accu: accu} = state, value) do
 		try do
 			# Logger.debug "Handle_value with v=#{inspect value} and #{inspect state}"
-			{tag, new_v, new_accu} = case do_action(fun, value, accu) do
-				{x, y}        -> {:cont, x, y}
-				{x, y, z} = r -> r
+			{tag, new_v, new_accu} = case do_action(fun, value, accu, []) do
+				{val, acc, new_acc}      -> {:cont, val, new_acc}
+				{tag, val, acc, new_acc} -> {tag, val, new_acc}
 			end
  			:ok = notify({tag, new_v}, state)
 			new_state = %__MODULE__{state | accu: new_accu}
@@ -231,8 +231,8 @@ defmodule Reaxive.Rx.Impl do
 	end 
 	def handle_value(%__MODULE__{active: false} = state, _value), do: state
 
-	def do_action(fun, value, accu) when is_function(fun, 1), do: fun . ({value, accu})
-	def do_action(fun, value, accu) when is_function(fun, 2), do: fun . (value, accu)
+	def do_action(fun, value, accu, new_accu) when is_function(fun, 1), do: fun . ({value, accu, new_accu})
+	def do_action(fun, value, accu, new_accu) when is_function(fun, 2), do: fun . (value, accu)
 
 	@doc "Internal callback function at termination for clearing resources"
 	def terminate(reason, state) do
