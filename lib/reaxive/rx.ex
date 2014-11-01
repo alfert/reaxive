@@ -104,8 +104,8 @@ defmodule Reaxive.Rx do
 
 	In Reactive Extensions, this function is called `Select`. 
 	"""
-	@spec map(Observable.t, (... ->any) ) :: Observable.t
-	def map(rx, fun) do
+	@spec map_old(Observable.t, (... ->any) ) :: Observable.t
+	def map_old(rx, fun) do
 	#	lazy do 
 			{:ok, new_rx} = Reaxive.Rx.Impl.start("map", @rx_defaults)
 
@@ -222,6 +222,17 @@ defmodule Reaxive.Rx do
 		fn(tag, value) -> send(pid, {tag, value}) end
 	end	
 
+	defmacro default_behavior(do: clause) do
+		quote do
+			fn
+				({{:on_next, var!(v)}, var!(acc)}) -> unquote(clause)
+				({{:on_completed, v}, acc})        -> {:cont, {:on_completed, v}, acc}
+				{:cont, {:on_completed, v}, acc}   -> {:cont, {:on_completed, v}, acc}
+				({:ignore, v, acc})                -> {:ignore, v, acc}
+			end
+		end
+	end
+
 	@doc """
 	This function filter the event sequence such that only those
 	events remain in the sequence for which `pred` returns true. 
@@ -230,35 +241,20 @@ defmodule Reaxive.Rx do
 	"""
 	@spec filter(Observable.t, (any -> boolean)) :: Observable.t
 	def filter(rx, pred) do
-#		lazy do
-			filter_fun = fn
-				({:on_next, v}, acc) -> case pred.(v) do 
-						true  -> {:cont, {:on_next, v}, acc}
-						false -> {:ignore, v, acc}
-					end
-				({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
+		filter_fun = default_behavior() do
+			case pred.(v) do 
+				true  -> {{:on_next, v}, acc}
+				false -> {:ignore, v, acc}
 			end
-			:ok = Reaxive.Rx.Impl.compose(rx, filter_fun)
-			rx
-#		end
-	end
-	
-	def filter_old(rx, pred) do
-		lazy do
-			filter_fun = fn
-				({:on_next, v}, acc) -> case pred.(v) do 
-						true  -> {:cont, {:on_next, v}, acc}
-						false -> {:ignore, v, acc}
-					end
-				({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
-			end
-			
-			{:ok, new_rx} = Reaxive.Rx.Impl.start()
-			:ok = Reaxive.Rx.Impl.fun(new_rx, filter_fun)
-			source = Observable.subscribe(rx, new_rx)
-			:ok = Reaxive.Rx.Impl.source(new_rx, source)
-			new_rx
 		end
+		:ok = Reaxive.Rx.Impl.compose(rx, filter_fun)
+		rx
+	end
+
+	def map(rx, fun) do
+		mapper = default_behavior do: {{:on_next, fun.(v)}, acc}
+		:ok = Reaxive.Rx.Impl.compose(rx, mapper)
+		rx
 	end
 
 	@doc """
