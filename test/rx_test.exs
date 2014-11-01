@@ -16,10 +16,10 @@ defmodule RxTest do
 		o = simple_observer_fun(self)
 		rx2 = Observable.subscribe(rx1, o)
 
-		Rx.Impl.subscribers(rx) |> 
-			Enum.each(fn(r) -> assert is_pid(r)end)
+		#Rx.Impl.subscribers(rx) |> 
+		#	Enum.each(fn(r) -> assert is_pid(r)end)
 		# TODO: find a way to check the intended condition
-		# assert Rx.Impl.subscribers(rx1) == [o]
+		assert Rx.Impl.subscribers(rx1) == [o]
 
 		Rx.Impl.on_next(rx, 1)
 		assert_receive {:on_next, 2}
