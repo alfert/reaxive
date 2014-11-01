@@ -211,8 +211,8 @@ defmodule Reaxive.Rx do
 				({{:on_next, var!(v)}, var!(acc), var!(new_acc)}) -> unquote(clause)
 				({{:on_completed, v}, acc, new_acc})        -> {:cont, {:on_completed, v}, acc, new_acc}
 				{:cont, {:on_completed, v}, acc, new_acc}   -> {:cont, {:on_completed, v}, acc, new_acc}
-				({:ignore, v, acc})                -> {:ignore, v, acc}
-				({{:on_error, v}, acc})            -> {:cont, {:on_error, v}, acc}
+				({:ignore, v, acc, new_acc})                -> {:ignore, v, acc, new_acc}
+				({{:on_error, v}, acc, new_acc})            -> {:cont, {:on_error, v}, acc, new_acc}
 			end
 		end
 	end
