@@ -43,8 +43,9 @@ defmodule Reaxive.Sync do
 			{
 			fn
 				({{:on_next, var!(v)}, [var!(a) | var!(acc)], var!(new_acc)}) -> unquote(clause)
-				({{:on_completed, v}, [a | acc], new_acc})     -> halt(acc, a, new_acc)
-				{:cont, {:on_completed, v}, [a |acc], new_acc} -> halt(acc, a, new_acc)
+				({{:on_completed, nil}, [a | acc], new_acc})     -> halt(acc, a, new_acc)
+				({{:on_completed, v}, [a | acc], new_acc})     -> emit_and_halt(acc, a, new_acc)
+				{:cont, {:on_completed, v}, [a |acc], new_acc} -> emit_and_halt(acc, a, new_acc)
 				({:ignore, v, [a | acc], new_acc})          -> ignore(v, acc, a, new_acc)
 				({{:on_error, v}, [a | acc], new_acc})      -> error(v, acc, a, new_acc)
 			end,
@@ -53,7 +54,10 @@ defmodule Reaxive.Sync do
 		end
 	end
 
+	## These macros build up the return values of the reducers.
 	defmacro halt(acc, new_a, new_acc), do: 
+		quote do: {{:on_completed, unquote(nil)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
+	defmacro emit_and_halt(acc, new_a, new_acc), do: 
 		quote do: {:cont, {:on_completed, unquote(new_a)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
 	defmacro error(error, acc, new_a, new_acc), do: 
 		quote do: {{:on_error, unquote(error)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
@@ -79,7 +83,7 @@ defmodule Reaxive.Sync do
 	def take(n) when n >= 0 do
 		take_fun = default_behavior(n) do
 			if a == 0 do
-				r = halt(acc, nil, new_acc)
+				r = halt(acc, a, new_acc)
 				# IO.puts "a == 0, r = #{inspect r}"
 				r
 			else 
