@@ -34,7 +34,8 @@ defmodule Reaxive.Sync do
 	and `:on_error`.
 
 	You must provide the implementation for the `:on_next` branch. Implicit parameters are the 
-	value `v` and the accumulator list `acc`. 
+	value `v` and the accumulator list `acc`, the current accumulator `a` and the new accumulator
+	`new_acc`. 
 
 	"""
 	defmacro default_behavior(accu \\ nil, do: clause) do
@@ -42,10 +43,10 @@ defmodule Reaxive.Sync do
 			{
 			fn
 				({{:on_next, var!(v)}, [var!(a) | var!(acc)], var!(new_acc)}) -> unquote(clause)
-				({{:on_completed, v}, acc, new_acc})        -> {:cont, {:on_completed, v}, acc, new_acc}
-				{:cont, {:on_completed, v}, acc, new_acc}   -> {:cont, {:on_completed, v}, acc, new_acc}
-				({:ignore, v, acc, new_acc})                -> {:ignore, v, acc, new_acc}
-				({{:on_error, v}, acc, new_acc})            -> {:cont, {:on_error, v}, acc, new_acc}
+				({{:on_completed, v}, [a | acc], new_acc})     -> halt(acc, a, new_acc)
+				{:cont, {:on_completed, v}, [a |acc], new_acc} -> halt(acc, a, new_acc)
+				({:ignore, v, [a | acc], new_acc})          -> ignore(v, acc, a, new_acc)
+				({{:on_error, v}, [a | acc], new_acc})      -> error(v, acc, a, new_acc)
 			end,
 			unquote(accu)
 			}
@@ -54,6 +55,8 @@ defmodule Reaxive.Sync do
 
 	defmacro halt(acc, new_a, new_acc), do: 
 		quote do: {:cont, {:on_completed, unquote(nil)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
+	defmacro error(error, acc, new_a, new_acc), do: 
+		quote do: {{:on_error, unquote(error)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
 	defmacro next(v, acc, new_a, new_acc), do: 
 		quote do: {{:on_next, unquote(v)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
 	defmacro ignore(v, acc, new_a, new_acc), do: 
