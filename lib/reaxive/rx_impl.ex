@@ -263,6 +263,10 @@ defmodule Reaxive.Rx.Impl do
 		subscribers |> Enum.each(&Observer.on_error(&1, exception))
 	def notify({:cont, {:on_completed, nil}}, %__MODULE__{subscribers: subscribers}), do: 
 		subscribers |> Enum.each(&Observer.on_completed(&1))
+	def notify({:cont, {:on_completed, value}}, %__MODULE__{subscribers: subscribers}) do 
+		subscribers |> Enum.each(&Observer.on_next(&1, value))
+		subscribers |> Enum.each(&Observer.on_completed(&1))
+	end
 	def notify({:halt, {:on_next, value}}, %__MODULE__{subscribers: subscribers}) do
 		subscribers |> Enum.each(&Observer.on_next(&1, value))
 		subscribers |> Enum.each(&Observer.on_completed(&1))
