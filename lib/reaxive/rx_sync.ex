@@ -54,7 +54,7 @@ defmodule Reaxive.Sync do
 	end
 
 	defmacro halt(acc, new_a, new_acc), do: 
-		quote do: {:cont, {:on_completed, unquote(nil)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
+		quote do: {:cont, {:on_completed, unquote(new_a)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
 	defmacro error(error, acc, new_a, new_acc), do: 
 		quote do: {{:on_error, unquote(error)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
 	defmacro next(v, acc, new_a, new_acc), do: 
@@ -79,12 +79,19 @@ defmodule Reaxive.Sync do
 	def take(n) when n >= 0 do
 		take_fun = default_behavior(n) do
 			if a == 0 do
-				r = halt(acc, a, new_acc)
-				IO.puts "a == 0, r = #{inspect r}"
+				r = halt(acc, nil, new_acc)
+				# IO.puts "a == 0, r = #{inspect r}"
 				r
 			else 
 				next(v, acc, a-1, new_acc) # {{:on_next, v}, acc, [k-1 | new_acc]}
 			end
+		end
+	end
+
+	def sum() do
+		sum_fun = default_behavior(0) do 
+			IO.puts("v = #{v}, a = #{a}, acc=#{inspect acc}, new_acc=#{inspect new_acc}")
+			ignore(v, acc, v+a, new_acc)
 		end
 	end
 
