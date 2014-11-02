@@ -92,10 +92,31 @@ defmodule Reaxive.Sync do
 		end
 	end
 
+	# should take for all three cases statement lists and construct so the general reducing 
+	# function. But perhaps it is better to take three functions for that purpose.
+	defmacro full_behavior(accu \\ nil, clauses) do
+		next_clause  = Keyword.get(clauses, :do, nil)
+		comp_clause  = Keyword.get(clauses, :complete, nil)
+		error_clause = Keyword.get(clauses, :error, nil)
+		quote do: {
+			fn 
+				({{:on_next, var!(v)}, [var!(a) | var!(acc)], var!(new_acc)}) -> unquote(next_clause)
+				({{:on_completed, var!(v)}, [var!(a) | var!(acc)], var!(new_acc)}) -> unquote(comp_clause)
+				({{:on_error, var!(v)}, [var!(a) | var!(acc)], var!(new_acc)}) -> unquote(error_clause)
+				({:ignore, v, [a | acc], new_acc})                             -> ignore(v, acc, a, new_acc)
+			end,
+			unquote(accu)
+		}
+	end
+
 	def sum() do
-		sum_fun = default_behavior(0) do 
+		sum_fun = full_behavior(0) do 
 			IO.puts("v = #{v}, a = #{a}, acc=#{inspect acc}, new_acc=#{inspect new_acc}")
 			ignore(v, acc, v+a, new_acc)
+			complete
+				emit_and_halt(a, acc, a, new_acc),
+			error:
+				error(v, acc, a, new_acc)
 		end
 	end
 
