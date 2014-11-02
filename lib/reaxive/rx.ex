@@ -1,6 +1,7 @@
 defmodule Reaxive.Rx do
 
 	require Logger
+	alias Reaxive.Sync
 
 	@moduledoc """
 	This module implements the combinator on reactive streams of events. 
@@ -197,27 +198,6 @@ defmodule Reaxive.Rx do
 	end	
 
 	@doc """
-	This macro encodes the default behavior for reduction functions, which is capable of 
-	ignoring values, of continuing work with `:on_next`, and of piping values for `:on_completed`
-	and `:on_error`.
-
-	You must provide the implementation for the `:on_next` branch. Implicit parameters are the 
-	value `v` and the accumulator list `acc`. 
-
-	"""
-	defmacro default_behavior(do: clause) do
-		quote do
-			fn
-				({{:on_next, var!(v)}, var!(acc), var!(new_acc)}) -> unquote(clause)
-				({{:on_completed, v}, acc, new_acc})        -> {:cont, {:on_completed, v}, acc, new_acc}
-				{:cont, {:on_completed, v}, acc, new_acc}   -> {:cont, {:on_completed, v}, acc, new_acc}
-				({:ignore, v, acc, new_acc})                -> {:ignore, v, acc, new_acc}
-				({{:on_error, v}, acc, new_acc})            -> {:cont, {:on_error, v}, acc, new_acc}
-			end
-		end
-	end
-
-	@doc """
 	This function filter the event sequence such that only those
 	events remain in the sequence for which `pred` returns true. 
 
@@ -225,13 +205,8 @@ defmodule Reaxive.Rx do
 	"""
 	@spec filter(Observable.t, (any -> boolean)) :: Observable.t
 	def filter(rx, pred) do
-		filter_fun = default_behavior() do
-			case pred.(v) do 
-				true  -> {{:on_next, v}, acc, new_acc}
-				false -> {:ignore, v, acc, new_acc}
-			end
-		end
-		:ok = Reaxive.Rx.Impl.compose(rx, filter_fun)
+		{filter_fun, acc} = Sync.filter(pred)
+		:ok = Reaxive.Rx.Impl.compose(rx, filter_fun, acc)
 		rx
 	end
 
@@ -247,8 +222,8 @@ defmodule Reaxive.Rx do
 	"""
 	@spec map(Observable.t, (... ->any) ) :: Observable.t
 	def map(rx, fun) do
-		mapper = default_behavior do: {{:on_next, fun.(v)}, acc, new_acc}
-		:ok = Reaxive.Rx.Impl.compose(rx, mapper)
+		{mapper, acc} = Sync.map(fun)
+		:ok = Reaxive.Rx.Impl.compose(rx, mapper, acc)
 		rx
 	end
 
@@ -283,11 +258,10 @@ defmodule Reaxive.Rx do
 	"""
 	@spec take(Observable.t, pos_integer) :: Observable.t
 	def take(rx, n) when n >= 0 do
-		take_fun = default_behavior do
-			[k | old_acc] = acc
-			if k == 0, then: {:halt, k, acc}, else:
-				{{:on_next, v}, acc, [k-1 | new_acc]}
-		end
+		{take_fun, acc} = Sync.take(n)
+		# TODO: We must set the initial accu as a list. May be part of compose!!!?
+		:ok = Reaxive.Rx.Impl.compose(rx, take_fun, acc)
+		rx
 	end
 	
 	def take_old(rx, n) when n >= 0 do
