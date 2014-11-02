@@ -131,8 +131,8 @@ defmodule RxTest do
 		values = 1..10
 
 		f = fn
-			({:on_next, event}, accu)           -> {:cont, {:on_next, accu + event}, accu + event}
-			({:on_completed, _event} = e, accu) -> {:cont, e, accu}
+			({:on_next, event}, accu)           -> {:cont, {:on_next, accu + event}, [], accu + event}
+			({:on_completed, _event} = e, accu) -> {:cont, e, [], accu,}
 		end
 		{:ok, sum} = values |> Rx.generate(1) |> Rx.reduce(0, f) |> Rx.stream |> 
 			Stream.take(-1) |> Enum.fetch(0)
