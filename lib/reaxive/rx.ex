@@ -140,19 +140,17 @@ defmodule Reaxive.Rx do
 	"""
 	@spec delayed_start(((Observer.t) -> any), String.t, pos_integer) :: Observable.t
 	def delayed_start(generator, id \\ "delayed_start", timeout \\ @rx_timeout) do
-#		lazy do 
-			{:ok, rx} = Reaxive.Rx.Impl.start(id, @rx_defaults)
-			delayed = fn() -> 
-				receive do
-					:go -> generator.(rx)
-				after timeout ->
-					Observer.on_error(rx, :timeout)
-				end
+		{:ok, rx} = Reaxive.Rx.Impl.start(id, @rx_defaults)
+		delayed = fn() -> 
+			receive do
+				:go -> generator.(rx)
+			after timeout ->
+				Observer.on_error(rx, :timeout)
 			end
-			pid = spawn(delayed)
-			Reaxive.Rx.Impl.on_subscribe(rx, fn()-> send(pid, :go) end)
-			rx		
-#		end
+		end
+		pid = spawn(delayed)
+		Reaxive.Rx.Impl.on_subscribe(rx, fn()-> send(pid, :go) end)
+		rx		
 	end
 	
 	@doc """
@@ -259,18 +257,8 @@ defmodule Reaxive.Rx do
 	@spec take(Observable.t, pos_integer) :: Observable.t
 	def take(rx, n) when n >= 0 do
 		{take_fun, acc} = Sync.take(n)
-		# TODO: We must set the initial accu as a list. May be part of compose!!!?
 		:ok = Reaxive.Rx.Impl.compose(rx, take_fun, acc)
 		rx
-	end
-	
-	def take_old(rx, n) when n >= 0 do
-		fun = fn
-			({:on_next, _v}, 0) -> {:cont, {:on_completed, nil}, n}
-		    ({:on_next, v}, k) -> {:cont, {:on_next, v}, k-1} 
-			({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
-		end
-		reduce(rx, n, fun)
 	end
 
 	@doc """
@@ -381,13 +369,18 @@ defmodule Reaxive.Rx do
 		Dict.update(buffer, index, fn(old) -> [value | old] end)
 	end
 
+	@spec sum(Observable.t) :: number
 	def sum(rx) do
-		fun = fn
-			({:on_next, entry}, acc) -> {:ignore, nil, entry + acc} 
-			({:on_completed, _}, acc) -> {:halt, {:on_next, acc}, acc}
-		end
+		{sum_fun, acc} = Sync.sum()
+		:ok = Reaxive.Rx.Impl.compose(rx, sum_fun, acc)
 
-		rx |> reduce(0, fun) |> first
+		rx |> first
+		# fun = fn
+		# 	({:on_next, entry}, acc) -> {:ignore, nil, entry + acc} 
+		# 	({:on_completed, _}, acc) -> {:halt, {:on_next, acc}, acc}
+		# end
+
+		# rx |> reduce(0, fun) |> first
 	end
 	
 	def accumulator(rx) do
