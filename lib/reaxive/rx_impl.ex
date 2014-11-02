@@ -115,8 +115,8 @@ defmodule Reaxive.Rx.Impl do
 	Composes the internal action on received events with the given `fun`. The 
 	initial function to compose with is the identity function.
 	"""
-	def compose(observable, fun), do:
-		GenServer.call(observable, {:compose, fun})
+	def compose(observable, fun, acc \\ []), do:
+		GenServer.call(observable, {:compose, fun, acc})
 
 	@doc "All subscribers of Rx. Useful for debugging."
 	def subscribers(observable), do: GenServer.call(observable, :subscribers)
@@ -158,10 +158,10 @@ defmodule Reaxive.Rx.Impl do
 		{:reply, :ok, %__MODULE__{state | sources: [disposable | src]}}
 	def handle_call({:fun, fun, acc}, _from, %__MODULE__{action: nil}= state), do:
 		{:reply, :ok, %__MODULE__{state | action: fun, accu: acc}}
-	def handle_call({:compose, fun}, _from, %__MODULE__{action: nil}= state), do:
-		{:reply, :ok, %__MODULE__{state | action: fun}}
-	def handle_call({:compose, fun}, _from, %__MODULE__{action: g}= state), do:
-		{:reply, :ok, %__MODULE__{state | action: fn(x) -> fun . (g . (x)) end}}
+	def handle_call({:compose, fun, acc}, _from, %__MODULE__{action: nil, accu: nil}= state), do:
+		{:reply, :ok, %__MODULE__{state | action: fun, accu: [acc]}}
+	def handle_call({:compose, fun, acc}, _from, %__MODULE__{action: g, accu: accu}= state), do:
+		{:reply, :ok, %__MODULE__{state | action: fn(x) -> fun . (g . (x)) end, accu: [acc | accu]}}
 	def handle_call(:subscribers, _from, %__MODULE__{subscribers: sub} = s), do: {:reply, sub, s}
 	def handle_call(:accu, _from, %__MODULE__{accu: acc} = s), do: {:reply, acc, s}
 	def handle_call({:on_subscribe, fun}, _from, %__MODULE__{on_subscribe: nil}= state), do:
