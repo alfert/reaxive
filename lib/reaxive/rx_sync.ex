@@ -70,14 +70,14 @@ defmodule Reaxive.Sync do
 	def filter(pred) do
 		default_behavior do
 			case pred.(v) do 
-				true  -> emit(v, acc, a, new_acc)# {{:on_next, v}, acc, new_acc}
-				false -> ignore(v, acc, a, new_acc) # {:ignore, v, acc, new_acc}
+				true  -> emit(v, acc, a, new_acc)
+				false -> ignore(v, acc, a, new_acc)
 			end
 		end
 	end
 	
 	def map(fun) do
-		default_behavior do: emit(fun.(v), acc, a, new_acc) # {{:on_next, fun.(v)}, acc, new_acc}
+		default_behavior do: emit(fun.(v), acc, a, new_acc) 
 	end
 
 	def take(n) when n >= 0 do
@@ -87,7 +87,7 @@ defmodule Reaxive.Sync do
 				# IO.puts "a == 0, r = #{inspect r}"
 				r
 			else 
-				emit(v, acc, a-1, new_acc) # {{:on_next, v}, acc, [k-1 | new_acc]}
+				emit(v, acc, a-1, new_acc)
 			end
 		end
 	end
