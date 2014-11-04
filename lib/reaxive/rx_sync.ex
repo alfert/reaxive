@@ -61,7 +61,7 @@ defmodule Reaxive.Sync do
 		quote do: {:cont, {:on_completed, unquote(new_a)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
 	defmacro error(error, acc, new_a, new_acc), do: 
 		quote do: {{:on_error, unquote(error)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
-	defmacro next(v, acc, new_a, new_acc), do: 
+	defmacro emit(v, acc, new_a, new_acc), do: 
 		quote do: {{:on_next, unquote(v)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
 	defmacro ignore(v, acc, new_a, new_acc), do: 
 		quote do: {:ignore, unquote(v), unquote(acc), [unquote(new_a) | unquote(new_acc)]}
@@ -70,14 +70,14 @@ defmodule Reaxive.Sync do
 	def filter(pred) do
 		default_behavior do
 			case pred.(v) do 
-				true  -> next(v, acc, a, new_acc)# {{:on_next, v}, acc, new_acc}
+				true  -> emit(v, acc, a, new_acc)# {{:on_next, v}, acc, new_acc}
 				false -> ignore(v, acc, a, new_acc) # {:ignore, v, acc, new_acc}
 			end
 		end
 	end
 	
 	def map(fun) do
-		default_behavior do: next(fun.(v), acc, a, new_acc) # {{:on_next, fun.(v)}, acc, new_acc}
+		default_behavior do: emit(fun.(v), acc, a, new_acc) # {{:on_next, fun.(v)}, acc, new_acc}
 	end
 
 	def take(n) when n >= 0 do
@@ -87,37 +87,30 @@ defmodule Reaxive.Sync do
 				# IO.puts "a == 0, r = #{inspect r}"
 				r
 			else 
-				next(v, acc, a-1, new_acc) # {{:on_next, v}, acc, [k-1 | new_acc]}
+				emit(v, acc, a-1, new_acc) # {{:on_next, v}, acc, [k-1 | new_acc]}
 			end
 		end
 	end
 
 	# should take for all three cases statement lists and construct so the general reducing 
 	# function. But perhaps it is better to take three functions for that purpose.
-	defmacro full_behavior(accu \\ nil, clauses) do
-		next_clause  = Keyword.get(clauses, :do, nil)
-		comp_clause  = Keyword.get(clauses, :complete, nil)
-		error_clause = Keyword.get(clauses, :error, nil)
-		quote do: {
+	def full_behavior(accu \\ nil, next_fun, comp_fun, error_fun) do
+		{
 			fn 
-				({{:on_next, var!(v)}, [var!(a) | var!(acc)], var!(new_acc)}) -> unquote(next_clause)
-				({{:on_completed, var!(v)}, [var!(a) | var!(acc)], var!(new_acc)}) -> unquote(comp_clause)
-				({{:on_error, var!(v)}, [var!(a) | var!(acc)], var!(new_acc)}) -> unquote(error_clause)
-				({:ignore, v, [a | acc], new_acc})                             -> ignore(v, acc, a, new_acc)
+				({{:on_next, v}, [a | acc], new_acc})      -> next_fun . (v, acc, a, new_acc)
+				({{:on_completed, v}, [a | acc], new_acc}) -> comp_fun . (v, acc, a, new_acc)
+				({{:on_error, v}, [a | acc], new_acc})     -> error_fun . (v, acc, a, new_acc)
+				({:ignore, v, [a | acc], new_acc})         -> ignore(v, acc, a, new_acc)
 			end,
-			unquote(accu)
+			accu
 		}
 	end
 
 	def sum() do
-		sum_fun = full_behavior(0) do 
-			IO.puts("v = #{v}, a = #{a}, acc=#{inspect acc}, new_acc=#{inspect new_acc}")
-			ignore(v, acc, v+a, new_acc)
-			complete
-				emit_and_halt(a, acc, a, new_acc),
-			error:
-				error(v, acc, a, new_acc)
-		end
+		full_behavior(0, 
+			fn(v, acc, a, new_acc) -> ignore(v, acc, v+a, new_acc) end,
+			fn(v, acc, a, new_acc) -> emit_and_halt(acc, a, new_acc) end,
+			fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end)
 	end
 
 end
