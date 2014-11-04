@@ -26,6 +26,7 @@ defmodule Reaxive.Sync do
 	@type tagged_t :: {reason_t, any}
 	@type reduce_t :: {tagged_t, acc_t, acc_t}
 	@type reduce_fun_t :: ((tagged_t, acc_t, acc_t) -> reduce_t)
+	@type step_fun_t :: ((any, acc_t, any, acc_t) -> reduce_t)
 
 
 	@doc """
@@ -92,8 +93,18 @@ defmodule Reaxive.Sync do
 		end
 	end
 
-	# should take for all three cases statement lists and construct so the general reducing 
-	# function. But perhaps it is better to take three functions for that purpose.
+	@doc """
+	This function takes an initial accumulator and three step functions. The step functions
+	have as first parameter the current value, followed by the list of next accumulators, the current
+	accumulator, and the list of future accumulators. The three functions handle the situation of
+	the next value, of completion of the stream and of the error situation. 
+
+	Handling the `ignore` case is part of `full_behavior` and cannot be handled by the step functions. 
+
+	It is best to use the `halt`, `emit`, `ignore` and `error` macros to produce proper return 
+	values of the three step functions. 
+	"""
+	@spec full_behavior(any, step_fun_t, step_fun_t, step_fun_t) :: {reduce_fun_t, any}
 	def full_behavior(accu \\ nil, next_fun, comp_fun, error_fun) do
 		{
 			fn 
