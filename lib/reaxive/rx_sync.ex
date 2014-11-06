@@ -67,6 +67,7 @@ defmodule Reaxive.Sync do
 	defmacro ignore(v, acc, new_a, new_acc), do: 
 		quote do: {:ignore, unquote(v), unquote(acc), [unquote(new_a) | unquote(new_acc)]}
 
+	@doc "Reducer function for filter"
 	@spec filter(((any) -> boolean)) :: {reduce_fun_t, any}
 	def filter(pred) do
 		default_behavior do
@@ -77,10 +78,13 @@ defmodule Reaxive.Sync do
 		end
 	end
 	
+	@doc "Reducer function for map."
+	@spec map(((any) -> any)) :: {reduce_fun_t, any}
 	def map(fun) do
 		default_behavior do: emit(fun.(v), acc, a, new_acc) 
 	end
 
+	@doc "Reducer function for take"
 	def take(n) when n >= 0 do
 		take_fun = default_behavior(n) do
 			if a == 0 do
@@ -117,6 +121,7 @@ defmodule Reaxive.Sync do
 		}
 	end
 
+	@doc "Returns the sum of input events as sequence with exactly one event."
 	def sum() do
 		full_behavior(0, 
 			fn(v, acc, a, new_acc) -> ignore(v, acc, v+a, new_acc) end,
