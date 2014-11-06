@@ -129,4 +129,17 @@ defmodule Reaxive.Sync do
 			fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end)
 	end
 
+	@doc "Reducer for merging `n` streams"
+	def merge(n) when n > 0 do
+		full_behavior(n, 
+			fn(v, acc, k, new_acc) -> emit(v, acc, k, new_acc) end, 
+			fn
+				(v, acc, 1, new_acc) -> halt(acc, 1, new_acc)  # last complete => complete merge
+				(v, acc, k, new_acc) -> ignore(v, acc, k-1, new_acc) # ignore complete 
+			end,
+			fn(v, acc, k, new_acc) -> error(v, acc, k, new_acc) end
+		)
+	end
+	
+
 end
