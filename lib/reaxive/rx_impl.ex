@@ -163,7 +163,7 @@ defmodule Reaxive.Rx.Impl do
 	def handle_call({:compose, fun, acc}, _from, %__MODULE__{action: nil, accu: []}= state), do:
 		{:reply, :ok, %__MODULE__{state | action: fun, accu: [acc]}}
 	def handle_call({:compose, fun, acc}, _from, %__MODULE__{action: g, accu: accu}= state), do:
-		{:reply, :ok, %__MODULE__{state | action: fn(x) -> fun . (g . (x)) end, accu: [acc | accu]}}
+		{:reply, :ok, %__MODULE__{state | action: fn(x) -> fun . (g . (x)) end, accu: :lists.append(accu, [acc])}}
 	def handle_call(:subscribers, _from, %__MODULE__{subscribers: sub} = s), do: {:reply, sub, s}
 	def handle_call(:accu, _from, %__MODULE__{accu: acc} = s), do: {:reply, acc, s}
 	def handle_call({:on_subscribe, fun}, _from, %__MODULE__{on_subscribe: nil}= state), do:
