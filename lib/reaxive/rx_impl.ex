@@ -33,7 +33,7 @@ defmodule Reaxive.Rx.Impl do
 		action: nil, # the function to be applied to the values
 		options: [], #  behavior options
 		on_subscribe: nil, # function called at first subscription 
-		accu: nil # accumulator 
+		accu: [] # accumulator 
 
 	@doc """
 	Starts the Rx Impl. If `auto_stop` is true, the `Impl` finishes after completion or
@@ -108,7 +108,7 @@ defmodule Reaxive.Rx.Impl do
 	This function sets the internal action on received events before the event is
 	propagated to the subscribers. An initial accumulator value can also be provided.
 	"""	
-	def fun(observable, fun, acc \\ nil), do:	
+	def fun(observable, fun, acc \\ []), do:	
 		GenServer.call(observable, {:fun, fun, acc})
 
 	@doc """
@@ -160,7 +160,7 @@ defmodule Reaxive.Rx.Impl do
 		{:reply, :ok, %__MODULE__{state | sources: [disposable | src]}}
 	def handle_call({:fun, fun, acc}, _from, %__MODULE__{action: nil}= state), do:
 		{:reply, :ok, %__MODULE__{state | action: fun, accu: acc}}
-	def handle_call({:compose, fun, acc}, _from, %__MODULE__{action: nil, accu: nil}= state), do:
+	def handle_call({:compose, fun, acc}, _from, %__MODULE__{action: nil, accu: []}= state), do:
 		{:reply, :ok, %__MODULE__{state | action: fun, accu: [acc]}}
 	def handle_call({:compose, fun, acc}, _from, %__MODULE__{action: g, accu: accu}= state), do:
 		{:reply, :ok, %__MODULE__{state | action: fn(x) -> fun . (g . (x)) end, accu: [acc | accu]}}
@@ -218,7 +218,7 @@ defmodule Reaxive.Rx.Impl do
 				{tag, val, acc, new_acc} -> {tag, val, new_acc}
 			end
  			:ok = notify({tag, new_v}, state)
-			new_state = %__MODULE__{state | accu: new_accu}
+			new_state = %__MODULE__{state | accu: :lists.reverse(new_accu)}
 			case tag do 
 				:halt -> disconnect(new_state)
 				_ -> new_state
