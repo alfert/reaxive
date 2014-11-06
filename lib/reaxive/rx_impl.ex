@@ -115,7 +115,9 @@ defmodule Reaxive.Rx.Impl do
 	Composes the internal action on received events with the given `fun`. The 
 	initial function to compose with is the identity function.
 	"""
-	def compose(observable, fun, acc \\ []), do:
+	def compose(observable, {fun, acc}), do:
+		GenServer.call(observable, {:compose, fun, acc})
+	def compose(observable, fun, acc), do:
 		GenServer.call(observable, {:compose, fun, acc})
 
 	@doc "All subscribers of Rx. Useful for debugging."
