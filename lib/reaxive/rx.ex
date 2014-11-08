@@ -78,6 +78,7 @@ defmodule Reaxive.Rx do
 	"""
 	def error(%{__exception__: true} = exception, timeout \\ @rx_timeout) do
 		delayed_start(fn(rx) -> 
+#			Logger.info("do on_error with #{inspect exception}")
 			Observer.on_error(rx, exception) end, "error", timeout)
 	end
 	
@@ -232,8 +233,13 @@ defmodule Reaxive.Rx do
 	In Elixir, it is the convention to call the fold function `reduce`, therefore
 	we stick to this convention.
 
-	This fold-function itself is somewhat complicated. 
+	This fold-function itself must follow the conventions of `Reaxive.Sync` module. 
 	"""
+	@spec reduce(Observable.t, {Reaxive.Sync.reduce_fun_t, any}) :: Observable.t
+	def reduce(rx, {reduce_fun, acc} = f) do
+		:ok = Reaxive.Rx.Impl.compose(rx, f)
+		rx
+	end	
 	@spec reduce(Observable.t, any, ((any, Observable.t) -> Observable.t)) :: Observable.t
 	def reduce(rx, acc, fun) when is_function(fun, 2) do
 		lazy do 
