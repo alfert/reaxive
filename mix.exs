@@ -24,10 +24,10 @@ defmodule Reaxive.Mixfile do
 
   defp deps do
     [      
-      {:coverex, "~> 0.0.8", only: :test},
+      {:coverex, "~> 1.0.0", only: :test},
       # {:coverex, "~> 0.0.7-dev", path: "../coverex", only: :test},
       {:earmark, "~> 0.1", only: :dev},
-      {:ex_doc, "~> 0.5", only: :dev},
+      {:ex_doc, "~> 0.6", only: :dev},
       {:dialyze, "~> 0.1.2", only: :dev},
       {:dbg, github: "fishcakez/dbg", only: :test}
    ]
