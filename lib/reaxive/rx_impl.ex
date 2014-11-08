@@ -57,8 +57,19 @@ defmodule Reaxive.Rx.Impl do
 	@doc "Subscribes a new observer. Returns a function for unsubscription"
 	@spec subscribe(Observable.t, Observer.t) :: (() -> :ok)
 	def subscribe(observable, observer) do
+		# dispose_fun is defined first to circumevent a problem in Erlang's cover-tool, 
+		# which does not work if after an try-block in Elixir an additional statement is 
+		# in the function.
+		dispose_fun = fn() -> 
+			try do 
+				unsubscribe(observable, observer) 
+			catch 
+				:exit, code -> :ok # Logger.debug "No process #{inspect observable} - no problem #{inspect code}"
+			end
+		end
 		try do
 			:ok = GenServer.cast(observable, {:subscribe, observer})
+			dispose_fun
 		catch
 			#########################
 			##  Hier kann viel schief gehen, sobald der observable bereits fertig ist
@@ -73,14 +84,7 @@ defmodule Reaxive.Rx.Impl do
 				Logger.debug "subscribe failed because observable #{inspect observable} does not exist anymore"
 				Logger.debug Exception.format_stacktrace()
 				Observer.on_error(observer, :subscribe_failed)
-				:ok
-		end
-		fn() -> 
-			try do 
-				unsubscribe(observable, observer) 
-			catch 
-				:exit, code -> :ok # Logger.debug "No process #{inspect observable} - no problem #{inspect code}"
-			end
+				dispose_fun
 		end
 	end
 	
