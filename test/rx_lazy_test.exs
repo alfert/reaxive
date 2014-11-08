@@ -44,14 +44,4 @@ defmodule ReaxiveLazyTest do
 	end
 
 
-	test "lazy Rx" do
-		l = [:no_value_assigned]
-		r = [1, 2, 3] |> Rx.generate
-		assert %Rx.Lazy{} = r
-		# How do find out, which functions are called and which message are passed
-		# between all the Rx.Impls?
-		l = r |> Rx.stream |> Enum.to_list
-		assert l == [1, 2, 3]
-	end
-
 end
