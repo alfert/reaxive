@@ -58,7 +58,7 @@ defmodule Reaxive.Rx.Impl do
 	@spec subscribe(Observable.t, Observer.t) :: (() -> :ok)
 	def subscribe(observable, observer) do
 		try do
-			:ok = GenServer.call(observable, {:subscribe, observer})
+			:ok = GenServer.cast(observable, {:subscribe, observer})
 		catch
 			#########################
 			##  Hier kann viel schief gehen, sobald der observable bereits fertig ist
@@ -131,18 +131,6 @@ defmodule Reaxive.Rx.Impl do
 		GenServer.call(observable, {:on_subscribe, on_subscribe})
 
 	@doc "All request-reply calls for setting up the Rx."
-	def handle_call({:subscribe, observer}, _from, 
-			%__MODULE__{subscribers: [], on_subscribe: nil} = state), do:
-		do_subscribe(state, observer)
-	def handle_call({:subscribe, observer}, _from, 
-			%__MODULE__{subscribers: [], on_subscribe: on_subscribe} = state) do
-		# If the on_subscribe hook is set, we call it on first subscription.
-		# Introduced for properly implementing the Enum/Stream generator
-		on_subscribe.()
-		do_subscribe(state, observer)
-	end
-	def handle_call({:subscribe, observer}, _from, %__MODULE__{subscribers: sub} = state), do:
-		do_subscribe(state, observer)
 	def handle_call({:unsubscribe, observer}, _from, %__MODULE__{subscribers: sub} = state) do
 		new_sub = List.delete(sub, observer)
 		new_state = %__MODULE__{state | subscribers: new_sub}
@@ -181,7 +169,19 @@ defmodule Reaxive.Rx.Impl do
 	def on_error(observer, exception), do:
 		:ok = GenServer.cast(observer, {:on_error, exception})
 
-	@doc "Asynchronous callback. Used for processing values."
+	@doc "Asynchronous callback. Used for processing values and subscription."
+	def handle_cast({:subscribe, observer}, 
+			%__MODULE__{subscribers: [], on_subscribe: nil} = state), do:
+		do_subscribe(state, observer)
+	def handle_cast({:subscribe, observer},  
+			%__MODULE__{subscribers: [], on_subscribe: on_subscribe} = state) do
+		# If the on_subscribe hook is set, we call it on first subscription.
+		# Introduced for properly implementing the Enum/Stream generator
+		on_subscribe.()
+		do_subscribe(state, observer)
+	end
+	def handle_cast({:subscribe, observer}, %__MODULE__{subscribers: sub} = state), do:
+		do_subscribe(state, observer)
 	def handle_cast({tag, v} = value, state) do
 		# Logger.info "RxImpl #{inspect self} got message #{inspect value} in state #{inspect state}"
 		new_state = handle_value(state, value)
@@ -254,7 +254,8 @@ defmodule Reaxive.Rx.Impl do
 	@doc "Internal function for subscribing a new `observer`"
 	def do_subscribe(%__MODULE__{subscribers: sub}= state, observer) do
 		# Logger.info "RxImpl #{inspect self} subscribes to #{inspect observer} in state #{inspect state}"
-		{:reply, :ok, %__MODULE__{state | subscribers: [observer | sub]}}
+		# {:reply, :ok, %__MODULE__{state | subscribers: [observer | sub]}}
+		{:noreply,%__MODULE__{state | subscribers: [observer | sub]}}
 	end
 
 	@doc "Internal function to notify subscribers, knows about ignoring notifies."
