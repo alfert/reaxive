@@ -49,7 +49,7 @@ defmodule Reaxive.Rx do
 		# Logger.info "Evaluating #{inspect e}"
 		exp.()
 	end
-	# def eval(exp), do: exp
+	def eval(exp), do: exp
 	
 	defimpl Observable, for: Reaxive.Rx.Lazy do
 		def subscribe(observable, observer) do
