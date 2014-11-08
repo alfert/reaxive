@@ -134,7 +134,6 @@ defmodule Reaxive.Rx.Impl do
 	def handle_call({:unsubscribe, observer}, _from, %__MODULE__{subscribers: sub} = state) do
 		new_sub = List.delete(sub, observer)
 		new_state = %__MODULE__{state | subscribers: new_sub}
-		new_state = disconnect(new_state)
 		case terminate?(new_state) do
 			true  -> {:stop, :normal, new_state}
 			false -> {:reply, :ok, new_state}
