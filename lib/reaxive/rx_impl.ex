@@ -183,27 +183,21 @@ defmodule Reaxive.Rx.Impl do
 		do_subscribe(state, observer)
 	def handle_cast({tag, v} = value, state) do
 		# Logger.info "RxImpl #{inspect self} got message #{inspect value} in state #{inspect state}"
-		new_state = handle_value(state, value)
-		# checking for termination after every messages makes no sense. 
-		# TODO: Check whether auto termination after on_error / on_complete is helpful
-		# case terminate?(new_state) do
-		# 	true  -> {:stop, :normal, new_state}
-		# 	false -> {:noreply, new_state}
-		# end
-		{:noreply, new_state}
+		handle_value(state, value)
 	end
 
 	@doc """
 	Internal function to handle new values, errors or completions. If `state.action` is 
 	`:nil`, the value is propagated without any modification.
 	"""
+	@spec handle_value(%__MODULE__{}, rx_propagate) :: {:noreply | :stop, %__MODULE__{}}
 	def handle_value(%__MODULE__{active: true, action: nil} = state, {:on_completed, nil}) do
 		notify({:cont, {:on_completed, nil}}, state)
 		disconnect(state)
 	end
 	def handle_value(%__MODULE__{active: true, action: nil} = state, v) do #  = {:on_next, value}) do
 		notify({:cont, v}, state)
-		state
+		{:noreply, state}
 	end
 	def handle_value(%__MODULE__{active: true, sources: src} = state, e = {:on_error, exception}) do
 		notify({:cont, e}, state)
@@ -220,7 +214,7 @@ defmodule Reaxive.Rx.Impl do
 			new_state = %__MODULE__{state | accu: :lists.reverse(new_accu)}
 			case tag do 
 				:halt -> disconnect(new_state)
-				_ -> new_state
+				_ -> {:noreply, new_state}
 			end
 		catch 
 			what, message -> 
@@ -230,7 +224,7 @@ defmodule Reaxive.Rx.Impl do
 				handle_value(state, {:on_error, {what, message}})
 		end
 	end 
-	def handle_value(%__MODULE__{active: false} = state, _value), do: state
+	def handle_value(%__MODULE__{active: false} = state, _value), do: {:noreply, state}
 
 	def do_action(fun, value, accu, new_accu) when is_function(fun, 1), do: fun . ({value, accu, new_accu})
 	def do_action(fun, value, accu, new_accu) when is_function(fun, 2), do: fun . (value, accu)
@@ -242,12 +236,21 @@ defmodule Reaxive.Rx.Impl do
 			
 
 	@doc "Internal function to disconnect from the sources"
+	@spec disconnect(%__MODULE__{}) :: {:noreply | :stop, %__MODULE__{}}
 	def disconnect(%__MODULE__{active: true, sources: src} = state) do
 		src |> Enum.each &Disposable.dispose(&1) 
-		%__MODULE__{state | active: false, subscribers: []}
+		new_state = %__MODULE__{state | active: false, subscribers: []}
+		if terminate?(new_state), 
+			do: {:stop, :normal, new_state},
+			else: {:noreply, new_state}
+
 	end
 	# disconnecting from a disconnected state does not change anything
-	def disconnect(%__MODULE__{active: false, subscribers: []} = state), do: state
+	def disconnect(%__MODULE__{active: false, subscribers: []} = state) do
+		if terminate?(state), 
+			do: {:stop, :normal, state},
+			else: {:noreply, state}
+	end
 	
 
 	@doc "Internal function for subscribing a new `observer`"
