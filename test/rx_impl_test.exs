@@ -33,12 +33,12 @@ defmodule ReaxiveTest do
 		Process.flag(:trap_exit, true)
 
 
-		_disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
+		disp_me = Reaxive.Rx.Impl.subscribe(rx, simple_observer_fun(self))
 		Reaxive.Rx.Impl.on_completed(rx)
 		assert_receive {:on_completed, nil}
 
 		Reaxive.Rx.Impl.on_next(rx, :x)
-
+		disp_me.()
 		# refute Process.alive? rx
 		assert_receive {:EXIT, ^rx, _}
 	end
