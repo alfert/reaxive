@@ -292,26 +292,18 @@ defmodule Reaxive.Rx do
 	def merge(rx1, rx2), do: merge([rx1, rx2])
 	@spec merge([Observable.t]) :: Observable.t
 	def merge(rxs) when is_list(rxs) do
-#		lazy do 
-			{:ok, rx} = Reaxive.Rx.Impl.start("merge", @rx_defaults)
+		{:ok, rx} = Reaxive.Rx.Impl.start("merge", @rx_defaults)
 
-			# we need a reduce like function, that
-			#  a) aborts immediately if an Exception occurs
-			#  b) finishes only after all sources have finished
-			n = length(rxs)
-			fold_fun = fn
-			    ({:on_next, v}, k) -> {:cont, {:on_next, v}, k} 
-				({:on_completed, v}, 1) -> {:cont, {:on_completed, v}, 0}
-				({:on_completed, v}, k) -> {:ignore, {:on_completed, v}, k-1}
-				({:on_error, v}, k) -> {:cont, {:on_error, v}, k}
-			end
-			Reaxive.Rx.Impl.fun(rx, fold_fun, n)
-			# subscribe to all originating sequences ...
-			disposes = rxs |> Enum.map &Observable.subscribe(&1, rx)
-			# and set the new disposables as sources.
-			:ok = Reaxive.Rx.Impl.source(rx, disposes)
-			rx
-#		end
+		# we need a reduce like function, that
+		#  a) aborts immediately if an Exception occurs
+		#  b) finishes only after all sources have finished
+		n = length(rxs)
+		Reaxive.Rx.Impl.compose(rx, Sync.merge(n))
+		# subscribe to all originating sequences ...
+		disposes = rxs |> Enum.map &Observable.subscribe(&1, rx)
+		# and set the new disposables as sources.
+		:ok = Reaxive.Rx.Impl.source(rx, disposes)
+		rx
 	end
 	
 	@doc """
@@ -369,18 +361,12 @@ defmodule Reaxive.Rx do
 		Dict.update(buffer, index, fn(old) -> [value | old] end)
 	end
 
+	@doc "Sums up all events of the sequence and returns the sum as number"
 	@spec sum(Observable.t) :: number
 	def sum(rx) do
 		{sum_fun, acc} = Sync.sum()
 		:ok = Reaxive.Rx.Impl.compose(rx, sum_fun, acc)
-
 		rx |> first
-		# fun = fn
-		# 	({:on_next, entry}, acc) -> {:ignore, nil, entry + acc} 
-		# 	({:on_completed, _}, acc) -> {:halt, {:on_next, acc}, acc}
-		# end
-
-		# rx |> reduce(0, fun) |> first
 	end
 	
 	def accumulator(rx) do
