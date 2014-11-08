@@ -11,6 +11,7 @@ defmodule ReaxiveLazyTest do
 	test "lazy simple function" do
 		y = Rx.lazy(5 |> inc)
 		assert %{} = y
+		assert %Rx.Lazy{} = y
 		assert 6 = Rx.eval(y)
 	end
 
