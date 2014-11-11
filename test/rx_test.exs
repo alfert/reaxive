@@ -4,6 +4,8 @@ defmodule RxTest do
 	require Integer
 	alias Reaxive.Rx
 
+	require Reaxive.Sync, as: Sync
+
 	require Logger
 
 	# one 1 second instead of 30 seconds
@@ -16,10 +18,10 @@ defmodule RxTest do
 		o = simple_observer_fun(self)
 		rx2 = Observable.subscribe(rx1, o)
 
-		Rx.Impl.subscribers(rx) |> 
-			Enum.each(fn(r) -> assert is_pid(r)end)
+		#Rx.Impl.subscribers(rx) |> 
+		#	Enum.each(fn(r) -> assert is_pid(r)end)
 		# TODO: find a way to check the intended condition
-		# assert Rx.Impl.subscribers(rx1) == [o]
+		assert Rx.Impl.subscribers(rx1) == [o]
 
 		Rx.Impl.on_next(rx, 1)
 		assert_receive {:on_next, 2}
@@ -75,7 +77,7 @@ defmodule RxTest do
 		o = simple_observer_fun(self)
 		all_procs = Process.list()
 		rxs = values |> Rx.generate(1) |> Rx.as_text 
-		assert %Rx.Lazy{} = rxs
+		assert is_pid(rxs)
 		disp_me =  rxs |> Observable.subscribe(o)
 		assert_receive {:on_completed, nil}
 
@@ -118,14 +120,23 @@ defmodule RxTest do
 		assert Enum.all?(odds, &Integer.is_odd/1)
 	end
 
+	test "map and filter compose together" do
+		values = 1..20 
+		odds = values |> Rx.generate(1) |> Rx.filter(&Integer.is_odd/1) |>
+			Rx.map(&inc/1) |> Rx.map(&inc/1) |> Rx.stream |> Enum.to_list
+
+		assert odds == (values |> Enum.filter(&Integer.is_odd/1) |> Enum.map(&inc/1) |> Enum.map(&inc/1))
+		assert Enum.all?(odds, &Integer.is_odd/1)
+	end
+
 	test "fold the past" do 
 		values = 1..10
 
-		f = fn
-			({:on_next, event}, accu)           -> {:cont, {:on_next, accu + event}, accu + event}
-			({:on_completed, _event} = e, accu) -> {:cont, e, accu}
-		end
-		{:ok, sum} = values |> Rx.generate(1) |> Rx.reduce(0, f) |> Rx.stream |> 
+		f = Sync.full_behavior(0, 
+			fn(v, acc, a, new_acc) -> Sync.ignore(v, acc, v+a, new_acc) end,
+			fn(v, acc, a, new_acc) -> Sync.emit_and_halt(acc, a, new_acc) end,
+			fn(v, acc, a, new_acc) -> Sync.error(v, acc, a, new_acc) end)
+		{:ok, sum} = values |> Rx.generate(1) |> Rx.reduce(f) |> Rx.stream |> 
 			Stream.take(-1) |> Enum.fetch(0)
 
 		assert sum == Enum.sum(values)
@@ -164,7 +175,7 @@ defmodule RxTest do
 		all_procs = Process.list()
 		o = simple_observer_fun(self)
 		error = Rx.error(exception) 
-		disp_me = error |> Observable.subscribe(o)
+		disp_me = error |> Rx.as_text |> Observable.subscribe(o)
 		assert_receive {:on_error, ^exception}
 		disp_me.()
 		# refute Process.alive?(error)

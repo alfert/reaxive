@@ -1,6 +1,7 @@
 defmodule Reaxive.Rx do
 
 	require Logger
+	alias Reaxive.Sync
 
 	@moduledoc """
 	This module implements the combinator on reactive streams of events. 
@@ -48,7 +49,7 @@ defmodule Reaxive.Rx do
 		# Logger.info "Evaluating #{inspect e}"
 		exp.()
 	end
-	# def eval(exp), do: exp
+	def eval(exp), do: exp
 	
 	defimpl Observable, for: Reaxive.Rx.Lazy do
 		def subscribe(observable, observer) do
@@ -77,6 +78,7 @@ defmodule Reaxive.Rx do
 	"""
 	def error(%{__exception__: true} = exception, timeout \\ @rx_timeout) do
 		delayed_start(fn(rx) -> 
+#			Logger.info("do on_error with #{inspect exception}")
 			Observer.on_error(rx, exception) end, "error", timeout)
 	end
 	
@@ -93,33 +95,7 @@ defmodule Reaxive.Rx do
 			:ok = Reaxive.Rx.Impl.source(rx, source)
 		end, "start_with")
 	end
-	
-
-	@doc """
-	The `map` functions takes an observable `rx` and applies function `fun` to 
-	each of its values.
-
-	In ELM, this function is called `lift`, since it lifts a pure function into 
-	a signal, i.e. into an observable. 
-
-	In Reactive Extensions, this function is called `Select`. 
-	"""
-	@spec map(Observable.t, (... ->any) ) :: Observable.t
-	def map(rx, fun) do
-		lazy do 
-			{:ok, new_rx} = Reaxive.Rx.Impl.start("map", @rx_defaults)
-
-			mapper = fn
-				({:on_next, v}, acc) -> {:cont, {:on_next, fun.(v)}, acc}
-				({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
-			end
-			:ok = Reaxive.Rx.Impl.fun(new_rx, mapper)
-			source = Observable.subscribe(rx, new_rx)
-			:ok = Reaxive.Rx.Impl.source(new_rx, source)
-			new_rx
-		end
-	end
-	
+		
 	@doc """
 	The `generate` function takes a collection and generates for each 
 	element of the collection an event. The delay between the events 
@@ -165,19 +141,17 @@ defmodule Reaxive.Rx do
 	"""
 	@spec delayed_start(((Observer.t) -> any), String.t, pos_integer) :: Observable.t
 	def delayed_start(generator, id \\ "delayed_start", timeout \\ @rx_timeout) do
-		lazy do 
-			{:ok, rx} = Reaxive.Rx.Impl.start(id, @rx_defaults)
-			delayed = fn() -> 
-				receive do
-					:go -> generator.(rx)
-				after timeout ->
-					Observer.on_error(rx, :timeout)
-				end
+		{:ok, rx} = Reaxive.Rx.Impl.start(id, @rx_defaults)
+		delayed = fn() -> 
+			receive do
+				:go -> generator.(rx)
+			after timeout ->
+				Observer.on_error(rx, :timeout)
 			end
-			pid = spawn(delayed)
-			Reaxive.Rx.Impl.on_subscribe(rx, fn()-> send(pid, :go) end)
-			rx		
 		end
+		pid = spawn(delayed)
+		Reaxive.Rx.Impl.on_subscribe(rx, fn()-> send(pid, :go) end)
+		rx		
 	end
 	
 	@doc """
@@ -224,29 +198,33 @@ defmodule Reaxive.Rx do
 
 	@doc """
 	This function filter the event sequence such that only those
-	events ŕemain in the sequence for which `pred` returns true. 
+	events remain in the sequence for which `pred` returns true. 
 
 	In Reactive Extensions, this function is called `Where`. 
 	"""
 	@spec filter(Observable.t, (any -> boolean)) :: Observable.t
 	def filter(rx, pred) do
-		lazy do
-			filter_fun = fn
-				({:on_next, v}, acc) -> case pred.(v) do 
-						true  -> {:cont, {:on_next, v}, acc}
-						false -> {:ignore, v, acc}
-					end
-				({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
-			end
-			
-			{:ok, new_rx} = Reaxive.Rx.Impl.start()
-			:ok = Reaxive.Rx.Impl.fun(new_rx, filter_fun)
-			source = Observable.subscribe(rx, new_rx)
-			:ok = Reaxive.Rx.Impl.source(new_rx, source)
-			new_rx
-		end
+		{filter_fun, acc} = Sync.filter(pred)
+		:ok = Reaxive.Rx.Impl.compose(rx, filter_fun, acc)
+		rx
 	end
-	
+
+
+	@doc """
+	The `map` functions takes an observable `rx` and applies function `fun` to 
+	each of its values.
+
+	In ELM, this function is called `lift`, since it lifts a pure function into 
+	a signal, i.e. into an observable. 
+
+	In Reactive Extensions, this function is called `Select`. 
+	"""
+	@spec map(Observable.t, (... ->any) ) :: Observable.t
+	def map(rx, fun) do
+		{mapper, acc} = Sync.map(fun)
+		:ok = Reaxive.Rx.Impl.compose(rx, mapper, acc)
+		rx
+	end
 
 	@doc """
 	This function considers the past events to produce new events. 
@@ -255,8 +233,13 @@ defmodule Reaxive.Rx do
 	In Elixir, it is the convention to call the fold function `reduce`, therefore
 	we stick to this convention.
 
-	This fold-function itself is somewhat complicated. 
+	This fold-function itself must follow the conventions of `Reaxive.Sync` module. 
 	"""
+	@spec reduce(Observable.t, {Reaxive.Sync.reduce_fun_t, any}) :: Observable.t
+	def reduce(rx, {reduce_fun, acc} = f) do
+		:ok = Reaxive.Rx.Impl.compose(rx, f)
+		rx
+	end	
 	@spec reduce(Observable.t, any, ((any, Observable.t) -> Observable.t)) :: Observable.t
 	def reduce(rx, acc, fun) when is_function(fun, 2) do
 		lazy do 
@@ -279,12 +262,9 @@ defmodule Reaxive.Rx do
 	"""
 	@spec take(Observable.t, pos_integer) :: Observable.t
 	def take(rx, n) when n >= 0 do
-		fun = fn
-			({:on_next, _v}, 0) -> {:cont, {:on_completed, nil}, n}
-		    ({:on_next, v}, k) -> {:cont, {:on_next, v}, k-1} 
-			({:on_completed, v}, acc) -> {:cont, {:on_completed, v}, acc}
-		end
-		reduce(rx, n, fun)
+		{take_fun, acc} = Sync.take(n)
+		:ok = Reaxive.Rx.Impl.compose(rx, take_fun, acc)
+		rx
 	end
 
 	@doc """
@@ -318,26 +298,18 @@ defmodule Reaxive.Rx do
 	def merge(rx1, rx2), do: merge([rx1, rx2])
 	@spec merge([Observable.t]) :: Observable.t
 	def merge(rxs) when is_list(rxs) do
-		lazy do 
-			{:ok, rx} = Reaxive.Rx.Impl.start("merge", @rx_defaults)
+		{:ok, rx} = Reaxive.Rx.Impl.start("merge", @rx_defaults)
 
-			# we need a reduce like function, that
-			#  a) aborts immediately if an Exception occurs
-			#  b) finishes only after all sources have finished
-			n = length(rxs)
-			fold_fun = fn
-			    ({:on_next, v}, k) -> {:cont, {:on_next, v}, k} 
-				({:on_completed, v}, 1) -> {:cont, {:on_completed, v}, 0}
-				({:on_completed, v}, k) -> {:ignore, {:on_completed, v}, k-1}
-				({:on_error, v}, k) -> {:cont, {:on_error, v}, k}
-			end
-			Reaxive.Rx.Impl.fun(rx, fold_fun, n)
-			# subscribe to all originating sequences ...
-			disposes = rxs |> Enum.map &Observable.subscribe(&1, rx)
-			# and set the new disposables as sources.
-			:ok = Reaxive.Rx.Impl.source(rx, disposes)
-			rx
-		end
+		# we need a reduce like function, that
+		#  a) aborts immediately if an Exception occurs
+		#  b) finishes only after all sources have finished
+		n = length(rxs)
+		Reaxive.Rx.Impl.compose(rx, Sync.merge(n))
+		# subscribe to all originating sequences ...
+		disposes = rxs |> Enum.map &Observable.subscribe(&1, rx)
+		# and set the new disposables as sources.
+		:ok = Reaxive.Rx.Impl.source(rx, disposes)
+		rx
 	end
 	
 	@doc """
@@ -395,13 +367,12 @@ defmodule Reaxive.Rx do
 		Dict.update(buffer, index, fn(old) -> [value | old] end)
 	end
 
+	@doc "Sums up all events of the sequence and returns the sum as number"
+	@spec sum(Observable.t) :: number
 	def sum(rx) do
-		fun = fn
-			({:on_next, entry}, acc) -> {:ignore, nil, entry + acc} 
-			({:on_completed, _}, acc) -> {:halt, {:on_next, acc}, acc}
-		end
-
-		rx |> reduce(0, fun) |> first
+		{sum_fun, acc} = Sync.sum()
+		:ok = Reaxive.Rx.Impl.compose(rx, sum_fun, acc)
+		rx |> first
 	end
 	
 	def accumulator(rx) do

@@ -11,6 +11,7 @@ defmodule ReaxiveLazyTest do
 	test "lazy simple function" do
 		y = Rx.lazy(5 |> inc)
 		assert %{} = y
+		assert %Rx.Lazy{} = y
 		assert 6 = Rx.eval(y)
 	end
 
@@ -42,15 +43,5 @@ defmodule ReaxiveLazyTest do
 		Disposable.dispose(rx2)
 	end
 
-
-	test "lazy Rx" do
-		l = [:no_value_assigned]
-		r = [1, 2, 3] |> Rx.generate
-		assert %Rx.Lazy{} = r
-		# How do find out, which functions are called and which message are passed
-		# between all the Rx.Impls?
-		l = r |> Rx.stream |> Enum.to_list
-		assert l == [1, 2, 3]
-	end
 
 end
