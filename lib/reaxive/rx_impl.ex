@@ -100,7 +100,7 @@ defmodule Reaxive.Rx.Impl do
 	"""	
 	def source(observable, disposable) do
 		try do
-			GenServer.call(observable, {:source, disposable})
+			GenServer.cast(observable, {:source, disposable})
 		catch
 			:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] -> 
 				Logger.debug "source failed because observable does not exist anymore"
@@ -143,12 +143,6 @@ defmodule Reaxive.Rx.Impl do
 			false -> {:reply, :ok, new_state}
 		end
 	end
-	def handle_call({:source, disposable}, _from, %__MODULE__{sources: []}= state) when is_list(disposable), do:
-		{:reply, :ok, %__MODULE__{state | sources: disposable}}
-	def handle_call({:source, disposable}, _from, %__MODULE__{sources: src}= state) when is_list(disposable), do:
-		{:reply, :ok, %__MODULE__{state | sources: disposable ++ src}}
-	def handle_call({:source, disposable}, _from, %__MODULE__{sources: src}= state), do:
-		{:reply, :ok, %__MODULE__{state | sources: [disposable | src]}}
 	def handle_call({:fun, fun, acc}, _from, %__MODULE__{action: nil}= state), do:
 		{:reply, :ok, %__MODULE__{state | action: fun, accu: acc}}
 	def handle_call({:compose, fun, acc}, _from, %__MODULE__{action: nil, accu: []}= state), do:
@@ -185,6 +179,12 @@ defmodule Reaxive.Rx.Impl do
 	end
 	def handle_cast({:subscribe, observer}, %__MODULE__{subscribers: sub} = state), do:
 		do_subscribe(state, observer)
+	def handle_cast({:source, disposable}, %__MODULE__{sources: []}= state) when is_list(disposable), do:
+		{:noreply, %__MODULE__{state | sources: disposable}}
+	def handle_cast({:source, disposable}, %__MODULE__{sources: src}= state) when is_list(disposable), do:
+		{:noreply, %__MODULE__{state | sources: disposable ++ src}}
+	def handle_cast({:source, disposable}, %__MODULE__{sources: src}= state), do:
+		{:noreply, %__MODULE__{state | sources: [disposable | src]}}
 	def handle_cast({tag, v} = value, state) do
 		# Logger.info "RxImpl #{inspect self} got message #{inspect value} in state #{inspect state}"
 		handle_value(state, value)
