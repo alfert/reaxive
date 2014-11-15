@@ -49,12 +49,13 @@ defmodule Reaxive.Rx.Impl do
 		{:ok, s}
 	end
 	
-	# TODO:
-	# Provide a function "connect" that is used to connect Rxs, similar as 
-	# subscribe does now. But connect does not start any actions, this happens 
-	# only after calling subscribe.
+	@doc """
+	Subscribes a new observer. Returns a function for unsubscribing the observer. 
 
-	@doc "Subscribes a new observer. Returns a function for unsubscription"
+	Fails grafecully with an `on_error` message to the observer, if the 
+	observable is not or no longer available. In this case, an do-nothing unsubciption
+	functions is returned (since no subscription has occured in the first place).
+	"""
 	@spec subscribe(Observable.t, Observer.t) :: (() -> :ok)
 	def subscribe(observable, observer) do
 		# dispose_fun is defined first to circumevent a problem in Erlang's cover-tool, 
@@ -71,20 +72,11 @@ defmodule Reaxive.Rx.Impl do
 			:ok = GenServer.cast(observable, {:subscribe, observer})
 			dispose_fun
 		catch
-			#########################
-			##  Hier kann viel schief gehen, sobald der observable bereits fertig ist
-			##  Dann schlagen die Aufrufe fehl, weil das Ziel nicht mehr da ist. 
-			##  
-			##  Diese Situation muss über den komplette Code hinweg 
-			##  systematisch überprüft werden, da dies eine Race-Condition ist, 
-			##  die immer mal wieder auftreten kann. 
-			#########################
-
 			:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] -> 
 				Logger.debug "subscribe failed because observable #{inspect observable} does not exist anymore"
 				Logger.debug Exception.format_stacktrace()
 				Observer.on_error(observer, :subscribe_failed)
-				dispose_fun
+				fn() -> :ok end
 		end
 	end
 	
