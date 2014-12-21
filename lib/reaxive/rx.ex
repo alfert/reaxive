@@ -300,16 +300,6 @@ defmodule Reaxive.Rx do
 		:ok = Reaxive.Rx.Impl.compose(rx, f)
 		rx
 	end	
-	@spec reduce(Observable.t, any, ((any, Observable.t) -> Observable.t)) :: Observable.t
-	def reduce(rx, acc, fun) when is_function(fun, 2) do
-		lazy do 
-			{:ok, new_rx} = Reaxive.Rx.Impl.start("reduce", @rx_defaults)
-			:ok = Reaxive.Rx.Impl.fun(new_rx, fun, acc)
-			disp = Observable.subscribe(rx, new_rx)
-			:ok = Reaxive.Rx.Impl.source(new_rx, disp)
-			new_rx		
-		end
-	end
 
 	@doc """
 	The function `start_with` takes a stream of events `prev_rx` and a collection. 
