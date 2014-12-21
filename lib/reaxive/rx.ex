@@ -105,6 +105,13 @@ defmodule Reaxive.Rx do
 	This function is always a root in the net of communicating
 	observables and does not depend on another observable.
 
+	This function can also be used with a lazy stream, such that unfolds
+	and the like generate infininte many values. A typical example is the 
+	natural number sequence or the tick sequence
+
+		naturals = Rx.generate(Stream.unfold(0, fn(n) -> {n, n+1}))
+		ticks = Rx.generate(Stream.unfold(:tick, fn(x) -> {x, x}))
+
 	*Important Remarks:*
 
 	* The current implementation does not handle aborted calculations 
