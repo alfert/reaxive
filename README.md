@@ -17,13 +17,13 @@ entire sequence of transformation.
 
 The new code (v0.0.2 series) is a major rework that implements ideas of 
 
-* (http://www.introtorx.com)
-* (http://go.microsoft.com/fwlink/?LinkID=205219)
+* http://www.introtorx.com
+* http://go.microsoft.com/fwlink/?LinkID=205219
 
 and also of Clojure's transducers introduced by Rich Hickey 
 
-* (http://blog.cognitect.com/blog/2014/8/6/transducers-are-coming)
-* (http://clojure.org/transducers)
+* http://blog.cognitect.com/blog/2014/8/6/transducers-are-coming
+* http://clojure.org/transducers
 
 ## Contributing
 
