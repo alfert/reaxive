@@ -1,20 +1,20 @@
 defmodule Reaxive.Sync do
 	@moduledoc """
-	Implements the Reaxive Extensions as synchronous function composition similar to 
-	Elixir's `Enum` and `Stream` libraries, but adheres to the `Observable` protocol. 
+	Implements the Reaxive Extensions as synchronous function composition similar to
+	Elixir's `Enum` and `Stream` libraries, but adheres to the `Observable` protocol.
 
 	# Design Idea
 
-	The operators are used in two phases. First, they are composed to a single function, 
+	The operators are used in two phases. First, they are composed to a single function,
 	which represents the sequence of the operators together with their initial accumulator
-	list. The list might be empty, if no accumulator is used by the given operators (e.g. 
-	if using `map` and `filter` only). 
+	list. The list might be empty, if no accumulator is used by the given operators (e.g.
+	if using `map` and `filter` only).
 
 	The second phase is the execution phase. Similar to transducers, the composed operators
 	make no assumptions how the calculated values are used and how the accumulators are stored
-	between two operator evaluations. This could be done as inside `Rx.Impl`, but other 
+	between two operator evaluations. This could be done as inside `Rx.Impl`, but other
 	implementations are possible. The result, i.e. which send to the consumers, is always the head
-	of the accumulator, unless the reason tag is `:ignore` or `:halt`. 
+	of the accumulator, unless the reason tag is `:ignore` or `:halt`.
 
 	"""
 
@@ -30,13 +30,13 @@ defmodule Reaxive.Sync do
 
 
 	@doc """
-	This macro encodes the default behavior for reduction functions, which is capable of 
+	This macro encodes the default behavior for reduction functions, which is capable of
 	ignoring values, of continuing work with `:on_next`, and of piping values for `:on_completed`
 	and `:on_error`.
 
-	You must provide the implementation for the `:on_next` branch. Implicit parameters are the 
+	You must provide the implementation for the `:on_next` branch. Implicit parameters are the
 	value `v` and the accumulator list `acc`, the current accumulator `a` and the new accumulator
-	`new_acc`. 
+	`new_acc`.
 
 	"""
 	defmacro default_behavior(accu \\ nil, do: clause) do
@@ -56,32 +56,32 @@ defmodule Reaxive.Sync do
 	end
 
 	## These macros build up the return values of the reducers.
-	defmacro halt(acc, new_a, new_acc), do: 
+	defmacro halt(acc, new_a, new_acc), do:
 		quote do: {{:on_completed, unquote(nil)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
-	defmacro emit_and_halt(acc, new_a, new_acc), do: 
+	defmacro emit_and_halt(acc, new_a, new_acc), do:
 		quote do: {:cont, {:on_completed, unquote(new_a)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
-	defmacro error(error, acc, new_a, new_acc), do: 
+	defmacro error(error, acc, new_a, new_acc), do:
 		quote do: {{:on_error, unquote(error)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
-	defmacro emit(v, acc, new_a, new_acc), do: 
+	defmacro emit(v, acc, new_a, new_acc), do:
 		quote do: {{:on_next, unquote(v)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
-	defmacro ignore(v, acc, new_a, new_acc), do: 
+	defmacro ignore(v, acc, new_a, new_acc), do:
 		quote do: {:ignore, unquote(v), unquote(acc), [unquote(new_a) | unquote(new_acc)]}
 
 	@doc "Reducer function for filter"
 	@spec filter(((any) -> boolean)) :: {reduce_fun_t, any}
 	def filter(pred) do
 		default_behavior do
-			case pred.(v) do 
+			case pred.(v) do
 				true  -> emit(v, acc, a, new_acc)
 				false -> ignore(v, acc, a, new_acc)
 			end
 		end
 	end
-	
+
 	@doc "Reducer function for map."
 	@spec map(((any) -> any)) :: {reduce_fun_t, any}
 	def map(fun) do
-		default_behavior do: emit(fun.(v), acc, a, new_acc) 
+		default_behavior do: emit(fun.(v), acc, a, new_acc)
 	end
 
 	@doc "Reducer function for take"
@@ -91,7 +91,7 @@ defmodule Reaxive.Sync do
 				r = halt(acc, a, new_acc)
 				# IO.puts "a == 0, r = #{inspect r}"
 				r
-			else 
+			else
 				emit(v, acc, a-1, new_acc)
 			end
 		end
@@ -101,17 +101,17 @@ defmodule Reaxive.Sync do
 	This function takes an initial accumulator and three step functions. The step functions
 	have as first parameter the current value, followed by the list of next accumulators, the current
 	accumulator, and the list of future accumulators. The three functions handle the situation of
-	the next value, of completion of the stream and of the error situation. 
+	the next value, of completion of the stream and of the error situation.
 
-	Handling the `ignore` case is part of `full_behavior` and cannot be handled by the step functions. 
+	Handling the `ignore` case is part of `full_behavior` and cannot be handled by the step functions.
 
-	It is best to use the `halt`, `emit`, `ignore` and `error` macros to produce proper return 
-	values of the three step functions. 
+	It is best to use the `halt`, `emit`, `ignore` and `error` macros to produce proper return
+	values of the three step functions.
 	"""
 	@spec full_behavior(any, step_fun_t, step_fun_t, step_fun_t) :: {reduce_fun_t, any}
 	def full_behavior(accu \\ nil, next_fun, comp_fun, error_fun) do
 		{
-			fn 
+			fn
 				({{:on_next, v}, [a | acc], new_acc})      -> next_fun . (v, acc, a, new_acc)
 				({{:on_completed, v}, [a | acc], new_acc}) -> comp_fun . (v, acc, a, new_acc)
 				({{:on_error, v}, [a | acc], new_acc})     -> error_fun . (v, acc, a, new_acc)
@@ -123,7 +123,7 @@ defmodule Reaxive.Sync do
 
 	@doc "Returns the sum of input events as sequence with exactly one event."
 	def sum() do
-		full_behavior(0, 
+		full_behavior(0,
 			fn(v, acc, a, new_acc) -> ignore(v, acc, v+a, new_acc) end,
 			fn(v, acc, a, new_acc) -> emit_and_halt(acc, a, new_acc) end,
 			fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end)
@@ -131,15 +131,24 @@ defmodule Reaxive.Sync do
 
 	@doc "Reducer for merging `n` streams"
 	def merge(n) when n > 0 do
-		full_behavior(n, 
-			fn(v, acc, k, new_acc) -> emit(v, acc, k, new_acc) end, 
+		full_behavior(n,
+			fn(v, acc, k, new_acc) -> emit(v, acc, k, new_acc) end,
 			fn
 				(v, acc, 1, new_acc) -> halt(acc, 1, new_acc)  # last complete => complete merge
-				(v, acc, k, new_acc) -> ignore(v, acc, k-1, new_acc) # ignore complete 
+				(v, acc, k, new_acc) -> ignore(v, acc, k-1, new_acc) # ignore complete
 			end,
 			fn(v, acc, k, new_acc) -> error(v, acc, k, new_acc) end
 		)
 	end
-	
+
+	@doc "a filter passing through only distinct values"
+	def distinct(empty_set) do
+		default_behavior(empty_set) do
+			case (Set.member?(a, v)) do
+				true  -> ignore(v, acc, a, new_acc)
+				false -> emit(v, acc, Set.put(a, v), new_acc)
+			end
+		end
+	end
 
 end

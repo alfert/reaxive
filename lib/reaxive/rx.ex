@@ -158,8 +158,11 @@ defmodule Reaxive.Rx do
 	the filter, its required memory can grow for ever, if an unbounded #
 	sequewnce is used.
 	"""
+	@spec distinct(Observer.t) :: Observer.t
 	def distinct(rx) do
-		nil
+		{distinct_fun, acc} = Sync.distinct(HashSet.new())
+		:ok = Reaxive.Rx.Impl.compose(rx, distinct_fun, acc)
+		rx
 	end
 
 

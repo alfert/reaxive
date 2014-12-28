@@ -248,7 +248,9 @@ defmodule RxTest do
 	end
 
 	test "distinct values are filtered out" do
-
+		tens = Rx.naturals(1) |> Rx.take(100) |> Rx.map(&(rem(&1, 10))) |>
+			Rx.distinct() |> Rx.stream |> Enum.sort
+		assert tens == 0..9 |> Enum.to_list
 	end
 
 	def process_leak?(initial_processes, delay \\ 100) do
