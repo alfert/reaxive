@@ -4,26 +4,26 @@ defmodule Reaxive.Rx do
 	alias Reaxive.Sync
 
 	@moduledoc """
-	This module implements the combinator on reactive streams of events. 
+	This module implements the combinator on reactive streams of events.
 
-	The functionality is closely modelled after Reactive Extensions and after ELM. 
-	However, names of function follow the tradition of Elixir's `Enum` and 
+	The functionality is closely modelled after Reactive Extensions and after ELM.
+	However, names of function follow the tradition of Elixir's `Enum` and
 	`Stream` modules, if applicable.
 
-	See the test cases in `rx_test.exs` for usage patterns. 
+	See the test cases in `rx_test.exs` for usage patterns.
 	"""
 
 	# The Rx implementation expect generally to be disposed properly after
-	# usage. Using auto_stop too aggressively is risky, because every event sent to 
+	# usage. Using auto_stop too aggressively is risky, because every event sent to
 	# the Rx which is not properly subscribed might stop the Rx prematurely. Too bad!
 	@rx_defaults [auto_stop: true]
 	@rx_timeout 5_000
-	
+
 	defmodule Lazy do
 		@moduledoc """
 		Datastructure to encode a lazy thunk.
 		"""
-		defstruct expr: nil	
+		defstruct expr: nil
 	end
 
 
@@ -43,14 +43,14 @@ defmodule Reaxive.Rx do
 
 	@doc """
 	Evaluates a lazy expression, encoded in `Rx.Lazy`. Returns the argument
-	if it is not an `Rx.Lazy` encoded 
+	if it is not an `Rx.Lazy` encoded
 	"""
-	def eval(%Lazy{expr: exp} = e) do 
+	def eval(%Lazy{expr: exp} = e) do
 		# Logger.info "Evaluating #{inspect e}"
 		exp.()
 	end
 	def eval(exp), do: exp
-	
+
 	defimpl Observable, for: Reaxive.Rx.Lazy do
 		def subscribe(observable, observer) do
 			rx = Reaxive.Rx.eval(observable)
@@ -64,46 +64,46 @@ defmodule Reaxive.Rx do
 
 	@doc """
 	This is a simple sink for events, which can be used for debugging
-	event streams. 
+	event streams.
 	"""
 	@spec as_text(Observable.t) :: Observable.t
 	def as_text(rx), do: rx |> map(fn(v) -> IO.inspect v end)
 
 	@doc """
-	Concatenates serveral event sequences. 
+	Concatenates serveral event sequences.
 
-	Makes only sense, if the sequences are finite, because all events 
-	from the later sequences need to buffered until the earlier 
-	sequences finish. If any of the sequences produce an error, the concatenation 
+	Makes only sense, if the sequences are finite, because all events
+	from the later sequences need to buffered until the earlier
+	sequences finish. If any of the sequences produce an error, the concatenation
 	is aborted.
 
-	This function cannot easily implemented here. 
+	This function cannot easily implemented here.
 	"""
 	@spec concat([Observable.t]) :: Observable.t
 	def concat(rxs) when is_list(rxs) do
-		lazy do 
+		lazy do
 			{:ok, rx} = Reaxive.Rx.Impl.start("concat", @rx_defaults)
 			# we need a reduce like function, that
 			#  a) aborts immediately if an Exception occurs
 			#  b) finishes only after all sources have finished
 			#  c) buffers all events that are coming from the current
-			#     event sequence 
-			# 
+			#     event sequence
+			#
 			n = length(rxs)
 			# add to each rx a mapped rx which returns {number_of_rx, event} pairs
-			indexed = rxs |> Enum.with_index |> 
+			indexed = rxs |> Enum.with_index |>
 				Enum.map (fn({rx, i}) -> map(rx, fn(v) -> {i, v} end) end)
 
 			fold_fun = fn
 				# a value of the current sequence is pushed out
-			    ({:on_next, {i, v}}, {i, buffer}) -> {:cont, {:on_next, v}, {i, buffer}} 
+			    ({:on_next, {i, v}}, {i, buffer}) -> {:cont, {:on_next, v}, {i, buffer}}
 			    # a value of a not current sequence is buffered
-			    ({:on_next, {i, v}}, {k, buffer}) -> {:ignore, {:on_next, v}, {k, update_buffer(buffer, i, v)}} 
+			    ({:on_next, {i, v}}, {k, buffer}) -> {:ignore, {:on_next, v}, {k, update_buffer(buffer, i, v)}}
 				# the final sequence is finished. Now finish the entíre sequence
 				({:on_completed, {n, v}}, {i, buffer}) -> {:cont, {:on_completed, v}, {n, Dict.delete(buffer, i)}}
 			    # the current sequence is finished. Take the next one, push all ot its buffered events out
 			    # (in reverse order) and ignore the complete
-				({:on_completed, {i, v}}, {i, buffer}) -> 
+				({:on_completed, {i, v}}, {i, buffer}) ->
 					# This won't work, since we need the state of Rx. Hmmmm.
 					Reaxive.Rx.Impl.notify({:cont, {:on_next, v}, {i, buffer}} )
 					{:ignore, {:on_completed, v}, {i + 1, Dict.delete(buffer, i)}}
@@ -118,28 +118,28 @@ defmodule Reaxive.Rx do
 			rx
 		end
 	end
-	
+
 	@spec update_buffer(%{pos_integer => term}, pos_integer, term) :: %{}
 	defp update_buffer(buffer = %{}, index, value) do
 		Dict.update(buffer, index, fn(old) -> [value | old] end)
 	end
 	@doc """
-	The `delayed_start` function starts a generator after the first 
+	The `delayed_start` function starts a generator after the first
 	subscription has arrived. The `generator` gets as argument `rx` the
-	new creately `Rx_Impl` and sends is internally encoded values via 
+	new creately `Rx_Impl` and sends is internally encoded values via
 
 		Observer.on_next(rx, some_value)
 
-	All other functions on `Rx_Impl` and `Observer`, respectivley, can be called 
-	within `generator` as well. 
+	All other functions on `Rx_Impl` and `Observer`, respectivley, can be called
+	within `generator` as well.
 
-	If within `timeout` milliseconds no subscriber has arrived, the 
-	stream of events is stopped. This ensures that we get no memory leak. 
+	If within `timeout` milliseconds no subscriber has arrived, the
+	stream of events is stopped. This ensures that we get no memory leak.
 	"""
 	@spec delayed_start(((Observer.t) -> any), String.t, pos_integer) :: Observable.t
 	def delayed_start(generator, id \\ "delayed_start", timeout \\ @rx_timeout) do
 		{:ok, rx} = Reaxive.Rx.Impl.start(id, @rx_defaults)
-		delayed = fn() -> 
+		delayed = fn() ->
 			receive do
 				:go -> generator.(rx)
 			after timeout ->
@@ -148,25 +148,37 @@ defmodule Reaxive.Rx do
 		end
 		pid = spawn(delayed)
 		Reaxive.Rx.Impl.on_subscribe(rx, fn()-> send(pid, :go) end)
-		rx		
+		rx
 	end
-		
+
+
 	@doc """
-	The `error` function takes an in Elixir defined exception and generate a stream with the 
-	exception as the only element. The stream starts after the first subscription. 
+	The `distinct` transformation is a filter, which only passes values that it
+	has not seen before. Since all distinct values has to be stores inside
+	the filter, its required memory can grow for ever, if an unbounded #
+	sequewnce is used.
+	"""
+	def distinct(rx) do
+		nil
+	end
+
+
+	@doc """
+	The `error` function takes an in Elixir defined exception and generate a stream with the
+	exception as the only element. The stream starts after the first subscription.
 	"""
 	def error(%{__exception__: true} = exception, timeout \\ @rx_timeout) do
-		delayed_start(fn(rx) -> 
+		delayed_start(fn(rx) ->
 #			Logger.info("do on_error with #{inspect exception}")
 			Observer.on_error(rx, exception) end, "error", timeout)
 	end
-	
+
 
 	@doc """
 	This function filter the event sequence such that only those
-	events remain in the sequence for which `pred` returns true. 
+	events remain in the sequence for which `pred` returns true.
 
-	In Reactive Extensions, this function is called `Where`. 
+	In Reactive Extensions, this function is called `Where`.
 	"""
 	@spec filter(Observable.t, (any -> boolean)) :: Observable.t
 	def filter(rx, pred) do
@@ -177,14 +189,14 @@ defmodule Reaxive.Rx do
 
 	@doc """
 	The first element of the event sequence. Does return the first scalar value
-	and dispose the event sequence. The effect is similar to 
+	and dispose the event sequence. The effect is similar to
 
 		rx |> Rx.stream |> Stream.take(1) |> Enum.fetch(0)
 
 	This function is not lazy, but evaluates eagerly and forces the subscription.
 	"""
 	@spec first(Observable.t) :: term
-	def first(rx) do 
+	def first(rx) do
 		o = stream_observer(self)
 		rx2 = Observable.subscribe(rx, o)
 		val = receive do
@@ -197,24 +209,24 @@ defmodule Reaxive.Rx do
 	end
 
 	@doc """
-	The `generate` function takes a collection and generates for each 
-	element of the collection an event. The delay between the events 
-	is the second parameter. The delay also takes place before the 
-	very first event. 
+	The `generate` function takes a collection and generates for each
+	element of the collection an event. The delay between the events
+	is the second parameter. The delay also takes place before the
+	very first event.
 
 	This function is always a root in the net of communicating
 	observables and does not depend on another observable.
 
 	This function can also be used with a lazy stream, such that unfolds
-	and the like generate infininte many values. A typical example is the 
+	and the like generate infininte many values. A typical example is the
 	natural number sequence or the tick sequence
 
-		naturals = Rx.generate(Stream.unfold(0, fn(n) -> {n, n+1}))
-		ticks = Rx.generate(Stream.unfold(:tick, fn(x) -> {x, x}))
+		naturals = Rx.generate(Stream.unfold(0, fn(n) -> {n, n+1} end))
+		ticks = Rx.generate(Stream.unfold(:tick, fn(x) -> {x, x} end))
 
 	*Important Remarks:*
 
-	* The current implementation does not handle aborted calculations 
+	* The current implementation does not handle aborted calculations
 	  properly but will crash.
 	* If the delay is set to too small value (e.g. `0`), then the first few
 	  elements may be swalloed because no subscriber is available. This might
@@ -223,24 +235,24 @@ defmodule Reaxive.Rx do
 	@spec generate(Enumerable.t, pos_integer, pos_integer) :: Observable.t
 	def generate(collection, delay \\ 50, timeout \\ @rx_timeout)
 	def generate(collection, delay, timeout) do
-		send_values = fn(rx) -> 
-			collection |> Enum.each(fn(element) -> 
+		send_values = fn(rx) ->
+			collection |> Enum.each(fn(element) ->
 				:timer.sleep(delay)
 				Observer.on_next(rx, element)
-			end) 
+			end)
 			Observer.on_completed(rx)
-		end	
+		end
 		delayed_start(send_values, "generate", timeout)
 	end
 
 	@doc """
-	The `map` functions takes an observable `rx` and applies function `fun` to 
+	The `map` functions takes an observable `rx` and applies function `fun` to
 	each of its values.
 
-	In ELM, this function is called `lift`, since it lifts a pure function into 
-	a signal, i.e. into an observable. 
+	In ELM, this function is called `lift`, since it lifts a pure function into
+	a signal, i.e. into an observable.
 
-	In Reactive Extensions, this function is called `Select`. 
+	In Reactive Extensions, this function is called `Select`.
 	"""
 	@spec map(Observable.t, (... ->any) ) :: Observable.t
 	def map(rx, fun) do
@@ -250,9 +262,9 @@ defmodule Reaxive.Rx do
 	end
 
 	@doc """
-	Merges two or more event sequences in a non-deterministic order. 
+	Merges two or more event sequences in a non-deterministic order.
 
-	The result sequences finishes after all sequences have finished without errors 
+	The result sequences finishes after all sequences have finished without errors
 	or immediately after the first error.
 	"""
 	@spec merge(Observable.t, Observable.t) :: Observable.t
@@ -272,9 +284,17 @@ defmodule Reaxive.Rx do
 		:ok = Reaxive.Rx.Impl.source(rx, disposes)
 		rx
 	end
-	
+
 	@doc """
-	The `never`function creates a stream of events that never pushes anything. 
+	Generates all naturals numbers starting with `0`.
+	"""
+	@spec naturals(pos_integer, pos_integer) :: Observable.t
+	def naturals(delay \\ 50, timeout \\ @rx_timeout) do
+		generate(Stream.unfold(0, fn(n) -> {n, n+1} end), delay, timeout)
+	end
+
+	@doc """
+	The `never`function creates a stream of events that never pushes anything.
 	"""
 	@spec never() :: Observable.t
 	def never() do
@@ -285,53 +305,53 @@ defmodule Reaxive.Rx do
 			new_rx
 		end
 	end
-	
+
 	@doc """
-	This function considers the past events to produce new events. 
-	Therefore this function is called in ELM `foldp`, folding over the past. 
+	This function considers the past events to produce new events.
+	Therefore this function is called in ELM `foldp`, folding over the past.
 
 	In Elixir, it is the convention to call the fold function `reduce`, therefore
 	we stick to this convention.
 
-	This fold-function itself must follow the conventions of `Reaxive.Sync` module. 
+	This fold-function itself must follow the conventions of `Reaxive.Sync` module.
 	"""
 	@spec reduce(Observable.t, {Reaxive.Sync.reduce_fun_t, any}) :: Observable.t
 	def reduce(rx, {reduce_fun, acc} = f) do
 		:ok = Reaxive.Rx.Impl.compose(rx, f)
 		rx
-	end	
+	end
 
 	@doc """
-	The function `start_with` takes a stream of events `prev_rx` and a collection. 
-	The resulting stream of events has all elements of the colletion, 
+	The function `start_with` takes a stream of events `prev_rx` and a collection.
+	The resulting stream of events has all elements of the colletion,
 	followed by the events of `prev_rx`.
 	"""
 	@spec start_with(Observable.t, Enumerable.t) :: Observable.t
 	def start_with(prev_rx, collection) do
-		delayed_start(fn(rx) -> 
+		delayed_start(fn(rx) ->
 			for e <- collection, do: Observer.on_next(rx, e)
 			source = Observable.subscribe(prev_rx, rx)
 			:ok = Reaxive.Rx.Impl.source(rx, source)
 		end, "start_with")
 	end
-		
-	
-	@doc """
-	Converts a sequence of events into a (infinite) stream of events. 
 
-	This operator is not lazy, but eager, as it forces the subscribe and 
+
+	@doc """
+	Converts a sequence of events into a (infinite) stream of events.
+
+	This operator is not lazy, but eager, as it forces the subscribe and
 	therefore the evaluation of the subscription.
 	"""
 	@spec stream(Observable.t) :: Enumerable.t
 	def stream(rx) do
 		# queue all events in an process and collect them.
-		# the accumulator is the disposable, which does not change. 
+		# the accumulator is the disposable, which does not change.
 		o = stream_observer()
 		Stream.resource(
 			# initialize the stream: Connect with rx
-			fn() -> Observable.subscribe(rx, o) end, 
+			fn() -> Observable.subscribe(rx, o) end,
 			# next element is taken from the message queue
-			fn(acc) -> 
+			fn(acc) ->
 				receive do
 					{:on_next, value} -> {[value], acc}
 					{:on_completed, nil} -> {:halt, acc}
@@ -341,15 +361,15 @@ defmodule Reaxive.Rx do
 			# resource deallocation
 			fn({rx2, e}) -> Disposable.dispose(rx2)
 				 			e
-			  (rx2) -> Disposable.dispose(rx2) 
+			  (rx2) -> Disposable.dispose(rx2)
 
 			end)
 	end
-	
+
 	@doc "A simple observer function, sending tag and value as composed message to the process."
 	def stream_observer(pid \\ self) do
 		fn(tag, value) -> send(pid, {tag, value}) end
-	end		
+	end
 
 	@doc "Sums up all events of the sequence and returns the sum as number"
 	@spec sum(Observable.t) :: number
@@ -360,13 +380,13 @@ defmodule Reaxive.Rx do
 	end
 
 	@doc """
-	This function produces only the first `n` elements of the event sequence. 
-	`n` must be positive. 
+	This function produces only the first `n` elements of the event sequence.
+	`n` must be positive.
 
-	A negative `n` would take elements from the back (the last `n` elements.) 
-	This can be achieved by converting the sequence into a stream and back again: 
+	A negative `n` would take elements from the back (the last `n` elements.)
+	This can be achieved by converting the sequence into a stream and back again:
 
-		rx |> Rx.stream |> Stream.take(-n) |> Rx.generate	
+		rx |> Rx.stream |> Stream.take(-n) |> Rx.generate
 	"""
 	@spec take(Observable.t, pos_integer) :: Observable.t
 	def take(rx, n) when n >= 0 do
@@ -382,9 +402,9 @@ defmodule Reaxive.Rx do
 		# after receiving the :on_completed message.
 
 		# ==> It might be useful to consider the Enum-Protocol for reducers
-		# to communicate between rx_impl nodes and the reducer functions. Interestingly, 
+		# to communicate between rx_impl nodes and the reducer functions. Interestingly,
 		# Enum has {:cont, term} and {:halt, term}, which might be useful here. If we change
-		# from {:on_completed, nil} to {:on_completed, term}, we also have to change the 
+		# from {:on_completed, nil} to {:on_completed, term}, we also have to change the
 		# Observer protocol!
 
 		Reaxive.Rx.Impl.acc(rx)

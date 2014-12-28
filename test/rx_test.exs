@@ -13,12 +13,12 @@ defmodule RxTest do
 
 	test "map function works" do
 		{:ok, rx} = Rx.Impl.start()
-		
-		rx1 = rx |> Rx.map &(&1 + 1) 
+
+		rx1 = rx |> Rx.map &(&1 + 1)
 		o = simple_observer_fun(self)
 		rx2 = Observable.subscribe(rx1, o)
 
-		#Rx.Impl.subscribers(rx) |> 
+		#Rx.Impl.subscribers(rx) |>
 		#	Enum.each(fn(r) -> assert is_pid(r)end)
 		# TODO: find a way to check the intended condition
 		assert Rx.Impl.subscribers(rx1) == [o]
@@ -36,7 +36,7 @@ defmodule RxTest do
 		{:ok, rx} = Rx.Impl.start()
 		o = simple_observer_fun(self)
 
-		rx2 = rx |> Rx.map(&(&1 + 1)) 
+		rx2 = rx |> Rx.map(&(&1 + 1))
 		rx3 = rx2 |> Observable.subscribe(o)
 
 		Rx.Impl.on_next(rx, 1)
@@ -46,14 +46,14 @@ defmodule RxTest do
 		assert_receive {:on_next, 3}
 
 		values = [1, 2, 3, 4]
-		values |> Enum.each fn(v) -> 
-			Observer.on_next(rx, v) 
+		values |> Enum.each fn(v) ->
+			Observer.on_next(rx, v)
 			k = v+1
-			assert_receive {:on_next, ^k} 
+			assert_receive {:on_next, ^k}
 		end
 		Observer.on_completed(rx)
 		assert_receive {:on_completed, nil}
-		
+
 		Disposable.dispose(rx3)
 
 		assert process_leak?(proc_list)
@@ -76,7 +76,7 @@ defmodule RxTest do
 		values = [1, 2, 3, 4]
 		o = simple_observer_fun(self)
 		all_procs = Process.list()
-		rxs = values |> Rx.generate(1) |> Rx.as_text 
+		rxs = values |> Rx.generate(1) |> Rx.as_text
 		assert is_pid(rxs)
 		disp_me =  rxs |> Observable.subscribe(o)
 		assert_receive {:on_completed, nil}
@@ -87,8 +87,8 @@ defmodule RxTest do
 
 	test "create a stream from a sequence of events" do
 		values = 1..20
-		l = values |> Rx.generate(1) |> 
-			# Rx.as_text |> 
+		l = values |> Rx.generate(1) |>
+			# Rx.as_text |>
 			Rx.stream |> Enum.to_list
 		# l = s |> Enum.to_list
 		assert Enum.to_list(values) == l
@@ -96,8 +96,8 @@ defmodule RxTest do
 
 	test "map a stream from a sequence of events" do
 		values = 1..20
-		l = values |> Rx.generate(1) |> 
-			# Rx.as_text |> 
+		l = values |> Rx.generate(1) |>
+			# Rx.as_text |>
 			Rx.map(&(&1+1)) |>
 			Rx.stream |> Enum.to_list
 		assert Enum.to_list(values)|>Enum.map(&(&1+1)) == l
@@ -112,7 +112,7 @@ defmodule RxTest do
 	end
 
 	test "filter out all odd numbers" do
-		values = 1..20 
+		values = 1..20
 		odds = values |> Rx.generate(1) |> Rx.filter(&Integer.is_odd/1) |>
 			 Rx.stream |> Enum.to_list
 
@@ -121,7 +121,7 @@ defmodule RxTest do
 	end
 
 	test "map and filter compose together" do
-		values = 1..20 
+		values = 1..20
 		odds = values |> Rx.generate(1) |> Rx.filter(&Integer.is_odd/1) |>
 			Rx.map(&inc/1) |> Rx.map(&inc/1) |> Rx.stream |> Enum.to_list
 
@@ -129,14 +129,14 @@ defmodule RxTest do
 		assert Enum.all?(odds, &Integer.is_odd/1)
 	end
 
-	test "fold the past" do 
+	test "fold the past" do
 		values = 1..10
 
-		f = Sync.full_behavior(0, 
+		f = Sync.full_behavior(0,
 			fn(v, acc, a, new_acc) -> Sync.ignore(v, acc, v+a, new_acc) end,
 			fn(v, acc, a, new_acc) -> Sync.emit_and_halt(acc, a, new_acc) end,
 			fn(v, acc, a, new_acc) -> Sync.error(v, acc, a, new_acc) end)
-		{:ok, sum} = values |> Rx.generate(1) |> Rx.reduce(f) |> Rx.stream |> 
+		{:ok, sum} = values |> Rx.generate(1) |> Rx.reduce(f) |> Rx.stream |>
 			Stream.take(-1) |> Enum.fetch(0)
 
 		assert sum == Enum.sum(values)
@@ -167,14 +167,14 @@ defmodule RxTest do
 	test "never sends no events" do
 		o = simple_observer_fun(self)
 		Rx.never |> Observable.subscribe(o)
-		refute_receive _, 500, "Rx.never has send a msg!" 
+		refute_receive _, 500, "Rx.never has send a msg!"
 	end
 
 	test "error sends an exception and terminates" do
 		exception = RuntimeError.exception("check it out man")
 		all_procs = Process.list()
 		o = simple_observer_fun(self)
-		error = Rx.error(exception) 
+		error = Rx.error(exception)
 		disp_me = error |> Rx.as_text |> Observable.subscribe(o)
 		assert_receive {:on_error, ^exception}
 		disp_me.()
@@ -182,19 +182,19 @@ defmodule RxTest do
 		process_leak?(all_procs)
 	end
 
-	test "handle errors within a stream" do 
+	test "handle errors within a stream" do
 		o = simple_observer_fun(self)
 		all_procs = Process.list()
 		all = Rx.error(RuntimeError.exception("check it out man")) |> Rx.stream |> Enum.to_list
 		assert all == []
-		assert process_leak?(all_procs)		
+		assert process_leak?(all_procs)
 	end
 
 	test "starts with a few numbers" do
 		first = 1..10
 		second = 11..20
 		all = second |> Rx.generate(1) |> Rx.start_with(first) |>
-			Rx.as_text |> 
+			Rx.as_text |>
 			Rx.stream |> Enum.to_list
 
 		assert Enum.concat(first, second) == all
@@ -203,9 +203,9 @@ defmodule RxTest do
 	test "merge a pair of streams" do
 		first = 1..10
 		second = 11..20
-		first_rx = first |> Rx.generate(50) 
+		first_rx = first |> Rx.generate(50)
 		second_rx = second |> Rx.generate(100)
-		all = Rx.merge(first_rx, second_rx) |> 
+		all = Rx.merge(first_rx, second_rx) |>
 			Rx.as_text |>
 			Rx.stream |> Enum.sort
 
@@ -216,10 +216,10 @@ defmodule RxTest do
 		first = 1..10
 		second = 11..20
 		third = 21..30
-		first_rx = first |> Rx.generate(50) 
+		first_rx = first |> Rx.generate(50)
 		second_rx = second |> Rx.generate(100)
 		third_rx = third |> Rx.generate(75)
-		all = Rx.merge([first_rx, second_rx, third_rx]) |> 
+		all = Rx.merge([first_rx, second_rx, third_rx]) |>
 			Rx.as_text |>
 			Rx.stream |> Enum.sort
 
@@ -231,9 +231,9 @@ defmodule RxTest do
 	test "merge streams with errors" do
 		first = 1..10
 		second = 11..20
-		first_rx = first |> Rx.generate(50) 
+		first_rx = first |> Rx.generate(50)
 		second_rx = second |> Rx.generate(100)
-		all = Rx.merge([first_rx, second_rx, Rx.error(RuntimeError.exception("check it out man"))]) |> 
+		all = Rx.merge([first_rx, second_rx, Rx.error(RuntimeError.exception("check it out man"))]) |>
 			Rx.as_text |>
 			Rx.stream |> Enum.sort
 
@@ -242,14 +242,23 @@ defmodule RxTest do
 		refute Process.alive?(second_rx)
 	end
 
+	test "naturals are counting from zero" do
+		hundreds = Rx.naturals(1) |> Rx.take(100) |> Rx.stream |> Enum.to_list
+		assert hundreds == 0..99 |> Enum.to_list
+	end
+
+	test "distinct values are filtered out" do
+
+	end
+
 	def process_leak?(initial_processes, delay \\ 100) do
 		:timer.sleep(delay)
 		list2 = Process.list()
 		new_procs = Enum.reject(list2, &Enum.member?(initial_processes, &1))
-		if length(new_procs) > 0, do: 
+		if length(new_procs) > 0, do:
 			new_procs |> Enum.each(fn (p) -> IO.inspect Process.info(p) end)
 		assert new_procs == []
 		true
 	end
-	
+
 end
