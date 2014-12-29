@@ -278,6 +278,12 @@ defmodule RxTest do
 		assert tens == 0..9 |> Enum.to_list
 	end
 
+	test "take_until takes ony while false" do
+		tens = Rx.naturals(1) |> Rx.take_until(&(&1 > 10)) |>
+		Rx.stream |> Enum.sort
+		assert tens == 0..10 |> Enum.to_list
+	end
+
 
 	###############################################################
 	## Helper functions
