@@ -164,6 +164,14 @@ defmodule RxTest do
 		assert sum == Enum.sum(values)
 	end
 
+	test "multiply it up" do
+		values = 1..10
+		product = values |> Rx.generate(1) |> Rx.product
+
+		assert product == Enum.reduce(values, 1, &*/2)
+	end
+
+
 	test "never sends no events" do
 		o = simple_observer_fun(self)
 		Rx.never |> Observable.subscribe(o)

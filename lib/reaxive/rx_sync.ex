@@ -165,6 +165,15 @@ defmodule Reaxive.Sync do
 			fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end)
 	end
 
+	@doc "Returns the product of input events as sequence with exactly one event."
+	def product() do
+		full_behavior(1,
+		fn(v, acc, a, new_acc) -> ignore(v, acc, v*a, new_acc) end,
+		fn(v, acc, a, new_acc) -> emit_and_halt(acc, a, new_acc) end,
+		fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end)
+	end
+
+
 	@doc "Reducer for merging `n` streams"
 	def merge(n) when n > 0 do
 		full_behavior(n,

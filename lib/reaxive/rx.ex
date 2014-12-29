@@ -334,6 +334,12 @@ defmodule Reaxive.Rx do
 		end
 	end
 
+	@doc "Multiplies all events of the sequence and returns the product as number"
+	@spec product(Observable.t) :: number
+	def product(rx) do
+		rx |> Reaxive.Rx.Impl.compose(Sync.product()) |> first
+	end
+
 	@doc """
 	This function considers the past events to produce new events.
 	Therefore this function is called in ELM `foldp`, folding over the past.
