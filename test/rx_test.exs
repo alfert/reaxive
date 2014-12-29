@@ -290,6 +290,19 @@ defmodule RxTest do
 		assert nineties == 10..99 |> Enum.to_list
 	end
 
+	test "drop_while drops ony while true" do
+		tens = Rx.naturals(1) |> Rx.take(100) |> Rx.take_while(&(&1 < 10)) |>
+		Rx.stream |> Enum.to_list
+		assert tens == 0..9 |> Enum.to_list
+	end
+
+	test "drop_while drops ony while true in a row" do
+		twenty = 0..20 |> Enum.to_list
+		tens = Rx.generate(twenty ++ twenty, 1) |> Rx.take_while(&(&1 < 10)) |>
+		Rx.stream |> Enum.to_list
+		assert tens == 0..9 |> Enum.to_list
+	end
+
 	###############################################################
 	## Helper functions
 

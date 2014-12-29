@@ -121,6 +121,17 @@ defmodule Reaxive.Sync do
 		end
 	end
 
+	@doc "Reducer for `drop_while`"
+	@spec drop_while((any -> boolean)) :: {reduce_fun_t, any}
+	def drop_while(pred) do
+		default_behavior(:none) do
+			case {a, pred.(v)} do
+				{:none, true}  -> ignore(v, acc, a, new_acc)
+				{:none, false}  -> emit(v, acc, :some, new_acc)
+				{:some, _} -> emit(v, acc, a, new_acc)
+			end
+		end
+	end
 
 	@doc """
 	This function takes an initial accumulator and three step functions. The step functions

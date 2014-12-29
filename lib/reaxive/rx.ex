@@ -177,9 +177,18 @@ defmodule Reaxive.Rx do
 		rx
 	end
 
+	@doc "`drop` filters out the first `n` elements of the sequence."
 	@spec drop(Observable.t, pos_integer) :: Observable.t
 	def drop(rx, n) when n >= 0 do
 		Reaxive.Rx.Impl.compose(rx, Sync.drop(n))
+	end
+
+	@doc """
+	drop_while` filters out the first elements while the predicate is `true`.
+	"""
+	@spec drop_while(Observable.t, (any -> boolean)) :: Observable.t
+	def drop_while(rx, pred) do
+		Reaxive.Rx.Impl.compose(rx, Sync.drop_while(pred))
 	end
 
 	@doc """
