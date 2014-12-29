@@ -142,11 +142,26 @@ defmodule Reaxive.Sync do
 	end
 
 	@doc "a filter passing through only distinct values"
+	@spec distinct(Set.t) :: {reduce_fun_t, any}
 	def distinct(empty_set) do
 		default_behavior(empty_set) do
 			case (Set.member?(a, v)) do
 				true  -> ignore(v, acc, a, new_acc)
 				false -> emit(v, acc, Set.put(a, v), new_acc)
+			end
+		end
+	end
+
+	@doc "a filter for repeating values, i.e. only changed values can pass"
+	@spec distinct_until_changed() :: {reduce_fun_t, any}
+	def distinct_until_changed() do
+		# the accu is an option type with of some or none elements.
+		# None elements means, that the accu is not used.
+		default_behavior(:none) do
+			case a do
+				{:some, ^v}  -> ignore(v, acc, a, new_acc) # ignore repeating value
+				{:some, _}  -> emit(v, acc, {:some, v}, new_acc) # accu and v are different
+				:none       -> emit(v, acc, {:some, v}, new_acc) # emit very first value
 			end
 		end
 	end

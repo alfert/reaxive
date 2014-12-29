@@ -253,6 +253,25 @@ defmodule RxTest do
 		assert tens == 0..9 |> Enum.to_list
 	end
 
+	test "distinct values only" do
+		tens = Rx.naturals(1) |> Rx.take(100) |> Rx.map(&(div(&1, 10))) |>
+			Rx.distinct() |> Rx.stream |> Enum.sort
+		assert tens == 0..9 |> Enum.to_list
+	end
+
+	test "distinct values changes only" do
+		input = [1, 1, 2, 1, 1, 0, 1, 2, 2, 3]
+		filtered = input |> Rx.generate(1) |>
+			Rx.distinct_until_changed() |> Rx.stream |> Enum.to_list()
+		assert filtered == [1, 2, 1, 0, 1, 2, 3]
+	end
+
+	test "distinct values changes only 2" do
+		tens = Rx.naturals(1) |> Rx.take(100) |> Rx.map(&(div(&1, 10))) |>
+		Rx.distinct_until_changed() |> Rx.stream |> Enum.sort
+		assert tens == 0..9 |> Enum.to_list
+	end
+
 	def process_leak?(initial_processes, delay \\ 100) do
 		:timer.sleep(delay)
 		list2 = Process.list()

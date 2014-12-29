@@ -165,6 +165,18 @@ defmodule Reaxive.Rx do
 		rx
 	end
 
+	@doc """
+	The `distinct_until_changed` transformation is a filter, which filters
+	out all repeating values, such that only value changes remain
+	in the event sequence.
+	"""
+	@spec distinct_until_changed(Observer.t) :: Observer.t
+	def distinct_until_changed(rx) do
+		{distinct_fun, acc} = Sync.distinct_until_changed()
+		:ok = Reaxive.Rx.Impl.compose(rx, distinct_fun, acc)
+		rx
+	end
+
 
 	@doc """
 	The `error` function takes an in Elixir defined exception and generate a stream with the
