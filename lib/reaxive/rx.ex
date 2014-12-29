@@ -177,6 +177,10 @@ defmodule Reaxive.Rx do
 		rx
 	end
 
+	@spec drop(Observable.t, pos_integer) :: Observable.t
+	def drop(rx, n) when n >= 0 do
+		Reaxive.Rx.Impl.compose(rx, Sync.drop(n))
+	end
 
 	@doc """
 	The `error` function takes an in Elixir defined exception and generate a stream with the

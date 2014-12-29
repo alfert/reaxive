@@ -280,10 +280,15 @@ defmodule RxTest do
 
 	test "take_until takes ony while false" do
 		tens = Rx.naturals(1) |> Rx.take_until(&(&1 > 10)) |>
-		Rx.stream |> Enum.sort
+			Rx.stream |> Enum.sort
 		assert tens == 0..10 |> Enum.to_list
 	end
 
+	test "drop the first 10 elements" do
+		nineties = Rx.naturals(1) |> Rx.take(100) |> Rx.drop(10) |>
+			Rx.stream |> Enum.to_list
+		assert nineties == 10..99 |> Enum.to_list
+	end
 
 	###############################################################
 	## Helper functions

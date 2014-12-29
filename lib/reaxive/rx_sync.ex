@@ -108,6 +108,20 @@ defmodule Reaxive.Sync do
 		end
 	end
 
+	@doc "Reducer function for `drop`"
+	def drop(n) when n >= 0 do
+		drop_fun = default_behavior(n) do
+			if a == 0 do
+				r = emit(v, acc, a, new_acc)
+				# IO.puts "a == 0, r = #{inspect r}"
+				r
+			else
+				ignore(v, acc, a-1, new_acc)
+			end
+		end
+	end
+
+
 	@doc """
 	This function takes an initial accumulator and three step functions. The step functions
 	have as first parameter the current value, followed by the list of next accumulators, the current
