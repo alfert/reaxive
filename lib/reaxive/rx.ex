@@ -410,6 +410,15 @@ defmodule Reaxive.Rx do
 		rx
 	end
 
+	@doc """
+	Takes the first elements of the sequence while the
+	predicate is true.
+	"""
+	@spec take_while(Observable.t, (any -> boolean)) :: Observable.t
+	def take_while(rx, pred) do
+		rx |> Reaxive.Rx.Impl.compose(Sync.take_while(pred))
+	end
+
 	@doc false
 	def accumulator(rx) do
 		# This is not the proper solution. We need something, that is handled differently

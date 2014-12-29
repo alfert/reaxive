@@ -84,7 +84,7 @@ defmodule Reaxive.Sync do
 		default_behavior do: emit(fun.(v), acc, a, new_acc)
 	end
 
-	@doc "Reducer function for take"
+	@doc "Reducer function for `take`"
 	def take(n) when n >= 0 do
 		take_fun = default_behavior(n) do
 			if a == 0 do
@@ -93,6 +93,17 @@ defmodule Reaxive.Sync do
 				r
 			else
 				emit(v, acc, a-1, new_acc)
+			end
+		end
+	end
+
+	@doc "Reducer for `take_while`"
+	@spec take_while((any -> boolean)) :: {reduce_fun_t, any}
+	def take_while(pred) do
+		default_behavior do
+			case pred.(v) do
+				true  -> emit(v, acc, a, new_acc)
+				false -> halt(acc, a, new_acc)
 			end
 		end
 	end

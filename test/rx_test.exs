@@ -272,6 +272,16 @@ defmodule RxTest do
 		assert tens == 0..9 |> Enum.to_list
 	end
 
+	test "take_while takes ony while true" do
+		tens = Rx.naturals(1) |> Rx.take_while(&(&1 < 10)) |>
+			Rx.stream |> Enum.sort
+		assert tens == 0..9 |> Enum.to_list
+	end
+
+
+	###############################################################
+	## Helper functions
+
 	def process_leak?(initial_processes, delay \\ 100) do
 		:timer.sleep(delay)
 		list2 = Process.list()
