@@ -157,20 +157,27 @@ defmodule Reaxive.Sync do
 		}
 	end
 
-	@doc "Returns the sum of input events as sequence with exactly one event."
-	def sum() do
+	@doc """
+	Takes a next function and an accu and applies it to each value. Emits only
+	accumulator after the sequence is finished.
+	"""
+	def reduce_to_a_single_value(accu \\ nil, next_fun) do
 		full_behavior(0,
-			fn(v, acc, a, new_acc) -> ignore(v, acc, v+a, new_acc) end,
+			next_fun,
 			fn(v, acc, a, new_acc) -> emit_and_halt(acc, a, new_acc) end,
 			fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end)
 	end
 
+	@doc "Returns the sum of input events as sequence with exactly one event."
+	def sum() do
+		reduce_to_a_single_value(0,
+			fn(v, acc, a, new_acc) -> ignore(v, acc, v+a, new_acc) end)
+	end
+
 	@doc "Returns the product of input events as sequence with exactly one event."
 	def product() do
-		full_behavior(1,
-		fn(v, acc, a, new_acc) -> ignore(v, acc, v*a, new_acc) end,
-		fn(v, acc, a, new_acc) -> emit_and_halt(acc, a, new_acc) end,
-		fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end)
+		reduce_to_a_single_value(1,
+		fn(v, acc, a, new_acc) -> ignore(v, acc, v*a, new_acc) end)
 	end
 
 
