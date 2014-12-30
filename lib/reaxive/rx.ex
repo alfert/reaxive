@@ -345,17 +345,29 @@ defmodule Reaxive.Rx do
 	In Elixir, it is the convention to call the fold function `reduce`, therefore
 	we stick to this convention.
 
-	This fold-function itself must follow the conventions of `Reaxive.Sync` module.
+	The result of reduce is an event sequence with exactly one element. To get
+	the scalar value, apply function `first` to it.
+
+	The `reduce_fun` function is simple, applying the current event together with
+	the accumulator producing a new accumulator. Finally, the accumulator is
+	returned, when the source event stream is finished. The sum reducer could be
+	implemented as
+
+		def sum(rx) do
+		  rx |> Rx.reduce(0, fn(x, acc) -> x + acc end)
+		end
+
+	For more complex reducing	functionalities, see the `Reaxive.Sync` module.
 	"""
-	@spec reduce(Observable.t, {Reaxive.Sync.reduce_fun_t, any}) :: Observable.t
-	def reduce(rx, {reduce_fun, acc} = f) do
-		:ok = Reaxive.Rx.Impl.compose(rx, f)
-		rx
+	@spec reduce(Observable.t, any, (any, any -> any)) :: Observable.t
+	def reduce(rx, acc, reduce_fun) do
+		Reaxive.Rx.Impl.compose(rx,
+			Reaxive.Sync.simple_reduce(acc, reduce_fun))
 	end
 
 	@doc """
 	The function `start_with` takes a stream of events `prev_rx` and a collection.
-	The resulting stream of events has all elements of the colletion,
+	The resulting stream of events has all elements of `colletion`,
 	followed by the events of `prev_rx`.
 	"""
 	@spec start_with(Observable.t, Enumerable.t) :: Observable.t

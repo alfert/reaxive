@@ -132,12 +132,9 @@ defmodule RxTest do
 	test "fold the past" do
 		values = 1..10
 
-		f = Sync.full_behavior(0,
-			fn(v, acc, a, new_acc) -> Sync.ignore(v, acc, v+a, new_acc) end,
-			fn(v, acc, a, new_acc) -> Sync.emit_and_halt(acc, a, new_acc) end,
-			fn(v, acc, a, new_acc) -> Sync.error(v, acc, a, new_acc) end)
-		{:ok, sum} = values |> Rx.generate(1) |> Rx.reduce(f) |> Rx.stream |>
-			Stream.take(-1) |> Enum.fetch(0)
+		sum = values |> Rx.generate(1) |>
+			Rx.reduce(0, fn(x, acc) -> x + acc end) |>
+			Rx.first
 
 		assert sum == Enum.sum(values)
 	end

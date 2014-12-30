@@ -20,6 +20,8 @@ defmodule Reaxive.Sync do
 
 	require Logger
 
+	@inline
+
 	@type reason_t :: :cont | :ignore | :halt | :error
 
 	@type acc_t :: list
@@ -179,9 +181,14 @@ defmodule Reaxive.Sync do
 	@doc "Returns the product of input events as sequence with exactly one event."
 	def product() do
 		reduce(1,
-		fn(v, acc, a, new_acc) -> ignore(v, acc, v*a, new_acc) end)
+			fn(v, acc, a, new_acc) -> ignore(v, acc, v*a, new_acc) end)
 	end
 
+	@doc "Reducer for a simple reducer"
+	def simple_reduce(accu, red_fun) do
+		reduce(accu,
+			fn(v, acc, a, new_acc) -> ignore(v, acc, red_fun . (v, a), new_acc) end)
+	end
 
 	@doc "Reducer for merging `n` streams"
 	def merge(n) when n > 0 do
