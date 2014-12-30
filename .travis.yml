@@ -3,7 +3,7 @@ notifications:
   recipients:
     - klaus.alfert@googlemail.com
 otp_release:
-  - 17.4
+  - 17.3
 env:
   ELIXIR=v1.0.2
 before_install:
