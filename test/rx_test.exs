@@ -320,6 +320,18 @@ defmodule RxTest do
 		assert (odds |> Rx.all(&Integer.is_even/1)) == false
 	end
 
+	test "any odd numbers cannot be divided by two" do
+		odds = Rx.naturals |> Rx.take(10) |> Rx.map &(1 + &1 * 2)
+
+		assert (odds |> Rx.any(&Integer.is_even/1)) == false
+	end
+
+	test "some odd number can be divided by seven" do
+		odds = Rx.naturals |> Rx.take(10) |> Rx.map &(1 + &1 * 2)
+
+		assert (odds |> Rx.any(&(rem(&1, 7) == 0))) == true
+	end
+
 	###############################################################
 	## Helper functions
 

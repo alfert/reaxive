@@ -71,6 +71,14 @@ defmodule Reaxive.Rx do
 	end
 
 	@doc """
+	Returns `true` if `pred` holds for at least one event in the sequence.
+	"""
+	@spec any(Observable.t, (any -> boolean)) :: boolean
+	def any(rx, pred) do
+		rx |> Reaxive.Rx.Impl.compose(Sync.any(pred)) |> first
+	end
+
+	@doc """
 	This is a simple sink for events, which can be used for debugging
 	event streams.
 	"""

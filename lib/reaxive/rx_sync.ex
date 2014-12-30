@@ -225,7 +225,8 @@ defmodule Reaxive.Sync do
 		end
 	end
 
-	@doc "the all reducer works with a short-cut "
+	@doc "the `all` reducer works with a short-cut "
+	@spec all((any -> boolean)) :: transform_t
 	def all(pred) do
 		reduce(true,
 			fn(v, acc, a, new_acc) ->
@@ -234,6 +235,18 @@ defmodule Reaxive.Sync do
 					false -> emit_and_halt(acc, false, new_acc)
 				end
 			end)
+	end
+
+	@doc "the `any` reducer works with a short-cut "
+	@spec any((any -> boolean)) :: transform_t
+	def any(pred) do
+		reduce(false,
+		fn(v, acc, a, new_acc) ->
+			case pred.(v) do
+				false  -> ignore(false, acc, false, new_acc)
+				true -> emit_and_halt(acc, true, new_acc)
+			end
+		end)
 	end
 
 end
