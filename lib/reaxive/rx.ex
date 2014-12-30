@@ -63,6 +63,14 @@ defmodule Reaxive.Rx do
 	#######################################################################################
 
 	@doc """
+	Returns `true` if `pred` holds for all events in the sequence.
+	"""
+	@spec all(Observable.t, (any -> boolean)) :: boolean
+	def all(rx, pred) do
+		rx |> Reaxive.Rx.Impl.compose(Sync.all(pred)) |> first
+	end
+
+	@doc """
 	This is a simple sink for events, which can be used for debugging
 	event streams.
 	"""

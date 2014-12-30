@@ -308,6 +308,18 @@ defmodule RxTest do
 		assert tens == 0..9 |> Enum.to_list
 	end
 
+	test "all even numbers can be divided by two" do
+		even = Rx.naturals |> Rx.take(10) |> Rx.map &(&1 * 2)
+
+		assert (even |> Rx.all(&Integer.is_even/1)) == true
+	end
+
+	test "all odd numbers cannot be divided by two" do
+		odds = Rx.naturals |> Rx.take(10) |> Rx.map &(1 + &1 * 2)
+
+		assert (odds |> Rx.all(&Integer.is_even/1)) == false
+	end
+
 	###############################################################
 	## Helper functions
 

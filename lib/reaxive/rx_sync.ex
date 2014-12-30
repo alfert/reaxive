@@ -225,4 +225,15 @@ defmodule Reaxive.Sync do
 		end
 	end
 
+	@doc "the all reducer works with a short-cut "
+	def all(pred) do
+		reduce(true,
+			fn(v, acc, a, new_acc) ->
+				case pred.(v) do
+					true  -> ignore(true, acc, true, new_acc)
+					false -> emit_and_halt(acc, false, new_acc)
+				end
+			end)
+	end
+
 end
