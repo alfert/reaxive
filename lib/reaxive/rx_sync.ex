@@ -27,6 +27,7 @@ defmodule Reaxive.Sync do
 	@type reduce_t :: {tagged_t, acc_t, acc_t}
 	@type reduce_fun_t :: ((tagged_t, acc_t, acc_t) -> reduce_t)
 	@type step_fun_t :: ((any, acc_t, any, acc_t) -> reduce_t)
+	@type transform_t :: {reduce_fun_t, any}
 
 
 	@doc """
@@ -159,10 +160,11 @@ defmodule Reaxive.Sync do
 
 	@doc """
 	Takes a next function and an accu and applies it to each value. Emits only
-	accumulator after the sequence is finished.
+	the accumulator after the source sequence is finished.
 	"""
-	def reduce_to_a_single_value(accu \\ nil, next_fun) do
-		full_behavior(0,
+	@spec reduce(any, step_fun_t) :: transform_t
+	def reduce(accu \\ nil, next_fun) do
+		full_behavior(accu,
 			next_fun,
 			fn(v, acc, a, new_acc) -> emit_and_halt(acc, a, new_acc) end,
 			fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end)
@@ -170,13 +172,13 @@ defmodule Reaxive.Sync do
 
 	@doc "Returns the sum of input events as sequence with exactly one event."
 	def sum() do
-		reduce_to_a_single_value(0,
+		reduce(0,
 			fn(v, acc, a, new_acc) -> ignore(v, acc, v+a, new_acc) end)
 	end
 
 	@doc "Returns the product of input events as sequence with exactly one event."
 	def product() do
-		reduce_to_a_single_value(1,
+		reduce(1,
 		fn(v, acc, a, new_acc) -> ignore(v, acc, v*a, new_acc) end)
 	end
 
