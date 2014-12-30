@@ -45,7 +45,7 @@ defmodule Reaxive.Rx do
 	Evaluates a lazy expression, encoded in `Rx.Lazy`. Returns the argument
 	if it is not an `Rx.Lazy` encoded
 	"""
-	def eval(%Lazy{expr: exp} = e) do
+	def eval(%Lazy{expr: exp} = _e) do
 		# Logger.info "Evaluating #{inspect e}"
 		exp.()
 	end
@@ -91,8 +91,8 @@ defmodule Reaxive.Rx do
 			#
 			n = length(rxs)
 			# add to each rx a mapped rx which returns {number_of_rx, event} pairs
-			indexed = rxs |> Enum.with_index |>
-				Enum.map (fn({rx, i}) -> map(rx, fn(v) -> {i, v} end) end)
+			# indexed = rxs |> Enum.with_index |>
+			# 	Enum.map (fn({rx, i}) -> map(rx, fn(v) -> {i, v} end) end)
 
 			fold_fun = fn
 				# a value of the current sequence is pushed out
@@ -107,7 +107,7 @@ defmodule Reaxive.Rx do
 					# This won't work, since we need the state of Rx. Hmmmm.
 					Reaxive.Rx.Impl.notify({:cont, {:on_next, v}, {i, buffer}} )
 					{:ignore, {:on_completed, v}, {i + 1, Dict.delete(buffer, i)}}
-				({:on_completed, {i, v}}, k) -> {:ignore, {:on_completed, v}, k-1}
+				({:on_completed, {_i, v}}, k) -> {:ignore, {:on_completed, v}, k-1}
 			end
 
 			Reaxive.Rx.Impl.fun(rx, fold_fun, n)

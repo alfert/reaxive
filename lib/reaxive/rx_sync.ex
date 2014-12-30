@@ -20,7 +20,7 @@ defmodule Reaxive.Sync do
 
 	require Logger
 
-	@inline
+	@compile(:inline)
 
 	@type reason_t :: :cont | :ignore | :halt | :error
 
@@ -89,7 +89,7 @@ defmodule Reaxive.Sync do
 
 	@doc "Reducer function for `take`"
 	def take(n) when n >= 0 do
-		take_fun = default_behavior(n) do
+		default_behavior(n) do
 			if a == 0 do
 				r = halt(acc, a, new_acc)
 				# IO.puts "a == 0, r = #{inspect r}"
@@ -113,7 +113,7 @@ defmodule Reaxive.Sync do
 
 	@doc "Reducer function for `drop`"
 	def drop(n) when n >= 0 do
-		drop_fun = default_behavior(n) do
+		default_behavior(n) do
 			if a == 0 do
 				r = emit(v, acc, a, new_acc)
 				# IO.puts "a == 0, r = #{inspect r}"
@@ -168,20 +168,18 @@ defmodule Reaxive.Sync do
 	def reduce(accu \\ nil, next_fun) do
 		full_behavior(accu,
 			next_fun,
-			fn(v, acc, a, new_acc) -> emit_and_halt(acc, a, new_acc) end,
+			fn(_v, acc, a, new_acc) -> emit_and_halt(acc, a, new_acc) end,
 			fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end)
 	end
 
 	@doc "Returns the sum of input events as sequence with exactly one event."
 	def sum() do
-		reduce(0,
-			fn(v, acc, a, new_acc) -> ignore(v, acc, v+a, new_acc) end)
+		simple_reduce(0, &Kernel.+/2)
 	end
 
 	@doc "Returns the product of input events as sequence with exactly one event."
 	def product() do
-		reduce(1,
-			fn(v, acc, a, new_acc) -> ignore(v, acc, v*a, new_acc) end)
+		simple_reduce(1, &Kernel.*/2)
 	end
 
 	@doc "Reducer for a simple reducer"
@@ -195,7 +193,7 @@ defmodule Reaxive.Sync do
 		full_behavior(n,
 			fn(v, acc, k, new_acc) -> emit(v, acc, k, new_acc) end,
 			fn
-				(v, acc, 1, new_acc) -> halt(acc, 1, new_acc)  # last complete => complete merge
+				(_v, acc, 1, new_acc) -> halt(acc, 1, new_acc)  # last complete => complete merge
 				(v, acc, k, new_acc) -> ignore(v, acc, k-1, new_acc) # ignore complete
 			end,
 			fn(v, acc, k, new_acc) -> error(v, acc, k, new_acc) end
