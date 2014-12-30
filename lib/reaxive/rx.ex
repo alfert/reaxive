@@ -254,8 +254,6 @@ defmodule Reaxive.Rx do
 
 	*Important Remarks:*
 
-	* The current implementation does not handle aborted calculations
-	  properly but will crash.
 	* If the delay is set to too small value (e.g. `0`), then the first few
 	  elements may be swalloed because no subscriber is available. This might
 	  be changed in the future.
@@ -445,6 +443,22 @@ defmodule Reaxive.Rx do
 	@spec take_until(Observable.t, (any -> boolean)) :: Observable.t
 	def take_until(rx, pred) do
 		rx |> Reaxive.Rx.Impl.compose(Sync.take_while(&(not pred.(&1))))
+	end
+
+	@doc """
+	Transform adds a composable transformation to an event sequence.
+	If `obs` is a `Rx_Impl`, the transformation is added as composition,
+	otherwise a new `Rx_Impl` is created to decouple `obs` and the transformation.
+	"""
+	@spec transform(Observable.t, Sync.transform_t) :: Observable.t
+	def transform(%Reaxive.Rx.Impl{} = obs, transform) do
+		obs |> Reaxive.Rx.Impl.compose(transform)
+	end
+	def transform(obs, transform) do
+		{:ok, new_rx} = Reaxive.Rx.Impl.start("transform", @rx_defaults)
+		source = Observable.subscribe(obs, new_rx)
+		:ok = Reaxive.Rx.Impl.source(new_rx, source)
+		new_rx |> Reaxive.Rx.Impl.compose(transform)
 	end
 
 	@doc false
