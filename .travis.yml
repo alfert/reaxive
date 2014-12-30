@@ -13,4 +13,4 @@ before_script:
   - export PATH="$PATH:$PWD/vendor/elixir/bin"
   - mix local.hex --force
   - mix local.rebar
-script: "MIX_ENV=test mix do deps.get, deps.compile, test --cover --exclude performance:true"
+script: "MIX_ENV=test mix do deps.get, deps.compile, test --exclude performance:true"
