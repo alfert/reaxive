@@ -337,6 +337,11 @@ defmodule RxTest do
 		assert [] == empty
 	end
 
+	test "returns means a single valued sequence" do
+		one = Rx.return(1) |> Rx.stream |> Enum.to_list
+		assert [1] == one
+	end
+
 	###############################################################
 	## Helper functions
 
