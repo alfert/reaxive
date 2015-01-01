@@ -208,6 +208,15 @@ defmodule Reaxive.Rx do
 	end
 
 	@doc """
+	Creates the empty sequence of events. After a subscription, the
+	sequence terminates immediately.
+	"""
+	def empty(timeout \\ @rx_timeout) do
+		delayed_start(fn(rx) ->
+			Observer.on_completed(rx) end, "empty", timeout)
+		end
+
+  @doc """
 	The `error` function takes an in Elixir defined exception and generate a stream with the
 	exception as the only element. The stream starts after the first subscription.
 	"""

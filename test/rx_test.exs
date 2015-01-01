@@ -332,6 +332,11 @@ defmodule RxTest do
 		assert (odds |> Rx.any(&(rem(&1, 7) == 0))) == true
 	end
 
+	test "the empty sequence has no elements" do
+		empty = Rx.empty() |> Rx.stream |> Enum.to_list
+		assert [] == empty
+	end
+
 	###############################################################
 	## Helper functions
 
