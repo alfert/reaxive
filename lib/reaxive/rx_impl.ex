@@ -121,8 +121,8 @@ defmodule Reaxive.Rx.Impl do
 	@doc "All subscribers of Rx. Useful for debugging."
 	def subscribers(observable), do: GenServer.call(observable, :subscribers)
 
-	@doc "Returns the accu value. Useful for debugging"
-	def acc(observable), do: GenServer.call(observable, :accu)
+	@doc "Returns the number of active sources"
+	def count_sources(observable), do: GenServer.call(observable, :count_sources)
 
 	@doc "Sets the on_subscribe function, which is called for the first subscription."
 	def on_subscribe(observable, on_subscribe), do:
@@ -144,7 +144,8 @@ defmodule Reaxive.Rx.Impl do
 	def handle_call({:compose, fun, acc}, _from, %__MODULE__{action: g, accu: accu}= state), do:
 		{:reply, :ok, %__MODULE__{state | action: fn(x) -> fun . (g . (x)) end, accu: :lists.append(accu, [acc])}}
 	def handle_call(:subscribers, _from, %__MODULE__{subscribers: sub} = s), do: {:reply, sub, s}
-	def handle_call(:accu, _from, %__MODULE__{accu: acc} = s), do: {:reply, acc, s}
+	def handle_call(:count_source, _from, %__MODULE__{sources: src} = s), do:
+		{:reply, length(src), s}
 	def handle_call({:on_subscribe, fun}, _from, %__MODULE__{on_subscribe: nil}= state), do:
 		{:reply, :ok, %__MODULE__{state | on_subscribe: fun}}
 
