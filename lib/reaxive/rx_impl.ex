@@ -190,11 +190,6 @@ defmodule Reaxive.Rx.Impl do
 	`:nil`, the value is propagated without any modification.
 	"""
 	@spec handle_value(%__MODULE__{}, rx_propagate) :: {:noreply, %__MODULE__{}} | {:stop, :normal, %__MODULE__{}}
-	def handle_value(%__MODULE__{active: true, action: nil} = state, {:on_completed, nil}) do
-		# change towards new protocol: send the current pid with me
-		notify({:halt, {:on_completed, nil}}, state)
-		disconnect(state)
-	end
 	def handle_value(%__MODULE__{active: true, action: nil} = state, {:on_completed, _id}) do
 		notify({:halt, {:on_completed, nil}}, state)
 		disconnect(state)
