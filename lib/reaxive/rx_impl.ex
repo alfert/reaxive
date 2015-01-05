@@ -189,7 +189,7 @@ defmodule Reaxive.Rx.Impl do
 	Internal function to handle new values, errors or completions. If `state.action` is
 	`:nil`, the value is propagated without any modification.
 	"""
-	@spec handle_value(%__MODULE__{}, rx_propagate) :: {:noreply | :stop, %__MODULE__{}}
+	@spec handle_value(%__MODULE__{}, rx_propagate) :: {:noreply, %__MODULE__{}} | {:stop, :normal, %__MODULE__{}}
 	def handle_value(%__MODULE__{active: true, action: nil} = state, {:on_completed, nil}) do
 		# change towards new protocol: send the current pid with me
 		notify({:halt, {:on_completed, nil}}, state)
@@ -231,7 +231,6 @@ defmodule Reaxive.Rx.Impl do
 	def handle_value(%__MODULE__{active: false} = state, _value), do: {:noreply, state}
 
 	def do_action(fun, value, accu, new_accu) when is_function(fun, 1), do: fun . ({value, accu, new_accu})
-
 	@doc "Internal callback function at termination for clearing resources"
 	def terminate(_reason, _state) do
 		# Logger.info("Terminating #{inspect self} for reason #{inspect reason} in state #{inspect state}")
@@ -247,7 +246,6 @@ defmodule Reaxive.Rx.Impl do
 		if terminate?(new_state),
 			do: {:stop, :normal, new_state},
 			else: {:noreply, new_state}
-
 	end
 	# disconnecting from a disconnected state does not change anything
 	def disconnect(%__MODULE__{active: false, subscribers: []} = state) do
