@@ -65,7 +65,7 @@ defmodule Reaxive.Rx.Impl do
 			try do
 				unsubscribe(observable, observer)
 			catch
-				:exit, code -> :ok # Logger.debug "No process #{inspect observable} - no problem #{inspect code}"
+				:exit, _code -> :ok # Logger.debug "No process #{inspect observable} - no problem #{inspect code}"
 			end
 		end
 		try do
@@ -154,8 +154,8 @@ defmodule Reaxive.Rx.Impl do
 		:ok = GenServer.cast(observer, {:on_next, value})
 
 	@doc "The last regular message"
-	def on_completed(observer), do:
-		:ok = GenServer.cast(observer, {:on_completed, nil})
+	def on_completed(observer, observable), do:
+		:ok = GenServer.cast(observer, {:on_completed, observable})
 
 	@doc "An error has occured, the pipeline will be aborted."
 	def on_error(observer, exception), do:
@@ -172,7 +172,7 @@ defmodule Reaxive.Rx.Impl do
 		on_subscribe.()
 		do_subscribe(state, observer)
 	end
-	def handle_cast({:subscribe, observer}, %__MODULE__{subscribers: sub} = state), do:
+	def handle_cast({:subscribe, observer}, %__MODULE__{} = state), do:
 		do_subscribe(state, observer)
 	def handle_cast({:source, disposable}, %__MODULE__{sources: []}= state) when is_list(disposable), do:
 		{:noreply, %__MODULE__{state | sources: disposable}}
@@ -180,7 +180,7 @@ defmodule Reaxive.Rx.Impl do
 		{:noreply, %__MODULE__{state | sources: disposable ++ src}}
 	def handle_cast({:source, disposable}, %__MODULE__{sources: src}= state), do:
 		{:noreply, %__MODULE__{state | sources: [disposable | src]}}
-	def handle_cast({tag, v} = value, state) do
+	def handle_cast({_tag, _v} = value, state) do
 		# Logger.info "RxImpl #{inspect self} got message #{inspect value} in state #{inspect state}"
 		handle_value(state, value)
 	end
@@ -191,14 +191,19 @@ defmodule Reaxive.Rx.Impl do
 	"""
 	@spec handle_value(%__MODULE__{}, rx_propagate) :: {:noreply | :stop, %__MODULE__{}}
 	def handle_value(%__MODULE__{active: true, action: nil} = state, {:on_completed, nil}) do
-		notify({:cont, {:on_completed, nil}}, state)
+		# change towards new protocol: send the current pid with me
+		notify({:halt, {:on_completed, nil}}, state)
+		disconnect(state)
+	end
+	def handle_value(%__MODULE__{active: true, action: nil} = state, {:on_completed, _id}) do
+		notify({:halt, {:on_completed, nil}}, state)
 		disconnect(state)
 	end
 	def handle_value(%__MODULE__{active: true, action: nil} = state, v) do #  = {:on_next, value}) do
 		notify({:cont, v}, state)
 		{:noreply, state}
 	end
-	def handle_value(%__MODULE__{active: true, sources: src} = state, e = {:on_error, exception}) do
+	def handle_value(%__MODULE__{active: true} = state, e = {:on_error, _exception}) do
 		notify({:cont, e}, state)
 		disconnect(state)
 	end
@@ -226,10 +231,9 @@ defmodule Reaxive.Rx.Impl do
 	def handle_value(%__MODULE__{active: false} = state, _value), do: {:noreply, state}
 
 	def do_action(fun, value, accu, new_accu) when is_function(fun, 1), do: fun . ({value, accu, new_accu})
-	def do_action(fun, value, accu, new_accu) when is_function(fun, 2), do: fun . (value, accu)
 
 	@doc "Internal callback function at termination for clearing resources"
-	def terminate(reason, state) do
+	def terminate(_reason, _state) do
 		# Logger.info("Terminating #{inspect self} for reason #{inspect reason} in state #{inspect state}")
 	end
 
@@ -237,7 +241,8 @@ defmodule Reaxive.Rx.Impl do
 	@doc "Internal function to disconnect from the sources"
 	@spec disconnect(%__MODULE__{}) :: {:noreply, %__MODULE__{}} | {:stop, :normal, %__MODULE__{}}
 	def disconnect(%__MODULE__{active: true, sources: src} = state) do
-		src |> Enum.each &Disposable.dispose(&1)
+		#src |> Enum.each &Disposable.dispose(&1)
+		src |> Enum.each fn({_id, disp}) -> Disposable.dispose(disp) end
 		new_state = %__MODULE__{state | active: false, subscribers: []}
 		if terminate?(new_state),
 			do: {:stop, :normal, new_state},
@@ -266,17 +271,17 @@ defmodule Reaxive.Rx.Impl do
 	def notify({:cont, {:on_error, exception}}, %__MODULE__{subscribers: subscribers}), do:
 		subscribers |> Enum.each(&Observer.on_error(&1, exception))
 	def notify({:cont, {:on_completed, nil}}, %__MODULE__{subscribers: subscribers}), do:
-		subscribers |> Enum.each(&Observer.on_completed(&1))
+		subscribers |> Enum.each(&Observer.on_completed(&1, self()))
 	def notify({:cont, {:on_completed, value}}, %__MODULE__{subscribers: subscribers}) do
 		subscribers |> Enum.each(&Observer.on_next(&1, value))
-		subscribers |> Enum.each(&Observer.on_completed(&1))
+		subscribers |> Enum.each(&Observer.on_completed(&1, self()))
 	end
 	def notify({:halt, {:on_next, value}}, %__MODULE__{subscribers: subscribers}) do
 		subscribers |> Enum.each(&Observer.on_next(&1, value))
-		subscribers |> Enum.each(&Observer.on_completed(&1))
+		subscribers |> Enum.each(&Observer.on_completed(&1, self()))
 	end
 	def notify({:halt, {:on_completed, nil}}, %__MODULE__{subscribers: subscribers}), do:
-		subscribers |> Enum.each(&Observer.on_completed(&1))
+		subscribers |> Enum.each(&Observer.on_completed(&1, self()))
 
 
 	@doc "Internal predicate to check if we terminate ourselves."
@@ -296,7 +301,7 @@ defmodule Reaxive.Rx.Impl do
 	defimpl Observer, for: PID do
 		def on_next(observer, value), do:      Reaxive.Rx.Impl.on_next(observer, value)
 		def on_error(observer, exception), do: Reaxive.Rx.Impl.on_error(observer, exception)
-		def on_completed(observer), do:        Reaxive.Rx.Impl.on_completed(observer)
+		def on_completed(observer, observable), do:        Reaxive.Rx.Impl.on_completed(observer, observable)
 	end
 
 	defimpl Observable, for: PID do
@@ -306,6 +311,6 @@ defmodule Reaxive.Rx.Impl do
 	defimpl Observer, for: Function do
 		def on_next(observer, value), do: observer.(:on_next, value)
 		def on_error(observer, exception), do: observer.(:on_error, exception)
-		def on_completed(observer), do: observer.(:on_completed, nil)
+		def on_completed(observer, observable), do: observer.(:on_completed, observable)
 	end
 end

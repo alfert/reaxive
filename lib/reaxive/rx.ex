@@ -213,7 +213,8 @@ defmodule Reaxive.Rx do
 	"""
 	def empty(timeout \\ @rx_timeout) do
 		delayed_start(fn(rx) ->
-			Observer.on_completed(rx) end, "empty", timeout)
+			# TODO: is self() the correct id?
+			Observer.on_completed(rx, self()) end, "empty", timeout)
 		end
 
   @doc """
@@ -251,10 +252,10 @@ defmodule Reaxive.Rx do
 	@spec first(Observable.t) :: term
 	def first(rx) do
 		o = stream_observer(self)
-		rx2 = Observable.subscribe(rx, o)
+		{_id, rx2} = Observable.subscribe(rx, o)
 		val = receive do
 			{:on_next, value} -> value
-			{:on_completed, nil} -> nil
+			{:on_completed, any} -> nil
 			{:on_error, e} -> raise e
 		end
 		Disposable.dispose(rx2)
@@ -277,7 +278,7 @@ defmodule Reaxive.Rx do
 		{:ok, flatter} = Reaxive.Rx.Impl.start("flat_mapper", @rx_defaults)
 		count = fn() -> Reaxive.Rx.Impl.count_sources(flatter) end
 		rx |> Reaxive.Rx.Impl.compose(
-			Sync.flat_mapper(flatter |> Reaxive.Rx.Impl.compose(Sync.flatter(count)), 
+			Sync.flat_mapper(flatter |> Reaxive.Rx.Impl.compose(Sync.flatter(count)),
 			mapper))
 	end
 
@@ -312,7 +313,8 @@ defmodule Reaxive.Rx do
 				:timer.sleep(delay)
 				Observer.on_next(rx, element)
 			end)
-			Observer.on_completed(rx)
+
+			Observer.on_completed(rx, self())
 		end
 		delayed_start(send_values, "generate", timeout)
 	end
@@ -423,7 +425,7 @@ defmodule Reaxive.Rx do
 	def return(value) do
 		delayed_start(fn(rx) ->
 				Observer.on_next(rx, value)
-				Observer.on_completed(rx)
+				Observer.on_completed(rx, self())
 			end, "return")
 	end
 
@@ -460,14 +462,14 @@ defmodule Reaxive.Rx do
 			fn(acc) ->
 				receive do
 					{:on_next, value} -> {[value], acc}
-					{:on_completed, nil} -> {:halt, acc}
+					{:on_completed, any} -> {:halt, acc}
 					{:on_error, e} -> {:halt, {acc, e}} # should throw exception e!
 				end
 			end,
 			# resource deallocation
-			fn({rx2, e}) -> Disposable.dispose(rx2)
+			fn({{_id, rx2}, e}) -> Disposable.dispose(rx2)
 				 			e
-			  (rx2) -> Disposable.dispose(rx2)
+			  ({_id, rx2}) -> Disposable.dispose(rx2)
 
 			end)
 	end

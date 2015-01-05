@@ -48,7 +48,7 @@ defmodule Reaxive.Sync do
 			fn
 				({{:on_next, var!(v)}, [var!(a) | var!(acc)], var!(new_acc)}) -> unquote(clause)
 				({{:on_completed, nil}, [a | acc], new_acc})     -> halt(acc, a, new_acc)
-				({{:on_completed, v}, [a | acc], new_acc})     -> emit_and_halt(acc, a, new_acc)
+				({{:on_completed, v}, [a | acc], new_acc})     -> halt(acc, a, new_acc)
 				{:cont, {:on_completed, v}, [a |acc], new_acc} -> emit_and_halt(acc, a, new_acc)
 				({:ignore, v, [a | acc], new_acc})          -> ignore(v, acc, a, new_acc)
 				({{:on_error, v}, [a | acc], new_acc})      -> error(v, acc, a, new_acc)

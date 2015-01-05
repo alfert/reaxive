@@ -25,8 +25,8 @@ defprotocol Observer do
 	def on_next(observer, value)
 	@spec on_error(Observer.t, any) :: :ok
 	def on_error(observer, exception)
-	@spec on_completed(Observer.t) :: :ok
-	def on_completed(observer)
+	@spec on_completed(Observer.t, Observable.t) :: :ok
+	def on_completed(observer, observable)
 end
 
 defprotocol Disposable do
