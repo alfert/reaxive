@@ -252,18 +252,20 @@ defmodule Reaxive.Sync do
 	@doc """
 	This is the mapping part of `flat_map`. It gets a flatter rx process
 	as parameter. For each event `v`, it starts a new mapping process by
-	applying `mapper` to `v`. The `flatter` subscribes to the new mapping
+	applying `map_fun` to `v`. The `flatter` subscribes to the new mapping
 	process to receive the newly produced events.
 	"""
 	@spec flat_mapper(Reaxive.Rx.Impl.t, (any -> Observable.t)) :: transform_t
-	def flat_mapper(flatter, mapper) do
+	def flat_mapper(flatter, map_fun) do
 		default_behavior() do
-			rx = mapper.(v)
+			rx = map_fun.(v)
+			Logger.info("flat_mapper created #{inspect rx} for value #{inspect v}")
 			disp = Observable.subscribe(rx, flatter)
 			flatter |> Reaxive.Rx.Impl.source(disp)
 			# we ignore the current value v, because rx generates
 			# new value for which we cater.
-			ignore(v, acc, a, new_acc)
+			# ignore(v, acc, a, new_acc)
+			emit(v, acc, a, new_acc)
 		end
 	end
 

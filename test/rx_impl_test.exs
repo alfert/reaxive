@@ -68,7 +68,7 @@ defmodule ReaxiveTest do
 		Observer.on_completed(rx, self)
 		assert_receive {:on_completed, ^id}
 
-		Observer.on_next(rx, :x)
+		Observer.on_next(rx, :oh_no_this_cannot_delivered!)
 		assert_receive {:EXIT, ^rx, _}
 	end
 
