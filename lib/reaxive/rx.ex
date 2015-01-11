@@ -89,6 +89,7 @@ defmodule Reaxive.Rx do
 	end)
 
 	@doc """
+	*This function does not work!*
 	Concatenates serveral event sequences.
 
 	Makes only sense, if the sequences are finite, because all events

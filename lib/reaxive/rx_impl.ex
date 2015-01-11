@@ -198,7 +198,7 @@ defmodule Reaxive.Rx.Impl do
 	the source which is sending a `on_completed`.
 	"""
 	@spec handle_event(t, rx_propagate) :: t
-	def handle_event(%__MODULE__{} = state, {:on_completed, src} = event) do
+	def handle_event(%__MODULE__{} = state, {:on_completed, src}) do
 		state |>
 		 	disconnect_source(src) |>
 			handle_value({:on_completed, nil})
@@ -236,16 +236,17 @@ defmodule Reaxive.Rx.Impl do
 	end
 	def handle_value(%__MODULE__{active: false} = state, _value), do: state
 
+	@doc "Internal function calculating the new value"
 	@spec do_action(nil | (... -> any), rx_propagate, any, any) ::
 		{ :halt | :cont, rx_propagate, any, any}
-	def do_action(nil, event = {:on_completed, nil}, accu, new_accu), do:
+	def do_action(nil, event = {:on_completed, nil}, _accu, new_accu), do:
 		{:halt, event, [], new_accu}
-	def do_action(nil, event, accu, new_accu), do: {:cont, event, [], new_accu}
+	def do_action(nil, event, _accu, new_accu), do: {:cont, event, [], new_accu}
 	def do_action(fun, event, accu, new_accu) when is_function(fun, 1),
 		do: fun . ({event, accu, new_accu})
 
 	@doc "Internal callback function at termination for clearing resources"
-	def terminate(reason, state) do
+	def terminate(_reason, _state) do
 		# Logger.info("Terminating #{inspect self} for reason #{inspect reason} in state #{inspect state}")
 	end
 
@@ -255,7 +256,7 @@ defmodule Reaxive.Rx.Impl do
 	def disconnect_all(%__MODULE__{active: true, sources: src} = state) do
 		# Logger.info("disconnecting all from #{inspect state}")
 		src |> Enum.each fn({_id, disp}) -> Disposable.dispose(disp) end
-		new_state = %__MODULE__{state | active: false, subscribers: []}
+		%__MODULE__{state | active: false, subscribers: []}
 	end
 	# disconnecting from a disconnected state does not change anything
 	def disconnect_all(%__MODULE__{active: false, subscribers: []} = s), do: s
@@ -283,8 +284,8 @@ defmodule Reaxive.Rx.Impl do
 	@doc "Internal function to notify subscribers, knows about ignoring notifies."
 	@spec notify({reduce_tag, rx_propagate}, t) :: t
 	def notify({:ignore, _}, state), do: state
-	def notify({:cont, ev = {:on_next, value}}, s = %__MODULE__{}), do:	emit(s, ev)
-	def notify({:cont, ev = {:on_error, exception}}, s = %__MODULE__{}), do: emit(s, ev)
+	def notify({:cont, ev = {:on_next, _value}}, s = %__MODULE__{}), do:	emit(s, ev)
+	def notify({:cont, ev = {:on_error, _exc}}, s = %__MODULE__{}), do: emit(s, ev)
 	def notify({:cont, ev = {:on_completed, nil}}, %__MODULE__{} = state) do
 		# Logger.info(":cont call on completed in #{inspect self}: #{inspect state} ")
 		emit(state, ev)
@@ -315,7 +316,7 @@ defmodule Reaxive.Rx.Impl do
 	def emit(s = %__MODULE__{queue: q, subscribers: []}, event) do
 		%__MODULE__{s | queue: :queue.in(event, q)}
 	end
-	def emit(s = %__MODULE__{queue: q, subscribers: sub}, ev) do
+	def emit(s = %__MODULE__{queue: q}, ev) do
 		events = :queue.to_list(q)
 		new_s = %__MODULE__{s | queue: nil}
 		events |>
