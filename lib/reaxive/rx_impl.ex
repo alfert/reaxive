@@ -188,7 +188,10 @@ defmodule Reaxive.Rx.Impl do
 		{:noreply, %__MODULE__{state | sources: [disposable | src]}}
 	def handle_cast({_tag, _v} = value, state) do
 		Logger.info "RxImpl #{inspect self} got message #{inspect value} in state #{inspect state}"
-		handle_event(state, value)
+		new_state = handle_event(state, value)
+		if terminate?(new_state),
+			do: {:stop, :normal, new_state},
+			else: {:noreply, new_state}
 	end
 
 
@@ -209,7 +212,7 @@ defmodule Reaxive.Rx.Impl do
 	Internal function to handle new values, errors or completions. If `state.action` is
 	`:nil`, the value is propagated without any modification.
 	"""
-	@spec handle_value(%__MODULE__{}, rx_propagate) :: {:noreply, %__MODULE__{}} | {:stop, :normal, %__MODULE__{}}
+	@spec handle_value(t, rx_propagate) :: t
 	def handle_value(%__MODULE__{active: true} = state, e = {:on_error, _exception}) do
 		notify({:cont, e}, state) |> disconnect_all()
 	end
@@ -224,7 +227,7 @@ defmodule Reaxive.Rx.Impl do
 				notify({tag, new_v}, state) |	accu: :lists.reverse(new_accu)}
 			case tag do
 				:halt -> disconnect_all(new_state)
-				_ -> {:noreply, new_state}
+				_ -> new_state
 			end
 		catch
 			what, message ->
@@ -234,11 +237,13 @@ defmodule Reaxive.Rx.Impl do
 				handle_value(state, {:on_error, {what, message}})
 		end
 	end
-	def handle_value(%__MODULE__{active: false} = state, _value), do: {:noreply, state}
+	def handle_value(%__MODULE__{active: false} = state, _value), do: state
 
+	@spec do_action(nil | (... -> any), rx_propagate, any, any) ::
+		{ :halt | :cont, rx_propagate, any, any}
 	def do_action(nil, event = {:on_completed, nil}, accu, new_accu), do:
 		{:halt, event, [], new_accu}
-	def do_action(nil, event, accu, new_accu), do: {event, [], new_accu}
+	def do_action(nil, event, accu, new_accu), do: {:cont, event, [], new_accu}
 	def do_action(fun, event, accu, new_accu) when is_function(fun, 1),
 		do: fun . ({event, accu, new_accu})
 
@@ -249,21 +254,14 @@ defmodule Reaxive.Rx.Impl do
 
 
 	@doc "Internal function to disconnect from the sources"
-	@spec disconnect_all(%__MODULE__{}) :: {:noreply, %__MODULE__{}} | {:stop, :normal, %__MODULE__{}}
+	@spec disconnect_all(t) :: t
 	def disconnect_all(%__MODULE__{active: true, sources: src} = state) do
 		Logger.info("disconnecting all from #{inspect state}")
 		src |> Enum.each fn({_id, disp}) -> Disposable.dispose(disp) end
 		new_state = %__MODULE__{state | active: false, subscribers: []}
-		if terminate?(new_state),
-			do: {:stop, :normal, new_state},
-			else: {:noreply, new_state}
 	end
 	# disconnecting from a disconnected state does not change anything
-	def disconnect_all(%__MODULE__{active: false, subscribers: []} = state) do
-		if terminate?(state),
-			do: {:stop, :normal, state},
-			else: {:noreply, state}
-	end
+	def disconnect_all(%__MODULE__{active: false, subscribers: []} = s), do: s
 
 	@doc """
 	Internal function for disconnecting a single source. This function
@@ -286,6 +284,7 @@ defmodule Reaxive.Rx.Impl do
 	end
 
 	@doc "Internal function to notify subscribers, knows about ignoring notifies."
+	@spec notify({reduce_tag, rx_propagate}, t) :: t
 	def notify({:ignore, _}, state), do: state
 	def notify({:cont, ev = {:on_next, value}}, s = %__MODULE__{}), do:	emit(s, ev)
 	def notify({:cont, ev = {:on_error, exception}}, s = %__MODULE__{}), do: emit(s, ev)
