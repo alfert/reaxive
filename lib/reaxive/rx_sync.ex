@@ -229,7 +229,7 @@ defmodule Reaxive.Sync do
 	@spec all((any -> boolean)) :: transform_t
 	def all(pred) do
 		reduce(true,
-			fn(v, acc, a, new_acc) ->
+			fn(v, acc, _a, new_acc) ->
 				case pred.(v) do
 					true  -> ignore(true, acc, true, new_acc)
 					false -> emit_and_halt(acc, false, new_acc)
@@ -241,7 +241,7 @@ defmodule Reaxive.Sync do
 	@spec any((any -> boolean)) :: transform_t
 	def any(pred) do
 		reduce(false,
-		fn(v, acc, a, new_acc) ->
+		fn(v, acc, _a, new_acc) ->
 			case pred.(v) do
 				false  -> ignore(false, acc, false, new_acc)
 				true -> emit_and_halt(acc, true, new_acc)
@@ -259,7 +259,7 @@ defmodule Reaxive.Sync do
 	def flat_mapper(flatter, map_fun) do
 		default_behavior() do
 			rx = map_fun.(v)
-			Logger.info("flat_mapper created #{inspect rx} for value #{inspect v}")
+			# Logger.info("flat_mapper created #{inspect rx} for value #{inspect v}")
 			disp = Observable.subscribe(rx, flatter)
 			flatter |> Reaxive.Rx.Impl.source(disp)
 			# we ignore the current value v, because rx generates
@@ -273,8 +273,8 @@ defmodule Reaxive.Sync do
 	the number of active sources. In this function the access to the
 	observable returned by the `flatter
 	"""
-	@spec flatter(( -> pos_integer)) :: transform_t
-	def flatter(count_sources) do
+	@spec flatter() :: transform_t
+	def flatter() do
 		full_behavior(
 			fn(v, acc, a, new_acc) -> emit(v, acc, a, new_acc) end,
 			# ignore completed, this is handled via counting sources

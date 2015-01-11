@@ -279,16 +279,11 @@ defmodule Reaxive.Rx do
 	@spec flat_map(Observable.t, (any -> Observable.t)) :: Observable.t
 	def flat_map(rx, map_fun) do
 		{:ok, flatter} = Reaxive.Rx.Impl.start("flat_mapper", @rx_defaults)
-		Logger.info("created flatter #{inspect flatter}")
-		count = fn() -> 1 end # Reaxive.Rx.Impl.count_sources(flatter) end
+		# Logger.info("created flatter #{inspect flatter}")
 		rx |> Reaxive.Rx.Impl.compose(
 			Sync.flat_mapper(
-				flatter |> Reaxive.Rx.Impl.compose(Sync.flatter(count)),
+				flatter |> Reaxive.Rx.Impl.compose(Sync.flatter),
 				map_fun))
-
-		# The drain function is an active subscriber and should start
-		# the generator for producing events
-		drain = fn (_tag, _value) -> :ok end
 		disp_me = Observable.subscribe(rx, flatter)
 		Reaxive.Rx.Impl.source(flatter, disp_me)
 		# we return the new flattened sequence

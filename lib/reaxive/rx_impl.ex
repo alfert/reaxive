@@ -125,9 +125,6 @@ defmodule Reaxive.Rx.Impl do
 	@doc "All sources of Rx. Useful for debugging."
 	def get_sources(observable), do: GenServer.call(observable, :get_sources)
 
-	@doc "Returns the number of active sources"
-	def count_sources(observable), do: GenServer.call(observable, :count_sources)
-
 	@doc "Sets the on_subscribe function, which is called for the first subscription."
 	def on_subscribe(observable, on_subscribe), do:
 		GenServer.call(observable, {:on_subscribe, on_subscribe})
@@ -148,8 +145,6 @@ defmodule Reaxive.Rx.Impl do
 	def handle_call({:compose, fun, acc}, _from, %__MODULE__{action: g, accu: accu}= state), do:
 		{:reply, :ok, %__MODULE__{state | action: fn(x) -> fun . (g . (x)) end, accu: :lists.append(accu, [acc])}}
 	def handle_call(:subscribers, _from, %__MODULE__{subscribers: sub} = s), do: {:reply, sub, s}
-	def handle_call(:count_sources, _from, %__MODULE__{sources: src} = s), do:
-		{:reply, length(src), s}
 	def handle_call(:get_sources, _from, %__MODULE__{sources: src} = s), do:
 		{:reply, src, s}
 	def handle_call({:on_subscribe, fun}, _from, %__MODULE__{on_subscribe: nil}= state), do:
@@ -187,7 +182,7 @@ defmodule Reaxive.Rx.Impl do
 	def handle_cast({:source, disposable}, %__MODULE__{sources: src}= state), do:
 		{:noreply, %__MODULE__{state | sources: [disposable | src]}}
 	def handle_cast({_tag, _v} = value, state) do
-		Logger.info "RxImpl #{inspect self} got message #{inspect value} in state #{inspect state}"
+		#Logger.info "RxImpl #{inspect self} got message #{inspect value} in state #{inspect state}"
 		new_state = handle_event(state, value)
 		case terminate?(new_state) do
 			false -> {:noreply, new_state}
@@ -233,8 +228,8 @@ defmodule Reaxive.Rx.Impl do
 			end
 		catch
 			what, message ->
-				Logger.error "Got exception: #{inspect what}, #{inspect message} \n" <>
-					"with value #{inspect value} in state #{inspect state}\n" <>
+				# Logger.error "Got exception: #{inspect what}, #{inspect message} \n" <>
+				#	"with value #{inspect value} in state #{inspect state}\n" <>
 					Exception.format(what, message)
 				handle_value(state, {:on_error, {what, message}})
 		end
@@ -251,14 +246,14 @@ defmodule Reaxive.Rx.Impl do
 
 	@doc "Internal callback function at termination for clearing resources"
 	def terminate(reason, state) do
-		Logger.info("Terminating #{inspect self} for reason #{inspect reason} in state #{inspect state}")
+		# Logger.info("Terminating #{inspect self} for reason #{inspect reason} in state #{inspect state}")
 	end
 
 
 	@doc "Internal function to disconnect from the sources"
 	@spec disconnect_all(t) :: t
 	def disconnect_all(%__MODULE__{active: true, sources: src} = state) do
-		Logger.info("disconnecting all from #{inspect state}")
+		# Logger.info("disconnecting all from #{inspect state}")
 		src |> Enum.each fn({_id, disp}) -> Disposable.dispose(disp) end
 		new_state = %__MODULE__{state | active: false, subscribers: []}
 	end
@@ -273,7 +268,7 @@ defmodule Reaxive.Rx.Impl do
 	"""
 	@spec disconnect_source(%__MODULE__{}, any) :: %__MODULE__{}
 	def disconnect_source(%__MODULE__{sources: src} = state, src_id) do
-		Logger.info("disconnecting #{inspect src_id} from Rx #{inspect self}=#{inspect state}")
+		# Logger.info("disconnecting #{inspect src_id} from Rx #{inspect self}=#{inspect state}")
 		new_src = src |> Enum.reject fn({id, _}) -> id == src_id end
 		%__MODULE__{state | sources: new_src }
 	end
@@ -291,7 +286,7 @@ defmodule Reaxive.Rx.Impl do
 	def notify({:cont, ev = {:on_next, value}}, s = %__MODULE__{}), do:	emit(s, ev)
 	def notify({:cont, ev = {:on_error, exception}}, s = %__MODULE__{}), do: emit(s, ev)
 	def notify({:cont, ev = {:on_completed, nil}}, %__MODULE__{} = state) do
-		Logger.info(":cont call on completed in #{inspect self}: #{inspect state} ")
+		# Logger.info(":cont call on completed in #{inspect self}: #{inspect state} ")
 		emit(state, ev)
 	end
 	def notify({:cont, {:on_completed, value}}, s = %__MODULE__{}), do:
@@ -299,7 +294,7 @@ defmodule Reaxive.Rx.Impl do
 	def notify({:halt, {:on_next, value}}, s = %__MODULE__{}), do:
 		s |> emit({:on_next, value}) |> emit({:on_completed, self})
 	def notify({:halt, {:on_completed, nil}}, %__MODULE__{} = state) do
-		Logger.info(":halt call on completed in #{inspect self}: #{inspect state} ")
+		# Logger.info(":halt call on completed in #{inspect self}: #{inspect state} ")
 		state |> emit({:on_completed, self})
 	end
 
