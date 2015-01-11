@@ -264,8 +264,7 @@ defmodule Reaxive.Sync do
 			flatter |> Reaxive.Rx.Impl.source(disp)
 			# we ignore the current value v, because rx generates
 			# new value for which we cater.
-			# ignore(v, acc, a, new_acc)
-			emit(v, acc, a, new_acc)
+			ignore(v, acc, a, new_acc)
 		end
 	end
 
@@ -278,13 +277,8 @@ defmodule Reaxive.Sync do
 	def flatter(count_sources) do
 		full_behavior(
 			fn(v, acc, a, new_acc) -> emit(v, acc, a, new_acc) end,
-			fn(v, acc, a, new_acc) ->
-				if (count_sources.() > 0) do
-					ignore(v, acc, a, new_acc) # ignore complete since
-				else
-					halt(acc, a, new_acc)  # last complete => complete merge
-				end
-			end,
+			# ignore completed, this is handled via counting sources
+			fn(v, acc, a, new_acc) ->	ignore(v, acc, a, new_acc) end,
 			fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end
 		)
 	end

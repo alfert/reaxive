@@ -35,6 +35,7 @@ defmodule RxTest do
 		proc_list = Process.list
 		{:ok, rx} = Rx.Impl.start()
 		o = simple_observer_fun(self)
+		Rx.Impl.source(rx, {self, fn() -> :ok end})
 
 		rx2 = rx |> Rx.map(&(&1 + 1))
 		{id, rx3} = rx2 |> Observable.subscribe(o)

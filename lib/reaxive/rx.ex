@@ -167,6 +167,7 @@ defmodule Reaxive.Rx do
 		end
 		pid = spawn(delayed)
 		Reaxive.Rx.Impl.on_subscribe(rx, fn()-> send(pid, :go) end)
+		Reaxive.Rx.Impl.source(rx, {pid, fn() -> send(pid, :cancel) end})
 		rx
 	end
 
@@ -279,7 +280,7 @@ defmodule Reaxive.Rx do
 	def flat_map(rx, map_fun) do
 		{:ok, flatter} = Reaxive.Rx.Impl.start("flat_mapper", @rx_defaults)
 		Logger.info("created flatter #{inspect flatter}")
-		count = fn() -> Reaxive.Rx.Impl.count_sources(flatter) end
+		count = fn() -> 1 end # Reaxive.Rx.Impl.count_sources(flatter) end
 		rx |> Reaxive.Rx.Impl.compose(
 			Sync.flat_mapper(
 				flatter |> Reaxive.Rx.Impl.compose(Sync.flatter(count)),
@@ -288,7 +289,8 @@ defmodule Reaxive.Rx do
 		# The drain function is an active subscriber and should start
 		# the generator for producing events
 		drain = fn (_tag, _value) -> :ok end
-		_disp_me = Observable.subscribe(rx, drain)
+		disp_me = Observable.subscribe(rx, flatter)
+		Reaxive.Rx.Impl.source(flatter, disp_me)
 		# we return the new flattened sequence
 		flatter
 	end
@@ -325,7 +327,7 @@ defmodule Reaxive.Rx do
 				Observer.on_next(rx, element)
 			end)
 
-			Observer.on_completed(rx, rx) #self())
+			Observer.on_completed(rx, self())
 		end
 		delayed_start(send_values, "generate", timeout)
 	end
@@ -434,7 +436,7 @@ defmodule Reaxive.Rx do
 	def return(value) do
 		delayed_start(fn(rx) ->
 				Observer.on_next(rx, value)
-				Observer.on_completed(rx, rx)
+				Observer.on_completed(rx, self)
 			end, "return")
 	end
 

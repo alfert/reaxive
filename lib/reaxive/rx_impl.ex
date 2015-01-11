@@ -189,9 +189,12 @@ defmodule Reaxive.Rx.Impl do
 	def handle_cast({_tag, _v} = value, state) do
 		Logger.info "RxImpl #{inspect self} got message #{inspect value} in state #{inspect state}"
 		new_state = handle_event(state, value)
-		if terminate?(new_state),
-			do: {:stop, :normal, new_state},
-			else: {:noreply, new_state}
+		case terminate?(new_state) do
+			false -> {:noreply, new_state}
+			true ->
+				if (new_state.active), do: emit(new_state, {:on_completed, nil})
+				{:stop, :normal, new_state}
+		end
 	end
 
 
@@ -199,8 +202,7 @@ defmodule Reaxive.Rx.Impl do
 	Internal function to handles the various events, in particular disconnects
 	the source which is sending a `on_completed`.
 	"""
-	@spec handle_event(%__MODULE__{}, rx_propagate) ::
-						{:noreply, %__MODULE__{}} | {:stop, :normal, %__MODULE__{}}
+	@spec handle_event(t, rx_propagate) :: t
 	def handle_event(%__MODULE__{} = state, {:on_completed, src} = event) do
 		state |>
 		 	disconnect_source(src) |>
@@ -271,8 +273,8 @@ defmodule Reaxive.Rx.Impl do
 	"""
 	@spec disconnect_source(%__MODULE__{}, any) :: %__MODULE__{}
 	def disconnect_source(%__MODULE__{sources: src} = state, src_id) do
-		Logger.info("disconnecting #{inspect src_id} from #{inspect state}")
-		new_src = src |> Enum.filter fn({id, _}) -> id == src_id end
+		Logger.info("disconnecting #{inspect src_id} from Rx #{inspect self}=#{inspect state}")
+		new_src = src |> Enum.reject fn({id, _}) -> id == src_id end
 		%__MODULE__{state | sources: new_src }
 	end
 
@@ -330,6 +332,9 @@ defmodule Reaxive.Rx.Impl do
 
 	@doc "Internal predicate to check if we terminate ourselves."
 	def terminate?(%__MODULE__{options: options, subscribers: []}) do
+		Keyword.get(options, :auto_stop, false)
+	end
+	def terminate?(%__MODULE__{options: options, sources: []}) do
 		Keyword.get(options, :auto_stop, false)
 	end
 	def terminate?(%__MODULE__{options: options, active: false}) do
