@@ -33,15 +33,4 @@ defmodule ReaxiveLazyTest do
 		assert 12 = Rx.eval(y)
 	end
 
-	test "lazy Rx is evaluated" do
-		rx1 = Rx.never
-		assert %Rx.Lazy{} = rx1
-		o = simple_observer_fun(self)
-		{_, rx2} = Observable.subscribe(rx1, o)
-
-		refute_receive {:on_completed, x}
-		Disposable.dispose(rx2)
-	end
-
-
 end
