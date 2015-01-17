@@ -215,6 +215,11 @@ defmodule Reaxive.Rx do
 	@doc """
 	Creates the empty sequence of events. After a subscription, the
 	sequence terminates immediately.
+
+	## Examples
+	   iex> alias Reaxive.Rx
+	   iex> Rx.empty |> Rx.stream |> Enum.to_list
+	   []
 	"""
 	def empty(timeout \\ @rx_timeout) do
 		delayed_start(fn(rx) ->
@@ -252,6 +257,11 @@ defmodule Reaxive.Rx do
 		rx |> Rx.stream |> Stream.take(1) |> Enum.fetch(0)
 
 	This function is not lazy, but evaluates eagerly and forces the subscription.
+
+	## Examples
+	   iex> alias Reaxive.Rx
+	   iex> Rx.return(3) |> Rx.first
+	   3
 	"""
 	@spec first(Observable.t) :: term
 	def first(rx) do
@@ -370,6 +380,11 @@ defmodule Reaxive.Rx do
 
 	@doc """
 	Generates all naturals numbers starting with `0`.
+
+	## Examples
+	    iex> alias Reaxive.Rx
+	    iex> Rx.naturals |> Rx.take(5) |> Rx.stream |> Enum.to_list
+	    [0, 1, 2, 3, 4]
 	"""
 	@spec naturals(pos_integer, pos_integer) :: Observable.t
 	def naturals(delay \\ 50, timeout \\ @rx_timeout) do
@@ -377,7 +392,7 @@ defmodule Reaxive.Rx do
 	end
 
 	@doc """
-	The `never`function creates a stream of events that never pushes anything.
+	The `never` function creates a sequence of events that never pushes anything.
 	"""
 	@spec never() :: Observable.t
 	def never() do
@@ -387,10 +402,18 @@ defmodule Reaxive.Rx do
 		new_rx
 	end
 
-	@doc "Multiplies all events of the sequence and returns the product as number"
+	@doc """
+	Multiplies all events of the sequence and returns the product as number
+
+	## Examples
+	    iex> alias Reaxive.Rx
+	    iex> 1..5 |> Rx.generate(1) |> Rx.product
+	    120
+       
+	"""
 	@spec product(Observable.t) :: number
 	def product(rx) do
-		rx |> Reaxive.Rx.Impl.compose(Sync.product()) |> first
+		rx |>	Reaxive.Rx.Impl.compose(Sync.product()) |> first
 	end
 
 	@doc """
@@ -486,12 +509,17 @@ defmodule Reaxive.Rx do
 		fn(tag, value) -> send(pid, {tag, value}) end
 	end
 
-	@doc "Sums up all events of the sequence and returns the sum as number"
+	@doc """
+	Sums up all events of the sequence and returns the sum as number.
+
+	## Examples
+	   iex> alias Reaxive.Rx
+	   iex> 1..5 |> Rx.generate(1) |> Rx.sum
+	   15
+	"""
 	@spec sum(Observable.t) :: number
 	def sum(rx) do
-		{sum_fun, acc} = Sync.sum()
-		:ok = Reaxive.Rx.Impl.compose(rx, sum_fun, acc)
-		rx |> first
+		rx |> Reaxive.Rx.Impl.compose(Sync.sum()) |> first
 	end
 
 	@doc """

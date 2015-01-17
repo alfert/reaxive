@@ -47,6 +47,8 @@ defmodule Reaxive.Rx.Impl do
 	def init([name, options]) do
 		s = %__MODULE__{name: name, options: options}
 		# Logger.info "init - state = #{inspect s}"
+		if Keyword.get(options, :queue, false), do:
+			s = %{s | queue: :queue.new()}
 		{:ok, s}
 	end
 
