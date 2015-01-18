@@ -260,8 +260,13 @@ defmodule Reaxive.Rx do
 
 	## Examples
 	   iex> alias Reaxive.Rx
+	   iex> Rx.naturals |> Rx.take(5) |> Rx.first
+	   0
+
+	   iex> alias Reaxive.Rx
 	   iex> Rx.return(3) |> Rx.first
 	   3
+
 	"""
 	@spec first(Observable.t) :: term
 	def first(rx) do
@@ -346,12 +351,16 @@ defmodule Reaxive.Rx do
 	a signal, i.e. into an observable.
 
 	In Reactive Extensions, this function is called `Select`.
+
+	## Examples
+	    iex> alias Reaxive.Rx
+	    iex> Rx.naturals |> Rx.take(5) |> Rx.map(&(2+&1)) |> Rx.stream |> Enum.to_list
+	    [2, 3, 4, 5, 6]
+
 	"""
 	@spec map(Observable.t, (... ->any) ) :: Observable.t
 	def map(rx, fun) do
-		{mapper, acc} = Sync.map(fun)
-		:ok = Reaxive.Rx.Impl.compose(rx, mapper, acc)
-		rx
+		rx |> Reaxive.Rx.Impl.compose(Sync.map(fun))
 	end
 
 	@doc """
@@ -407,9 +416,12 @@ defmodule Reaxive.Rx do
 
 	## Examples
 	    iex> alias Reaxive.Rx
-	    iex> 1..5 |> Rx.generate(1) |> Rx.product
+	    iex> Rx.naturals |> Rx.take(5) |> Rx.map(&(&1 +1)) |> Rx.product
 	    120
-       
+
+	    iex> alias Reaxive.Rx
+	    iex> 1..5 |> Rx.generate(1) |> Rx.product
+	    120       
 	"""
 	@spec product(Observable.t) :: number
 	def product(rx) do
@@ -450,11 +462,21 @@ defmodule Reaxive.Rx do
 	It is essentially the same as
 
 			generate([value])
+
+	## Examples:
+	    iex> alias Reaxive.Rx
+	    iex> Rx.return(3) |> Rx.stream |> Enum.to_list
+	    [3]
+
+	    iex> alias Reaxive.Rx
+	    iex>  Rx.return(5) |> Rx.stream |> Enum.to_list
+	    [5]
 	"""
 	@spec return(any) :: Observable.t
 	def return(value) do
 		delayed_start(fn(rx) ->
 				Observer.on_next(rx, value)
+				:timer.sleep(50)
 				Observer.on_completed(rx, self)
 			end, "return")
 	end
@@ -515,6 +537,10 @@ defmodule Reaxive.Rx do
 	## Examples
 	   iex> alias Reaxive.Rx
 	   iex> 1..5 |> Rx.generate(1) |> Rx.sum
+	   15
+
+	   iex> alias Reaxive.Rx
+	   iex> Rx.naturals |> Rx.map(&(&1 +1)) |> Rx.take(5) |> Rx.sum
 	   15
 	"""
 	@spec sum(Observable.t) :: number
