@@ -6,6 +6,9 @@ defmodule RxTest do
 
 	require Logger
 
+	# wait for messages passing through is 1 milli second
+	@delay 1
+
 	# one 1 second instead of 30 seconds
 	@tag timeout: 1_000
 
@@ -22,9 +25,9 @@ defmodule RxTest do
 		assert Rx.Impl.subscribers(rx1) == [o]
 
 		Rx.Impl.on_next(rx, 1)
-		assert_receive {:on_next, 2}
+		assert_receive {:on_next, 2}, @delay
 		Rx.Impl.on_completed(rx, self)
-		assert_receive {:on_completed, ^id}
+		assert_receive {:on_completed, ^id}, @delay
 		Disposable.dispose(rx2)
 		refute Process.alive?(rx)
 	end
@@ -39,19 +42,19 @@ defmodule RxTest do
 		{id, rx3} = rx2 |> Observable.subscribe(o)
 
 		Rx.Impl.on_next(rx, 1)
-		assert_receive {:on_next, 2}
+		assert_receive {:on_next, 2}, @delay
 
 		Observer.on_next(rx, 2)
-		assert_receive {:on_next, 3}
+		assert_receive {:on_next, 3}, @delay
 
 		values = [1, 2, 3, 4]
 		values |> Enum.each fn(v) ->
 			Observer.on_next(rx, v)
 			k = v+1
-			assert_receive {:on_next, ^k}
+			assert_receive {:on_next, ^k}, @delay
 		end
 		Observer.on_completed(rx, self)
-		assert_receive {:on_completed, ^id}
+		assert_receive {:on_completed, ^id}, @delay
 
 		Disposable.dispose(rx3)
 
@@ -62,11 +65,11 @@ defmodule RxTest do
 		values = [1, 2, 3, 4]
 		o = simple_observer_fun(self)
 		all_procs = Process.list()
-		{id, disp_me} = values |> Rx.generate(1) |> Observable.subscribe(o)
+		{id, disp_me} = values |> Rx.generate |> Observable.subscribe(o)
 
 		values |> Enum.each fn(v) ->
-			assert_receive{:on_next, ^v} end
-		assert_receive {:on_completed, ^id}
+			assert_receive{:on_next, ^v}, @delay end
+		assert_receive {:on_completed, ^id}, @delay
 		Disposable.dispose(disp_me)
 		assert process_leak?(all_procs)
 	end
@@ -75,10 +78,10 @@ defmodule RxTest do
 		values = [1, 2, 3, 4]
 		o = simple_observer_fun(self)
 		all_procs = Process.list()
-		rxs = values |> Rx.generate(1) |> Rx.as_text
+		rxs = values |> Rx.generate |> Rx.as_text
 		assert is_pid(rxs)
 		{id, disp_me} =  rxs |> Observable.subscribe(o)
-		assert_receive {:on_completed, ^id}
+		assert_receive {:on_completed, ^id}, @delay
 
 		Disposable.dispose(disp_me)
 		assert process_leak?(all_procs)
@@ -86,7 +89,7 @@ defmodule RxTest do
 
 	test "create a stream from a sequence of events" do
 		values = 1..20
-		l = values |> Rx.generate(1) |>
+		l = values |> Rx.generate |>
 			# Rx.as_text |>
 			Rx.stream |> Enum.to_list
 		# l = s |> Enum.to_list
@@ -95,7 +98,7 @@ defmodule RxTest do
 
 	test "map a stream from a sequence of events" do
 		values = 1..20
-		l = values |> Rx.generate(1) |>
+		l = values |> Rx.generate |>
 			# Rx.as_text |>
 			Rx.map(&(&1+1)) |>
 			Rx.stream |> Enum.to_list
@@ -119,7 +122,7 @@ defmodule RxTest do
 
 	test "abort a sequence early on via generate and stream" do
 		all = 1..1000
-		five = all |> Rx.generate(1) |>
+		five = all |> Rx.generate |>
 			# Rx.as_text |> 
 			Rx.stream |> Stream.take(5) |> Enum.to_list
 
@@ -128,7 +131,7 @@ defmodule RxTest do
 
 	test "filter out all odd numbers" do
 		values = 1..20
-		odds = values |> Rx.generate(1) |> Rx.filter(&Integer.is_odd/1) |>
+		odds = values |> Rx.generate |> Rx.filter(&Integer.is_odd/1) |>
 			 Rx.stream |> Enum.to_list
 
 		assert odds == (values |> Enum.filter(&Integer.is_odd/1))
@@ -137,7 +140,7 @@ defmodule RxTest do
 
 	test "map and filter compose together" do
 		values = 1..20
-		odds = values |> Rx.generate(1) |> Rx.filter(&Integer.is_odd/1) |>
+		odds = values |> Rx.generate |> Rx.filter(&Integer.is_odd/1) |>
 			Rx.map(&inc/1) |> Rx.map(&inc/1) |> Rx.stream |> Enum.to_list
 
 		assert odds == (values |> Enum.filter(&Integer.is_odd/1) |> Enum.map(&inc/1) |> Enum.map(&inc/1))
@@ -147,7 +150,7 @@ defmodule RxTest do
 	test "fold the past" do
 		values = 1..10
 
-		sum = values |> Rx.generate(1) |>
+		sum = values |> Rx.generate |>
 			Rx.reduce(0, fn(x, acc) -> x + acc end) |>
 			Rx.first
 
@@ -156,7 +159,7 @@ defmodule RxTest do
 
 	test "take 5" do
 		all = 1..1000
-		five = all |> Rx.generate(1) |>
+		five = all |> Rx.generate |>
 			Rx.take(5) |> Rx.stream  |> Enum.to_list
 
 		assert five == (all |> Enum.take(5))
@@ -164,7 +167,7 @@ defmodule RxTest do
 
 	test "First of all" do
 		values = 1..10
-		first = values |> Rx.generate(1) |> Rx.first
+		first = values |> Rx.generate |> Rx.first
 
 		assert first == 1
 	end
@@ -177,7 +180,7 @@ defmodule RxTest do
 
 	test "sum it up" do
 		values = 1..10
-		sum = values |> Rx.generate(1) |> Rx.sum
+		sum = values |> Rx.generate |> Rx.sum
 
 		assert sum == Enum.sum(values)
 	end
@@ -194,7 +197,7 @@ defmodule RxTest do
 
 	test "multiply it up" do
 		values = 1..10
-		product = values |> Rx.generate(1) |> Rx.product
+		product = values |> Rx.generate |> Rx.product
 
 		assert product == Enum.reduce(values, 1, &*/2)
 	end
@@ -219,7 +222,7 @@ defmodule RxTest do
 		{_id, disp_me} = error |> 
 			# Rx.as_text |> 
 			Observable.subscribe(o)
-		assert_receive {:on_error, ^exception}
+		assert_receive {:on_error, ^exception}, @delay
 		disp_me.()
 		# refute Process.alive?(error)
 		process_leak?(all_procs)
@@ -236,7 +239,7 @@ defmodule RxTest do
 	test "starts with a few numbers" do
 		first = 1..10
 		second = 11..20
-		all = second |> Rx.generate(1) |> Rx.start_with(first) |>
+		all = second |> Rx.generate |> Rx.start_with(first) |>
 			# Rx.as_text |>
 			Rx.stream |> Enum.to_list
 
@@ -286,55 +289,55 @@ defmodule RxTest do
 	end
 
 	test "naturals are counting from zero" do
-		hundreds = Rx.naturals(1) |> Rx.take(100) |> Rx.stream |> Enum.to_list
+		hundreds = Rx.naturals() |> Rx.take(100) |> Rx.stream |> Enum.to_list
 		assert hundreds == 0..99 |> Enum.to_list
 	end
 
 	test "distinct values are filtered out" do
-		tens = Rx.naturals(1) |> Rx.take(100) |> Rx.map(&(rem(&1, 10))) |>
+		tens = Rx.naturals |> Rx.take(100) |> Rx.map(&(rem(&1, 10))) |>
 			Rx.distinct() |> Rx.stream |> Enum.sort
 		assert tens == 0..9 |> Enum.to_list
 	end
 
 	test "distinct values only" do
-		tens = Rx.naturals(1) |> Rx.take(100) |> Rx.map(&(div(&1, 10))) |>
+		tens = Rx.naturals |> Rx.take(100) |> Rx.map(&(div(&1, 10))) |>
 			Rx.distinct() |> Rx.stream |> Enum.sort
 		assert tens == 0..9 |> Enum.to_list
 	end
 
 	test "distinct values changes only" do
 		input = [1, 1, 2, 1, 1, 0, 1, 2, 2, 3]
-		filtered = input |> Rx.generate(1) |>
+		filtered = input |> Rx.generate |>
 			Rx.distinct_until_changed() |> Rx.stream |> Enum.to_list()
 		assert filtered == [1, 2, 1, 0, 1, 2, 3]
 	end
 
 	test "distinct values changes only 2" do
-		tens = Rx.naturals(1) |> Rx.take(100) |> Rx.map(&(div(&1, 10))) |>
+		tens = Rx.naturals |> Rx.take(100) |> Rx.map(&(div(&1, 10))) |>
 		Rx.distinct_until_changed() |> Rx.stream |> Enum.sort
 		assert tens == 0..9 |> Enum.to_list
 	end
 
 	test "take_while takes ony while true" do
-		tens = Rx.naturals(1) |> Rx.take_while(&(&1 < 10)) |>
+		tens = Rx.naturals |> Rx.take_while(&(&1 < 10)) |>
 			Rx.stream |> Enum.sort
 		assert tens == 0..9 |> Enum.to_list
 	end
 
 	test "take_until takes ony while false" do
-		tens = Rx.naturals(1) |> Rx.take_until(&(&1 > 10)) |>
+		tens = Rx.naturals |> Rx.take_until(&(&1 > 10)) |>
 			Rx.stream |> Enum.sort
 		assert tens == 0..10 |> Enum.to_list
 	end
 
 	test "drop the first 10 elements" do
-		nineties = Rx.naturals(1) |> Rx.take(100) |> Rx.drop(10) |>
+		nineties = Rx.naturals |> Rx.take(100) |> Rx.drop(10) |>
 			Rx.stream |> Enum.to_list
 		assert nineties == 10..99 |> Enum.to_list
 	end
 
 	test "drop_while drops ony while true" do
-		tens = Rx.naturals(1) |> Rx.take(100) |> Rx.take_while(&(&1 < 10)) |>
+		tens = Rx.naturals |> Rx.take(100) |> Rx.take_while(&(&1 < 10)) |>
 		Rx.stream |> Enum.to_list
 		assert tens == 0..9 |> Enum.to_list
 	end
