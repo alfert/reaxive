@@ -4,8 +4,6 @@ defmodule RxTest do
 	require Integer
 	alias Reaxive.Rx
 
-	require Reaxive.Sync, as: Sync
-
 	require Logger
 
 	# one 1 second instead of 30 seconds
@@ -104,6 +102,21 @@ defmodule RxTest do
 		assert Enum.to_list(values)|>Enum.map(&(&1+1)) == l
 	end
 
+	test "map a single valued sequence" do 
+		#:dbg.tracer
+		#:dbg.p(:all, :c)
+		# :dbg.p(:new, :m)
+		#:timer.sleep(50)
+		five = Rx.return(3) |> # Rx.as_text |> 
+			Rx.map(&(&1 + 2)) # |>  Rx.as_text 
+		# Logger.info("five should be an Observable: #{inspect five}")
+		five_scalar = five |> Rx.first
+		# Logger.info("five scalar is #{inspect five_scalar}")
+		assert  five_scalar == 5
+		#:timer.sleep(50)	
+		#:dbg.p(:all, :clear)
+	end
+
 	test "abort a sequence early on via generate and stream" do
 		all = 1..1000
 		five = all |> Rx.generate(1) |>
@@ -159,7 +172,7 @@ defmodule RxTest do
 	test "First of naturals" do
 		first = Rx.naturals  |> Rx.drop(5) |> Rx.first
 
-		assert first == 1
+		assert first == 5
 	end
 
 	test "sum it up" do
@@ -169,11 +182,26 @@ defmodule RxTest do
 		assert sum == Enum.sum(values)
 	end
 
+	test "sum it up with naturals" do
+		sum5_9 = Rx.naturals  |> Rx.drop(5) |> Rx.take(5) |> Rx.sum
+		assert sum5_9 == 5..9 |> Enum.sum
+	end
+
+	test "sum it up with naturals" do
+		sum1_5 = Rx.naturals |> Rx.take(5) |> Rx.map(&(&1 +1)) |> Rx.sum
+		assert sum1_5 == 1..5 |> Enum.sum
+	end
+
 	test "multiply it up" do
 		values = 1..10
 		product = values |> Rx.generate(1) |> Rx.product
 
 		assert product == Enum.reduce(values, 1, &*/2)
+	end
+
+	test "multiply it up with naturals" do
+		prod1_5 = Rx.naturals |> Rx.take(5) |> Rx.map(&(&1 +1)) |> Rx.product
+		assert prod1_5 == 120
 	end
 
 
