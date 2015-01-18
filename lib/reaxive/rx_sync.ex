@@ -84,7 +84,7 @@ defmodule Reaxive.Sync do
 	@doc "Reducer function for map."
 	@spec map(((any) -> any)) :: {reduce_fun_t, any}
 	def map(fun) do
-		default_behavior do: emit(fun.(v), acc, a, new_acc)
+		default_behavior(:irrelevant_accu_for_Rx_map) do emit(fun.(v), acc, a, new_acc) end
 	end
 
 	@doc "Reducer function for `take`"
