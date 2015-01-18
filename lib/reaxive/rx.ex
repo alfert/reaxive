@@ -17,7 +17,10 @@ defmodule Reaxive.Rx do
 	# usage. Using auto_stop too aggressively is risky, because every event sent to
 	# the Rx which is not properly subscribed might stop the Rx prematurely. Too bad!
 	@rx_defaults [auto_stop: true]
+	# The timeout for subscriptions is per default 5 seconds
 	@rx_timeout 5_000
+	# the delay between pushing events is per default 0 milli second
+	@rx_delay 0
 
 	defmodule Lazy do
 		@moduledoc """
@@ -330,7 +333,7 @@ defmodule Reaxive.Rx do
 	  be changed in the future.
 	"""
 	@spec generate(Enumerable.t, pos_integer, pos_integer) :: Observable.t
-	def generate(collection, delay \\ 50, timeout \\ @rx_timeout)
+	def generate(collection, delay \\ @rx_delay, timeout \\ @rx_timeout)
 	def generate(collection, delay, timeout) do
 		send_values = fn(rx) ->
 			collection |> Enum.each(fn(element) ->
@@ -396,7 +399,7 @@ defmodule Reaxive.Rx do
 	    [0, 1, 2, 3, 4]
 	"""
 	@spec naturals(pos_integer, pos_integer) :: Observable.t
-	def naturals(delay \\ 50, timeout \\ @rx_timeout) do
+	def naturals(delay \\ @rx_delay, timeout \\ @rx_timeout) do
 		generate(Stream.unfold(0, fn(n) -> {n, n+1} end), delay, timeout)
 	end
 
@@ -476,7 +479,7 @@ defmodule Reaxive.Rx do
 	def return(value) do
 		delayed_start(fn(rx) ->
 				Observer.on_next(rx, value)
-				:timer.sleep(50)
+				:timer.sleep(@rx_delay)
 				Observer.on_completed(rx, self)
 			end, "return")
 	end
