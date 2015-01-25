@@ -220,9 +220,9 @@ defmodule Reaxive.Rx do
 	sequence terminates immediately.
 
 	## Examples
-	   iex> alias Reaxive.Rx
-	   iex> Rx.empty |> Rx.stream |> Enum.to_list
-	   []
+		iex> alias Reaxive.Rx
+		iex> Rx.empty |> Rx.stream |> Enum.to_list
+		[]
 	"""
 	def empty(timeout \\ @rx_timeout) do
 		delayed_start(fn(rx) ->
@@ -234,11 +234,11 @@ defmodule Reaxive.Rx do
 	exception as the only element. The stream starts after the first subscription.
 
 	## Examples
-	   iex> alias Reaxive.Rx
-	   iex> me = self
-	   iex> Rx.error(RuntimeError.exception("yeah")) |> Observable.subscribe(fn(t, x) -> me |> send {t, x} end)
-	   iex> receive do x -> x end
-	   {:on_error, %RuntimeError{message: "yeah"}} 
+		iex> alias Reaxive.Rx
+		iex> me = self
+		iex> Rx.error(RuntimeError.exception("yeah")) |> Observable.subscribe(fn(t, x) -> me |> send {t, x} end)
+		iex> receive do x -> x end
+		{:on_error, %RuntimeError{message: "yeah"}} 
 	"""
 	def error(%{__exception__: true} = exception, timeout \\ @rx_timeout) do
 		delayed_start(fn(rx) ->
@@ -269,14 +269,13 @@ defmodule Reaxive.Rx do
 	This function is not lazy, but evaluates eagerly and forces the subscription.
 
 	## Examples
-	   iex> alias Reaxive.Rx
-	   iex> Rx.naturals |> Rx.take(5) |> Rx.first
-	   0
+		iex> alias Reaxive.Rx
+		iex> Rx.naturals |> Rx.take(5) |> Rx.first
+		0
 
-	   iex> alias Reaxive.Rx
-	   iex> Rx.return(3) |> Rx.first
-	   3
-
+		iex> alias Reaxive.Rx
+		iex> Rx.return(3) |> Rx.first
+		3
 	"""
 	@spec first(Observable.t) :: term
 	def first(rx) do
@@ -586,6 +585,9 @@ defmodule Reaxive.Rx do
 	@doc """
 	Takes the first elements of the sequence until the
 	predicate is true.
+
+	## Examples
+
 	"""
 	@spec take_until(Observable.t, (any -> boolean)) :: Observable.t
 	def take_until(rx, pred) do
@@ -597,9 +599,9 @@ defmodule Reaxive.Rx do
 	is finite, otherwise this call does not finish.
 
 	## Examples
-	iex> alias Reaxive.Rx
-	iex> Rx.naturals |> Rx.take(5) |> Rx.to_list
-	[0, 1, 2, 3, 4]
+		iex> alias Reaxive.Rx
+		iex> Rx.naturals |> Rx.take(5) |> Rx.to_list
+		[0, 1, 2, 3, 4]
 	"""
 	@spec to_list(Observable.t) :: [any]
 	def to_list(rx) do
