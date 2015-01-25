@@ -593,6 +593,21 @@ defmodule Reaxive.Rx do
 	end
 
 	@doc """
+	Converts the event sequence into a regular list. Requires that the sequence
+	is finite, otherwise this call does not finish.
+
+	## Examples
+	iex> alias Reaxive.Rx
+	iex> Rx.naturals |> Rx.take(5) |> Rx.to_list
+	[0, 1, 2, 3, 4]
+	"""
+	@spec to_list(Observable.t) :: [any]
+	def to_list(rx) do
+		rx |> stream |> Enum.to_list
+	end
+	
+
+	@doc """
 	Transform adds a composable transformation to an event sequence.
 	If `obs` is a `Rx_Impl`, the transformation is added as composition,
 	otherwise a new `Rx_Impl` is created to decouple `obs` and the transformation.
