@@ -67,6 +67,12 @@ defmodule Reaxive.Rx do
 
 	@doc """
 	Returns `true` if `pred` holds for all events in the sequence.
+
+	## Examples 
+		iex> alias Reaxive.Rx
+		iex> require Integer
+		iex> Rx.naturals |> Rx.take(10) |> Rx.map(&(1+&1*2)) |> Rx.all &Integer.is_odd/1
+		true
 	"""
 	@spec all(Observable.t, (any -> boolean)) :: boolean
 	def all(rx, pred) do
@@ -75,6 +81,12 @@ defmodule Reaxive.Rx do
 
 	@doc """
 	Returns `true` if `pred` holds for at least one event in the sequence.
+
+	## Examples 
+		iex> alias Reaxive.Rx
+		iex> require Integer
+		iex> Rx.naturals |> Rx.take(10) |> Rx.any fn(x) -> x > 5 end
+		true
 	"""
 	@spec any(Observable.t, (any -> boolean)) :: boolean
 	def any(rx, pred) do
@@ -102,6 +114,7 @@ defmodule Reaxive.Rx do
 
 	This function cannot easily implemented here.
 	"""
+	@doc false
 	@spec concat([Observable.t]) :: Observable.t
 	def concat(rxs) when is_list(rxs) do
 		lazy do
@@ -179,8 +192,13 @@ defmodule Reaxive.Rx do
 	@doc """
 	The `distinct` transformation is a filter, which only passes values that it
 	has not seen before. Since all distinct values has to be stores inside
-	the filter, its required memory can grow for ever, if an unbounded #
-	sequewnce is used.
+	the filter, its required memory can grow for ever, if an unbounded 
+	sequence is used.
+
+	## Examples 
+		iex> alias Reaxive.Rx 
+		iex> [1, 1, 2, 1, 2, 2, 3, 1] |> Rx.generate |> Rx.distinct |> Rx.to_list
+		[1, 2, 3]
 	"""
 	@spec distinct(Observer.t) :: Observer.t
 	def distinct(rx) do
@@ -193,6 +211,11 @@ defmodule Reaxive.Rx do
 	The `distinct_until_changed` transformation is a filter, which filters
 	out all repeating values, such that only value changes remain
 	in the event sequence.
+
+	## Examples
+		iex> alias Reaxive.Rx 
+		iex> [1, 1, 2, 1, 2, 2, 3, 1] |> Rx.generate |> Rx.distinct_until_changed |> Rx.to_list
+		[1, 2, 1, 2, 3,  1]
 	"""
 	@spec distinct_until_changed(Observer.t) :: Observer.t
 	def distinct_until_changed(rx) do
@@ -201,7 +224,14 @@ defmodule Reaxive.Rx do
 		rx
 	end
 
-	@doc "`drop` filters out the first `n` elements of the sequence."
+	@doc """
+	`drop` filters out the first `n` elements of the sequence.
+
+	## Examples
+		iex> alias Reaxive.Rx
+		iex> Rx.naturals |> Rx.take(10) |> Rx.drop(5) |> Rx.to_list
+		[5, 6, 7, 8, 9]
+	"""
 	@spec drop(Observable.t, pos_integer) :: Observable.t
 	def drop(rx, n) when n >= 0 do
 		Reaxive.Rx.Impl.compose(rx, Sync.drop(n))
@@ -209,6 +239,11 @@ defmodule Reaxive.Rx do
 
 	@doc """
 	drop_while` filters out the first elements while the predicate is `true`.
+
+	## Examples
+		iex> alias Reaxive.Rx
+		iex> Rx.naturals |> Rx.take(10) |> Rx.drop_while(&(&1 < 5)) |> Rx.to_list
+		[5, 6, 7, 8, 9]
 	"""
 	@spec drop_while(Observable.t, (any -> boolean)) :: Observable.t
 	def drop_while(rx, pred) do
@@ -252,6 +287,12 @@ defmodule Reaxive.Rx do
 	events remain in the sequence for which `pred` returns true.
 
 	In Reactive Extensions, this function is called `Where`.
+
+	## Examples
+		iex> alias Reaxive.Rx
+		iex> require Integer
+		iex> Rx.naturals |> Rx.take(5) |> Rx.filter(&Integer.is_even/1) |> Rx.to_list
+		[0, 2, 4]
 	"""
 	@spec filter(Observable.t, (any -> boolean)) :: Observable.t
 	def filter(rx, pred) do
@@ -377,6 +418,13 @@ defmodule Reaxive.Rx do
 
 	The result sequences finishes after all sequences have finished without errors
 	or immediately after the first error.
+
+	## Examples
+		iex> alias Reaxive.Rx
+		iex> tens=Rx.naturals |> Rx.take(10)
+		iex> fives=Rx.naturals |> Rx.take(5)
+		iex> Rx.merge(tens, fives) |> Rx.to_list |> Enum.sort
+		[0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8, 9]
 	"""
 	@spec merge(Observable.t, Observable.t) :: Observable.t
 	def merge(rx1, rx2), do: merge([rx1, rx2])
@@ -494,6 +542,11 @@ defmodule Reaxive.Rx do
 	The function `start_with` takes a stream of events `prev_rx` and a collection.
 	The resulting stream of events has all elements of `colletion`,
 	followed by the events of `prev_rx`.
+
+	## Examples
+		iex> alias Reaxive.Rx
+		iex> Rx.generate [5] |> Rx.start_with([0, 1, 2]) |> Rx.to_list
+		[0, 1, 2, 5]
 	"""
 	@spec start_with(Observable.t, Enumerable.t) :: Observable.t
 	def start_with(prev_rx, collection) do
@@ -565,6 +618,11 @@ defmodule Reaxive.Rx do
 	This can be achieved by converting the sequence into a stream and back again:
 
 		rx |> Rx.stream |> Stream.take(-n) |> Rx.generate
+
+	## Examples
+		iex> alias Reaxive.Rx
+		iex> Rx.naturals |> Rx.take(10) |> Rx.to_list
+		[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 	"""
 	@spec take(Observable.t, pos_integer) :: Observable.t
 	def take(rx, n) when n >= 0 do
@@ -576,6 +634,11 @@ defmodule Reaxive.Rx do
 	@doc """
 	Takes the first elements of the sequence while the
 	predicate is true.
+
+	## Examples
+		iex> alias Reaxive.Rx
+		iex> Rx.naturals |> Rx.take_while(&(&1 < 5)) |> Rx.to_list
+		[0, 1, 2, 3, 4]
 	"""
 	@spec take_while(Observable.t, (any -> boolean)) :: Observable.t
 	def take_while(rx, pred) do
@@ -587,7 +650,9 @@ defmodule Reaxive.Rx do
 	predicate is true.
 
 	## Examples
-
+		iex> alias Reaxive.Rx
+		iex> Rx.naturals |> Rx.take_until(&(&1 > 5)) |> Rx.to_list
+		[0, 1, 2, 3, 4, 5]
 	"""
 	@spec take_until(Observable.t, (any -> boolean)) :: Observable.t
 	def take_until(rx, pred) do
