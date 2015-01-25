@@ -232,6 +232,13 @@ defmodule Reaxive.Rx do
   @doc """
 	The `error` function takes an in Elixir defined exception and generate a stream with the
 	exception as the only element. The stream starts after the first subscription.
+
+	## Examples
+	   iex> alias Reaxive.Rx
+	   iex> me = self
+	   iex> Rx.error(RuntimeError.exception("yeah")) |> Observable.subscribe(fn(t, x) -> me |> send {t, x} end)
+	   iex> receive do x -> x end
+	   {:on_error, %RuntimeError{message: "yeah"}} 
 	"""
 	def error(%{__exception__: true} = exception, timeout \\ @rx_timeout) do
 		delayed_start(fn(rx) ->
