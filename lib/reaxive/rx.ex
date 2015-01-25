@@ -545,7 +545,7 @@ defmodule Reaxive.Rx do
 
 	## Examples
 		iex> alias Reaxive.Rx
-		iex> Rx.generate [5] |> Rx.start_with([0, 1, 2]) |> Rx.to_list
+		iex> Rx.generate([5]) |> Rx.start_with([0, 1, 2]) |> Rx.to_list
 		[0, 1, 2, 5]
 	"""
 	@spec start_with(Observable.t, Enumerable.t) :: Observable.t
