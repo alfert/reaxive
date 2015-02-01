@@ -106,18 +106,12 @@ defmodule RxTest do
 	end
 
 	test "map a single valued sequence" do 
-		#:dbg.tracer
-		#:dbg.p(:all, :c)
-		# :dbg.p(:new, :m)
-		#:timer.sleep(50)
 		five = Rx.return(3) |> # Rx.as_text |> 
 			Rx.map(&(&1 + 2)) # |>  Rx.as_text 
 		# Logger.info("five should be an Observable: #{inspect five}")
 		five_scalar = five |> Rx.first
 		# Logger.info("five scalar is #{inspect five_scalar}")
 		assert  five_scalar == 5
-		#:timer.sleep(50)	
-		#:dbg.p(:all, :clear)
 	end
 
 	test "abort a sequence early on via generate and stream" do
