@@ -98,10 +98,9 @@ defmodule Reaxive.Rx do
 	event streams.
 	"""
 	@spec as_text(Observable.t) :: Observable.t
-	def as_text(rx), do: rx |> map(fn(v) ->
-		IO.puts ("#{IO.ANSI.yellow}#{inspect v}#{IO.ANSI.default_color}")
-		v
-	end)
+	def as_text(rx) do
+		rx |> Reaxive.Rx.Impl.compose(Sync.as_text)
+	end	
 
 	@doc """
 	*This function does not work!*

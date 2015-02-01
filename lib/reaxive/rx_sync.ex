@@ -283,4 +283,20 @@ defmodule Reaxive.Sync do
 		)
 	end
 
+	@spec as_text :: transform_t
+	def as_text() do
+		full_behavior(
+			fn(v, acc, a, new_acc) -> 
+				IO.puts ("#{IO.ANSI.yellow}#{inspect v}#{IO.ANSI.default_color}")
+				emit(v, acc, a, new_acc) end,
+			fn(v, acc, a, new_acc) ->	
+				IO.puts ("#{IO.ANSI.yellow}on_completed#{IO.ANSI.default_color}")
+				halt(acc, a, new_acc) end,
+			fn(v, acc, a, new_acc) -> 
+				IO.puts ("#{IO.ANSI.yellow}on_error: #{inspect v}#{IO.ANSI.default_color}")
+				error(v, acc, a, new_acc) end
+		)		
+	end
+	
+
 end
