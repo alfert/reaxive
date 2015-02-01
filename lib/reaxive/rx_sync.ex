@@ -90,12 +90,10 @@ defmodule Reaxive.Sync do
 	@doc "Reducer function for `take`"
 	def take(n) when n >= 0 do
 		default_behavior(n) do
-			if a == 0 do
-				r = halt(acc, a, new_acc)
-				# IO.puts "a == 0, r = #{inspect r}"
-				r
-			else
-				emit(v, acc, a-1, new_acc)
+			cond do
+				a == 0 -> halt(acc, a-1, new_acc)
+				a < 0  -> ignore(v, acc, a, new_acc)
+				a > 0  -> emit(v, acc, a-1, new_acc)
 			end
 		end
 	end
