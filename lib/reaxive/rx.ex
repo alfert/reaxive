@@ -156,7 +156,7 @@ defmodule Reaxive.Rx do
 
 	@spec update_buffer(%{pos_integer => term}, pos_integer, term) :: %{}
 	defp update_buffer(buffer = %{}, index, value) do
-		Dict.update(buffer, index, fn(old) -> [value | old] end)
+		Dict.update(buffer, index, [value], fn(old) -> [value | old] end)
 	end
 	@doc """
 	The `delayed_start` function starts a generator after the first
