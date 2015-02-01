@@ -230,8 +230,8 @@ defmodule Reaxive.Rx.Impl do
 			end
 		catch
 			what, message ->
-				# Logger.error "Got exception: #{inspect what}, #{inspect message} \n" <>
-				#	"with value #{inspect value} in state #{inspect state}\n" <>
+				 Logger.error "Got exception: #{inspect what}, #{inspect message} \n" <>
+					"with value #{inspect value} in state #{inspect state}\n" <>
 					Exception.format(what, message)
 				handle_value(state, {:on_error, {what, message}})
 		end
