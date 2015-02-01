@@ -404,6 +404,29 @@ defmodule RxTest do
 	###############################################################
 	## Helper functions
 
+	def start_tracing() do
+		# :dbg.tracer
+		f = Reaxive.Trace.start()
+		{:ok, _} = :dbg.tp(Reaxive.Rx, :cx)
+		{:ok, _} = :dbg.tp(Reaxive.Sync, :cx)
+		{:ok, _} = :dbg.tp(Reaxive.Rx.Impl, :cx)
+		{:ok, _} = :dbg.tp(Enum, :cx)
+		{:ok, _} = :dbg.tp(Stream, :cx)
+		{:ok, _} = :dbg.p(:new, [:c, :sos])
+		{:ok, _} = :dbg.p(:new, [:m, :sos])
+		{:ok, _} = :dbg.p(self, [:p, :sos])
+		:timer.sleep(50)	
+		f	
+	end
+	
+	def stop_tracing(nil), do: :ok
+	def stop_tracing(f) do
+		:timer.sleep(50)	
+		:dbg.p(:all, :clear)
+		Reaxive.Trace.stop(f)
+	end
+	
+
 	def process_leak?(initial_processes, delay \\ 100) do
 		:timer.sleep(delay)
 		list2 = Process.list()
