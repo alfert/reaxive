@@ -10,25 +10,25 @@ defmodule Reaxive.Mixfile do
       deps: deps ]
   end
 
-  # Configuration for the OTP application
+  # Configuration for the OTP applicatioon
   def application do
     [
       mod: { Reaxive, [] },
       applications: [
         # httpoison is used for coverage testing only ...
-        :httpoison, 
+        # :httpoison,
         # regular dependencies
         :kernel , :stdlib, :sasl, :logger]
     ]
   end
 
   defp deps do
-    [      
-      {:coverex, "~> 1.0.0", only: :test},
+    [
+      {:coverex, "~> 1.1.0", only: :test},
       {:earmark, "~> 0.1", only: :dev},
       {:ex_doc, "~> 0.6", only: :dev},
-      {:dialyze, "~> 0.1.2", only: :dev},
-      {:dbg, github: "fishcakez/dbg", only: :test}
+      {:dialyze, "~> 0.1.3", only: :dev},
+      {:dbg, "~>1.0.0", only: :test}
    ]
   end
 end
