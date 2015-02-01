@@ -61,6 +61,14 @@ defmodule Reaxive.Trace do
 		"""
 	def format({:trace, src, :send, msg, :code_server}=m), do: "' ignore messages to the codeserver #{inspect m}"
 	def format({:trace, src, :send, msg, :init}=m), do: "' ignore messages to init #{inspect m}"
+	def format({:trace, source, :send, msg = {:"$gen_cast", {:on_next, _}}, target}), do:
+		"\"#{inspect source}\" -[#green]> \"#{inspect target}\": #{inspect msg}"
+	def format({:trace, source, :send, msg = {:on_next, _}, target}), do:
+		"\"#{inspect source}\" -[#green]> \"#{inspect target}\": #{inspect msg}"
+	def format({:trace, source, :send, msg = {:"$gen_cast", {:on_completed, _}}, target}), do:
+		"\"#{inspect source}\" -[#blue]> \"#{inspect target}\": #{inspect msg}"
+	def format({:trace, source, :send, msg = {:on_completed, _}, target}), do:
+		"\"#{inspect source}\" -[#blue]> \"#{inspect target}\": #{inspect msg}"
 	def format({:trace, source, :send, msg, target}), do:
 		"\"#{inspect source}\" -> \"#{inspect target}\": #{inspect msg}"
 	def format({:trace, source, :send_to_non_existing_process, msg, target}), do:
