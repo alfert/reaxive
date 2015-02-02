@@ -81,7 +81,9 @@ defmodule RxTest do
 		rxs = values |> Rx.generate |> Rx.as_text
 		assert is_pid(rxs)
 		{id, disp_me} =  rxs |> Observable.subscribe(o)
-		assert_receive {:on_completed, ^id}, @delay
+		# wait longer due to IO happening which might
+		# change timings on travis and other CI platforms
+		assert_receive {:on_completed, ^id}
 
 		Disposable.dispose(disp_me)
 		assert process_leak?(all_procs)
