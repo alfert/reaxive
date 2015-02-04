@@ -623,9 +623,6 @@ defmodule Reaxive.Rx do
 	otherwise a new `Rx_Impl` is created to decouple `obs` and the transformation.
 	"""
 	@spec transform(Observable.t, Sync.transform_t) :: Observable.t
-	def transform(%Reaxive.Rx.Impl{} = obs, transform) do
-		obs |> Reaxive.Rx.Impl.compose(transform)
-	end
 	def transform(obs, transform) do
 		{:ok, new_rx} = Reaxive.Rx.Impl.start("transform", @rx_defaults)
 		source = Observable.subscribe(obs, new_rx)
