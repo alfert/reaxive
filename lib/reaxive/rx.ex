@@ -633,18 +633,4 @@ defmodule Reaxive.Rx do
 		new_rx |> Reaxive.Rx.Impl.compose(transform)
 	end
 
-	@doc false
-	def accumulator(rx) do
-		# This is not the proper solution. We need something, that is handled differently
-		# in the handle_value implementation and sends the final value of the accu
-		# after receiving the :on_completed message.
-
-		# ==> It might be useful to consider the Enum-Protocol for reducers
-		# to communicate between rx_impl nodes and the reducer functions. Interestingly,
-		# Enum has {:cont, term} and {:halt, term}, which might be useful here. If we change
-		# from {:on_completed, nil} to {:on_completed, term}, we also have to change the
-		# Observer protocol!
-
-		Reaxive.Rx.Impl.acc(rx)
-	end
 end
