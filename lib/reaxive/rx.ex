@@ -103,62 +103,6 @@ defmodule Reaxive.Rx do
 	end	
 
 	@doc """
-	*This function does not work!*
-	Concatenates serveral event sequences.
-
-	Makes only sense, if the sequences are finite, because all events
-	from the later sequences need to buffered until the earlier
-	sequences finish. If any of the sequences produce an error, the concatenation
-	is aborted.
-
-	This function cannot easily implemented here.
-	"""
-	@doc false
-	@spec concat([Observable.t]) :: Observable.t
-	def concat(rxs) when is_list(rxs) do
-		lazy do
-			{:ok, rx} = Reaxive.Rx.Impl.start("concat", @rx_defaults)
-			# we need a reduce like function, that
-			#  a) aborts immediately if an Exception occurs
-			#  b) finishes only after all sources have finished
-			#  c) buffers all events that are coming from the current
-			#     event sequence
-			#
-			n = length(rxs)
-			# add to each rx a mapped rx which returns {number_of_rx, event} pairs
-			# indexed = rxs |> Enum.with_index |>
-			# 	Enum.map (fn({rx, i}) -> map(rx, fn(v) -> {i, v} end) end)
-
-			fold_fun = fn
-				# a value of the current sequence is pushed out
-			    ({:on_next, {i, v}}, {i, buffer}) -> {:cont, {:on_next, v}, {i, buffer}}
-			    # a value of a not current sequence is buffered
-			    ({:on_next, {i, v}}, {k, buffer}) -> {:ignore, {:on_next, v}, {k, update_buffer(buffer, i, v)}}
-				# the final sequence is finished. Now finish the entíre sequence
-				({:on_completed, {n, v}}, {i, buffer}) -> {:cont, {:on_completed, v}, {n, Dict.delete(buffer, i)}}
-			    # the current sequence is finished. Take the next one, push all ot its buffered events out
-			    # (in reverse order) and ignore the complete
-				({:on_completed, {i, v}}, {i, buffer}) ->
-					# This won't work, since we need the state of Rx. Hmmmm.
-					Reaxive.Rx.Impl.notify({:cont, {:on_next, v}, {i, buffer}} )
-					{:ignore, {:on_completed, v}, {i + 1, Dict.delete(buffer, i)}}
-				({:on_completed, {_i, v}}, k) -> {:ignore, {:on_completed, v}, k-1}
-			end
-
-			Reaxive.Rx.Impl.fun(rx, fold_fun, n)
-			# subscribe to all originating sequences ...
-			disposes = rxs |> Enum.map &Observable.subscribe(&1, rx)
-			# and set the new disposables as sources.
-			:ok = Reaxive.Rx.Impl.source(rx, disposes)
-			rx
-		end
-	end
-
-	@spec update_buffer(%{pos_integer => term}, pos_integer, term) :: %{}
-	defp update_buffer(buffer = %{}, index, value) do
-		Dict.update(buffer, index, [value], fn(old) -> [value | old] end)
-	end
-	@doc """
 	The `delayed_start` function starts a generator after the first
 	subscription has arrived. The `generator` gets as argument `rx` the
 	new creately `Rx_Impl` and sends is internally encoded values via
