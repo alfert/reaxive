@@ -10,7 +10,7 @@ defmodule Reaxive.Rx.Impl do
 	@typedoc """
 	Internal message for propagating events.
 	"""
-	@type rx_propagate :: {:on_next, term} | {:on_error, term} | {:on_completed, nil}
+	@type rx_propagate :: {:on_next, term} | {:on_error, term} | {:on_completed, nil | pid}
 	@typedoc """
 	Tags for interacting between reduce-function and its reducers. They have the following
 	implications:
@@ -219,7 +219,7 @@ defmodule Reaxive.Rx.Impl do
 		try do
 			# Logger.debug "Handle_value with v=#{inspect value} and #{inspect state}"
 			{tag, new_v, new_accu} = case do_action(fun, value, accu, []) do
-				{val, acc, new_acc}      -> {:cont, val, new_acc}
+				# {val, acc, new_acc}      -> {:cont, val, new_acc}
 				{tag, val, acc, new_acc} -> {tag, val, new_acc}
 			end
 			new_state = %__MODULE__{

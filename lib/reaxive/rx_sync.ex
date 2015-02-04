@@ -22,9 +22,9 @@ defmodule Reaxive.Sync do
 
 	@compile(:inline)
 
-	@type reason_t :: :cont | :ignore | :halt | :error
+	@type reason_t :: :cont | :ignore | :halt | :error | :on_completed | :on_next | :on_error
 
-	@type acc_t :: list
+	@type acc_t :: [any]
 	@type tagged_t :: {reason_t, any}
 	@type reduce_t :: {tagged_t, acc_t, acc_t}
 	@type reduce_fun_t :: ((tagged_t, acc_t, acc_t) -> reduce_t)
@@ -49,8 +49,8 @@ defmodule Reaxive.Sync do
 				({{:on_next, var!(v)}, [var!(a) | var!(acc)], var!(new_acc)}) -> unquote(clause)
 				({{:on_completed, nil}, [a | acc], new_acc})     -> halt(acc, a, new_acc)
 				({{:on_completed, v}, [a | acc], new_acc})     -> halt(acc, a, new_acc)
-				{:cont, {:on_completed, v}, [a |acc], new_acc} -> emit_and_halt(acc, a, new_acc)
-				({:ignore, v, [a | acc], new_acc})          -> ignore(v, acc, a, new_acc)
+				{{:cont, {:on_completed, v}}, [a |acc], new_acc} -> emit_and_halt(acc, a, new_acc)
+				({{:ignore, v}, [a | acc], new_acc})          -> ignore(v, acc, a, new_acc)
 				({{:on_error, v}, [a | acc], new_acc})      -> error(v, acc, a, new_acc)
 			end,
 			unquote(accu)
@@ -62,16 +62,16 @@ defmodule Reaxive.Sync do
 	defmacro halt(acc, new_a, new_acc), do:
 		quote do: {{:on_completed, unquote(nil)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
 	defmacro emit_and_halt(acc, new_a, new_acc), do:
-		quote do: {:cont, {:on_completed, unquote(new_a)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
+		quote do: {{:cont, {:on_completed, unquote(new_a)}}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
 	defmacro error(error, acc, new_a, new_acc), do:
 		quote do: {{:on_error, unquote(error)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
 	defmacro emit(v, acc, new_a, new_acc), do:
 		quote do: {{:on_next, unquote(v)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
 	defmacro ignore(v, acc, new_a, new_acc), do:
-		quote do: {:ignore, unquote(v), unquote(acc), [unquote(new_a) | unquote(new_acc)]}
+		quote do: {{:ignore, unquote(v)}, unquote(acc), [unquote(new_a) | unquote(new_acc)]}
 
 	@doc "Reducer function for filter"
-	@spec filter(((any) -> boolean)) :: {reduce_fun_t, any}
+	@spec filter(((any) -> boolean)) :: transform_t
 	def filter(pred) do
 		default_behavior do
 			case pred.(v) do
@@ -82,7 +82,7 @@ defmodule Reaxive.Sync do
 	end
 
 	@doc "Reducer function for map."
-	@spec map(((any) -> any)) :: {reduce_fun_t, any}
+	@spec map(((any) -> any)) :: transform_t
 	def map(fun) do
 		default_behavior(:irrelevant_accu_for_Rx_map) do emit(fun.(v), acc, a, new_acc) end
 	end
@@ -99,7 +99,7 @@ defmodule Reaxive.Sync do
 	end
 
 	@doc "Reducer for `take_while`"
-	@spec take_while((any -> boolean)) :: {reduce_fun_t, any}
+	@spec take_while((any -> boolean)) :: transform_t
 	def take_while(pred) do
 		default_behavior do
 			case pred.(v) do
@@ -123,7 +123,7 @@ defmodule Reaxive.Sync do
 	end
 
 	@doc "Reducer for `drop_while`"
-	@spec drop_while((any -> boolean)) :: {reduce_fun_t, any}
+	@spec drop_while((any -> boolean)) :: transform_t
 	def drop_while(pred) do
 		default_behavior(:none) do
 			case {a, pred.(v)} do
@@ -145,14 +145,14 @@ defmodule Reaxive.Sync do
 	It is best to use the `halt`, `emit`, `ignore` and `error` macros to produce proper return
 	values of the three step functions.
 	"""
-	@spec full_behavior(any, step_fun_t, step_fun_t, step_fun_t) :: {reduce_fun_t, any}
+	@spec full_behavior(any, step_fun_t, step_fun_t, step_fun_t) :: transform_t
 	def full_behavior(accu \\ nil, next_fun, comp_fun, error_fun) do
 		{
 			fn
 				({{:on_next, v}, [a | acc], new_acc})      -> next_fun . (v, acc, a, new_acc)
 				({{:on_completed, v}, [a | acc], new_acc}) -> comp_fun . (v, acc, a, new_acc)
 				({{:on_error, v}, [a | acc], new_acc})     -> error_fun . (v, acc, a, new_acc)
-				({:ignore, v, [a | acc], new_acc})         -> ignore(v, acc, a, new_acc)
+				({{:ignore, v}, [a | acc], new_acc})       -> ignore(v, acc, a, new_acc)
 			end,
 			accu
 		}
@@ -204,7 +204,7 @@ defmodule Reaxive.Sync do
 	end
 
 	@doc "a filter passing through only distinct values"
-	@spec distinct(Set.t) :: {reduce_fun_t, any}
+	@spec distinct(Set.t) :: transform_t
 	def distinct(empty_set) do
 		default_behavior(empty_set) do
 			case (Set.member?(a, v)) do
@@ -215,7 +215,7 @@ defmodule Reaxive.Sync do
 	end
 
 	@doc "a filter for repeating values, i.e. only changed values can pass"
-	@spec distinct_until_changed() :: {reduce_fun_t, any}
+	@spec distinct_until_changed() :: transform_t
 	def distinct_until_changed() do
 		# the accu is an option type with of some or none elements.
 		# None elements means, that the accu is not used.
