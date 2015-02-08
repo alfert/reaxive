@@ -2,6 +2,9 @@ defmodule Reaxive.Trace do
 	@moduledoc """
 	This module provides some convenience functions for tracing. It uses the `dbg` module from 
 	Erlang to receive relevant messages. 
+
+	It produces a text file that can be used as input for `plantuml` to generate an 
+	UML sequence diagram to show which process talks when to other processes. 
 	"""
 	require Logger
 
@@ -18,7 +21,7 @@ defmodule Reaxive.Trace do
 		# the self process is the first participant in the diagram 
 		# to order the participants properly
 		IO.puts(trace_file, "participant \"#{inspect self}\"")
-		{:ok, pid} = :dbg.tracer(:process, {&handler/2, [trace_file]})
+		{:ok, _pid} = :dbg.tracer(:process, {&handler/2, [trace_file]})
 		trace_file
 	end
 	
@@ -59,8 +62,8 @@ defmodule Reaxive.Trace do
 		\"#{inspect source}\" --> \"#{inspect source}\": return #{inspect m}.#{inspect f}/#{a}: \\n#{format reply}
 		deactivate \"#{inspect source}\"
 		"""
-	def format({:trace, src, :send, msg, :code_server}=m), do: "' ignore messages to the codeserver #{inspect m}"
-	def format({:trace, src, :send, msg, :init}=m), do: "' ignore messages to init #{inspect m}"
+	def format({:trace, _src, :send, _msg, :code_server}=m), do: "' ignore messages to the codeserver #{inspect m}"
+	def format({:trace, _src, :send, _msg, :init}=m), do: "' ignore messages to init #{inspect m}"
 	def format({:trace, source, :send, msg = {:"$gen_cast", {:on_next, _}}, target}), do:
 		"\"#{inspect source}\" -[#green]> \"#{inspect target}\": #{inspect msg}"
 	def format({:trace, source, :send, msg = {:on_next, _}, target}), do:
@@ -91,8 +94,8 @@ defmodule Reaxive.Trace do
 		\"#{inspect src}\" -> \"#{inspect target}\": spawn #{inspect msg} 
 		activate \"#{inspect target}\"
 		"""
-	def format({:trace, target, :exit, msg}), do: "destroy \"#{inspect target}\""
-	def format({:trace, target, :receive, msg} = m), do: "' ignore receive: #{inspect m}"
+	def format({:trace, target, :exit, _msg}), do: "destroy \"#{inspect target}\""
+	def format({:trace, _target, :receive, _msg} = m), do: "' ignore receive: #{inspect m}"
 	def format(msg), do: "#{inspect msg}"
 	
 
