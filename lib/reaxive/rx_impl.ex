@@ -219,7 +219,8 @@ defmodule Reaxive.Rx.Impl do
 		try do
 			# Logger.debug "Handle_value with v=#{inspect value} and #{inspect state}"
 			{tag, new_v, new_accu} = case do_action(fun, value, accu, []) do
-				# {val, acc, new_acc}      -> {:cont, val, new_acc}
+				{{:cont, {tag, val} = ev}, acc, new_acc} -> {:cont, ev, new_acc}
+				{{tag, val}, acc, new_acc} -> {:cont, {tag, val}, new_acc}
 				{tag, val, acc, new_acc} -> {tag, val, new_acc}
 			end
 			new_state = %__MODULE__{
@@ -286,7 +287,8 @@ defmodule Reaxive.Rx.Impl do
 	@doc "Internal function to notify subscribers, knows about ignoring notifies."
 	@spec notify({reduce_tag, rx_propagate}, t) :: t
 	def notify({:ignore, _}, state), do: state
-	def notify({:cont, ev = {:on_next, _value}}, s = %__MODULE__{}), do:	emit(s, ev)
+	def notify({:cont, {:ignore, _}}, state), do: state
+	def notify({:cont, ev = {:on_next, _value}}, s = %__MODULE__{}), do: emit(s, ev)
 	def notify({:cont, ev = {:on_error, _exc}}, s = %__MODULE__{}), do: emit(s, ev)
 	def notify({:cont, ev = {:on_completed, nil}}, %__MODULE__{} = state) do
 		# Logger.info(":cont call on completed in #{inspect self}: #{inspect state} ")
