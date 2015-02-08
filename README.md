@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/alfert/reaxive.svg?branch=master)](https://travis-ci.org/alfert/reaxive)
 [![Coverage Status](https://coveralls.io/repos/alfert/reaxive/badge.png?branch=master)](https://coveralls.io/r/alfert/reaxive?branch=master)
 [![hex.pm version](https://img.shields.io/hexpm/v/reaxive.svg?style=flat)](https://hex.pm/packages/reaxive)
-[![hex.pm docs](https://img.shields.io/hexpm/v/reaxive.svg?style=flat)](https://http://hexdocs.pm/reaxive)
+[![hex.pm docs](https://img.shields.io/hexdocspm/v/reaxive.svg?style=flat)](http://hexdocs.pm/reaxive)
 
 Reaxive is a reactive event handling library, inspired by Elm (http://elm-lang.org) and Reactive Extensions.
 
