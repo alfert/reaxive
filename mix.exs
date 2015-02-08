@@ -3,7 +3,7 @@ defmodule Reaxive.Mixfile do
 
   def project do
     [ app: :reaxive,
-      version: "0.0.2",
+      version: "0.0.3-dev",
       elixir: "~> 1.0.0",
       package: package,
       name: "Reaxive - a Reactive Extension inspired library for Elixir",
