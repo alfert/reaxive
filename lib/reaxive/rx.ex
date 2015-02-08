@@ -95,7 +95,7 @@ defmodule Reaxive.Rx do
 
 	@doc """
 	This is a simple sink for events, which can be used for debugging
-	event streams.
+	event streams. It writes all events to standard out.
 	"""
 	@spec as_text(Observable.t) :: Observable.t
 	def as_text(rx) do
@@ -239,9 +239,7 @@ defmodule Reaxive.Rx do
 	"""
 	@spec filter(Observable.t, (any -> boolean)) :: Observable.t
 	def filter(rx, pred) do
-		{filter_fun, acc} = Sync.filter(pred)
-		:ok = Reaxive.Rx.Impl.compose(rx, filter_fun, acc)
-		rx
+		rx |> Reaxive.Rx.Impl.compose(Sync.filter(pred))
 	end
 
 	@doc """
@@ -506,6 +504,11 @@ defmodule Reaxive.Rx do
 
 	This operator is not lazy, but eager, as it forces the subscribe and
 	therefore the evaluation of the subscription.
+
+	## Examples
+		iex> alias Reaxive.Rx
+		iex> Rx.generate(1..5) |> Rx.stream |> Enum.to_list
+		[1, 2, 3, 4, 5]
 	"""
 	@spec stream(Observable.t) :: Enumerable.t
 	def stream(rx) do
@@ -532,6 +535,7 @@ defmodule Reaxive.Rx do
 	end
 
 	@doc "A simple observer function, sending tag and value as composed message to the process."
+	@spec stream_observer(pid) :: Observer.t # ((any, any) -> {any, any}
 	def stream_observer(pid \\ self) do
 		fn(tag, value) -> send(pid, {tag, value}) end
 	end
@@ -569,9 +573,7 @@ defmodule Reaxive.Rx do
 	"""
 	@spec take(Observable.t, pos_integer) :: Observable.t
 	def take(rx, n) when n >= 0 do
-		{take_fun, acc} = Sync.take(n)
-		:ok = Reaxive.Rx.Impl.compose(rx, take_fun, acc)
-		rx
+		rx |> Reaxive.Rx.Impl.compose(Sync.take(n))
 	end
 
 	@doc """
@@ -622,6 +624,8 @@ defmodule Reaxive.Rx do
 	If `obs` is a `Rx_Impl`, the transformation is added as composition,
 	otherwise a new `Rx_Impl` is created to decouple `obs` and the transformation.
 	"""
+	@doc false
+	# This functions does not work yet
 	@spec transform(Observable.t, Sync.transform_t) :: Observable.t
 	def transform(obs, transform) do
 		{:ok, new_rx} = Reaxive.Rx.Impl.start("transform", @rx_defaults)
