@@ -292,7 +292,7 @@ defmodule Reaxive.Sync do
 			fn(v, acc, a, new_acc) -> 
 				IO.puts ("#{IO.ANSI.yellow}#{inspect v}#{IO.ANSI.default_color}")
 				emit(v, acc, a, new_acc) end,
-			fn(v, acc, a, new_acc) ->	
+			fn(_v, acc, a, new_acc) ->	
 				IO.puts ("#{IO.ANSI.yellow}on_completed#{IO.ANSI.default_color}")
 				halt(acc, a, new_acc) end,
 			fn(v, acc, a, new_acc) -> 
