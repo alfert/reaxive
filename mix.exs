@@ -5,6 +5,10 @@ defmodule Reaxive.Mixfile do
     [ app: :reaxive,
       version: "0.0.2-dev",
       elixir: "~> 1.0.0",
+      package: package,
+      name: "Reaxive - a Reactive Extension inspired library for Elixir",
+      source_url: "https://github.com/alfert/reaxive",
+      homepage_url: "https://github.com/alfert/reaxive",
       docs: [readme: true],
       test_coverage: [tool: Coverex.Task, log: :info, coveralls: true],
       deps: deps ]
@@ -31,4 +35,13 @@ defmodule Reaxive.Mixfile do
       {:dbg, "~>1.0.0", only: :test}
    ]
   end
+
+  # Hex Package definition
+  defp package do
+    [contributors: ["Klaus Alfert"],
+     licenses: ["Apache 2.0"],
+     links: %{"GitHub" => "https://github.com/alfert/coverex"}
+    ]
+  end
+
 end
