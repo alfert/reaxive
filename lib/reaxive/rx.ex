@@ -69,6 +69,7 @@ defmodule Reaxive.Rx do
 	Returns `true` if `pred` holds for all events in the sequence.
 
 	## Examples 
+
 		iex> alias Reaxive.Rx
 		iex> require Integer
 		iex> Rx.naturals |> Rx.take(10) |> Rx.map(&(1+&1*2)) |> Rx.all &Integer.is_odd/1
@@ -83,6 +84,7 @@ defmodule Reaxive.Rx do
 	Returns `true` if `pred` holds for at least one event in the sequence.
 
 	## Examples 
+
 		iex> alias Reaxive.Rx
 		iex> require Integer
 		iex> Rx.naturals |> Rx.take(10) |> Rx.any fn(x) -> x > 5 end
@@ -139,6 +141,7 @@ defmodule Reaxive.Rx do
 	sequence is used.
 
 	## Examples 
+
 		iex> alias Reaxive.Rx 
 		iex> [1, 1, 2, 1, 2, 2, 3, 1] |> Rx.generate |> Rx.distinct |> Rx.to_list
 		[1, 2, 3]
@@ -156,6 +159,7 @@ defmodule Reaxive.Rx do
 	in the event sequence.
 
 	## Examples
+
 		iex> alias Reaxive.Rx 
 		iex> [1, 1, 2, 1, 2, 2, 3, 1] |> Rx.generate |> Rx.distinct_until_changed |> Rx.to_list
 		[1, 2, 1, 2, 3,  1]
@@ -171,6 +175,7 @@ defmodule Reaxive.Rx do
 	`drop` filters out the first `n` elements of the sequence.
 
 	## Examples
+
 		iex> alias Reaxive.Rx
 		iex> Rx.naturals |> Rx.take(10) |> Rx.drop(5) |> Rx.to_list
 		[5, 6, 7, 8, 9]
@@ -184,6 +189,7 @@ defmodule Reaxive.Rx do
 	drop_while` filters out the first elements while the predicate is `true`.
 
 	## Examples
+
 		iex> alias Reaxive.Rx
 		iex> Rx.naturals |> Rx.take(10) |> Rx.drop_while(&(&1 < 5)) |> Rx.to_list
 		[5, 6, 7, 8, 9]
@@ -198,6 +204,7 @@ defmodule Reaxive.Rx do
 	sequence terminates immediately.
 
 	## Examples
+
 		iex> alias Reaxive.Rx
 		iex> Rx.empty |> Rx.stream |> Enum.to_list
 		[]
@@ -212,6 +219,7 @@ defmodule Reaxive.Rx do
 	exception as the only element. The stream starts after the first subscription.
 
 	## Examples
+
 		iex> alias Reaxive.Rx
 		iex> me = self
 		iex> Rx.error(RuntimeError.exception("yeah")) |> Observable.subscribe(fn(t, x) -> me |> send {t, x} end)
@@ -232,6 +240,7 @@ defmodule Reaxive.Rx do
 	In Reactive Extensions, this function is called `Where`.
 
 	## Examples
+
 		iex> alias Reaxive.Rx
 		iex> require Integer
 		iex> Rx.naturals |> Rx.take(5) |> Rx.filter(&Integer.is_even/1) |> Rx.to_list
@@ -251,6 +260,7 @@ defmodule Reaxive.Rx do
 	This function is not lazy, but evaluates eagerly and forces the subscription.
 
 	## Examples
+
 		iex> alias Reaxive.Rx
 		iex> Rx.naturals |> Rx.take(5) |> Rx.first
 		0
@@ -344,6 +354,7 @@ defmodule Reaxive.Rx do
 	In Reactive Extensions, this function is called `Select`.
 
 	## Examples
+
 	    iex> alias Reaxive.Rx
 	    iex> Rx.naturals |> Rx.take(5) |> Rx.map(&(2+&1)) |> Rx.stream |> Enum.to_list
 	    [2, 3, 4, 5, 6]
@@ -361,6 +372,7 @@ defmodule Reaxive.Rx do
 	or immediately after the first error.
 
 	## Examples
+
 		iex> alias Reaxive.Rx
 		iex> tens=Rx.naturals |> Rx.take(10)
 		iex> fives=Rx.naturals |> Rx.take(5)
@@ -389,6 +401,7 @@ defmodule Reaxive.Rx do
 	Generates all naturals numbers starting with `0`.
 
 	## Examples
+
 	    iex> alias Reaxive.Rx
 	    iex> Rx.naturals |> Rx.take(5) |> Rx.stream |> Enum.to_list
 	    [0, 1, 2, 3, 4]
@@ -413,6 +426,7 @@ defmodule Reaxive.Rx do
 	Multiplies all events of the sequence and returns the product as number
 
 	## Examples
+
 	    iex> alias Reaxive.Rx
 	    iex> Rx.naturals |> Rx.take(5) |> Rx.map(&(&1 +1)) |> Rx.product
 	    120
@@ -462,6 +476,7 @@ defmodule Reaxive.Rx do
 			generate([value])
 
 	## Examples:
+
 	    iex> alias Reaxive.Rx
 	    iex> Rx.return(3) |> Rx.stream |> Enum.to_list
 	    [3]
@@ -485,6 +500,7 @@ defmodule Reaxive.Rx do
 	followed by the events of `prev_rx`.
 
 	## Examples
+
 		iex> alias Reaxive.Rx
 		iex> Rx.generate([5]) |> Rx.start_with([0, 1, 2]) |> Rx.to_list
 		[0, 1, 2, 5]
@@ -506,6 +522,7 @@ defmodule Reaxive.Rx do
 	therefore the evaluation of the subscription.
 
 	## Examples
+
 		iex> alias Reaxive.Rx
 		iex> Rx.generate(1..5) |> Rx.stream |> Enum.to_list
 		[1, 2, 3, 4, 5]
@@ -544,6 +561,7 @@ defmodule Reaxive.Rx do
 	Sums up all events of the sequence and returns the sum as number.
 
 	## Examples
+
 	   iex> alias Reaxive.Rx
 	   iex> 1..5 |> Rx.generate(1) |> Rx.sum
 	   15
@@ -567,6 +585,7 @@ defmodule Reaxive.Rx do
 		rx |> Rx.stream |> Stream.take(-n) |> Rx.generate
 
 	## Examples
+
 		iex> alias Reaxive.Rx
 		iex> Rx.naturals |> Rx.take(10) |> Rx.to_list
 		[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -581,6 +600,7 @@ defmodule Reaxive.Rx do
 	predicate is true.
 
 	## Examples
+
 		iex> alias Reaxive.Rx
 		iex> Rx.naturals |> Rx.take_while(&(&1 < 5)) |> Rx.to_list
 		[0, 1, 2, 3, 4]
@@ -595,6 +615,7 @@ defmodule Reaxive.Rx do
 	predicate is true.
 
 	## Examples
+
 		iex> alias Reaxive.Rx
 		iex> Rx.naturals |> Rx.take_until(&(&1 > 5)) |> Rx.to_list
 		[0, 1, 2, 3, 4, 5]
@@ -609,6 +630,7 @@ defmodule Reaxive.Rx do
 	is finite, otherwise this call does not finish.
 
 	## Examples
+
 		iex> alias Reaxive.Rx
 		iex> Rx.naturals |> Rx.take(5) |> Rx.to_list
 		[0, 1, 2, 3, 4]
