@@ -21,7 +21,7 @@ defmodule Reaxive.Mixfile do
       mod: { Reaxive, [] },
       applications: [
         # httpoison is used for coverage testing only ...
-        # :httpoison,
+        :httpoison,
         # regular dependencies
         :kernel , :stdlib, :sasl, :logger]
     ]
