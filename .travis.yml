@@ -1,16 +1,12 @@
-language: erlang
+language: elixir
 notifications:
   recipients:
     - klaus.alfert@googlemail.com
 otp_release:
-  - 17.3
+  - 17.4
 env:
   ELIXIR=v1.0.2
-before_install:
-  - mkdir -p vendor/elixir
-  - wget -q https://github.com/elixir-lang/elixir/releases/download/$ELIXIR/Precompiled.zip && unzip -qq Precompiled.zip -d vendor/elixir
 before_script:
-  - export PATH="$PATH:$PWD/vendor/elixir/bin"
   - mix local.hex --force
   - mix local.rebar
 script: "MIX_ENV=test mix do deps.get, deps.compile, test --exclude performance:true"
