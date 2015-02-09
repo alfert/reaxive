@@ -21,7 +21,7 @@ defmodule Reaxive.Mixfile do
       mod: { Reaxive, [] },
       applications: [
         # httpoison is used for coverage testing only ...
-        :httpoison,
+        # :httpoison,
         # regular dependencies
         :kernel , :stdlib, :sasl, :logger]
     ]
@@ -29,7 +29,7 @@ defmodule Reaxive.Mixfile do
 
   defp deps do
     [
-      {:coverex, "~> 1.1.0", only: :test},
+      {:coverex, "~> 1.2.0", only: :test},
       {:earmark, "~> 0.1", only: :dev},
       {:ex_doc, "~> 0.6", only: :dev},
       {:dialyze, "~> 0.1.3", only: :dev},
