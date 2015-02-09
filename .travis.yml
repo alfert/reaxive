@@ -14,3 +14,6 @@ before_script:
   - mix local.hex --force
   - mix local.rebar
 script: "MIX_ENV=test mix do deps.get, deps.compile, test --exclude performance:true"
+after_script:
+  - MIX_ENV=docs mix deps.get
+  - MIX_ENV=docs mix inch.report

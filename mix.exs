@@ -33,7 +33,8 @@ defmodule Reaxive.Mixfile do
       {:earmark, "~> 0.1", only: :dev},
       {:ex_doc, "~> 0.6", only: :dev},
       {:dialyze, "~> 0.1.3", only: :dev},
-      {:dbg, "~>1.0.0", only: :test}
+      {:dbg, "~>1.0.0", only: :test},
+      {:inch_ex, only: :docs}
    ]
   end
 
