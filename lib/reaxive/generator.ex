@@ -53,6 +53,12 @@ defmodule Reaxive.Generator do
 		end
 	end
 
+	#############
+	### How to deal with 
+	###   * finite generators, sending a on_complete after a while
+	###   * generators with errors, sending on_error and finishing afterwards?
+	### Both are required for IO-Generators!
+
 	@doc """
 	Sends a tick every `delay` milliseconds to `rx` 
 	"""
