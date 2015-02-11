@@ -16,15 +16,23 @@ defmodule Reaxive.Generator do
 	@typedoc "Generator function to be used by `Reaxive.Rx.delayed_start`"
 	@type generator_fun_t :: ((Observable.t) -> any)
 
+	@typedoc "Return value of producer functions for generators"
+	@type rx_propagate :: {:on_next, any} | {:on_error, any} | {:on_completed, pid}
+
+	@typedoc "Producer function without accu"
+	@type producer_fun_t :: (() -> rx_propagate)
+	@typedoc "Producer function with accu"
+	@type producer_with_accu_fun_t :: ((accu_t) -> {accu_t, rx_propagate})
+
 	@doc """
 	Generates new values by calling `prod_fun` and sending them to `rx`. 
-	If canceled (by receiving`:cancel`), the `abort_fun` is called. Between
+	If canceled (by receiving `:cancel`), the `abort_fun` is called. Between
 	two events a `delay`, measured in milliseconds, takes place. 
 
 	This function assumes an infinite generator. There is no means for finishing
 	the generator except for canceling. 
 	"""
-	@spec generate(Observer.t, (()-> any), (()-> any), pos_integer) :: any
+	@spec generate(Observer.t, producer_fun_t, (()-> any), pos_integer) :: any
 	def generate(rx, prod_fun, abort_fun, delay) do
 		receive do
 			:cancel -> abort_fun.()
@@ -46,21 +54,30 @@ defmodule Reaxive.Generator do
 	
 	@doc """
 	Generates new values by calling `prod_fun` and sending them to `rx`. 
-	If canceled (by receiving`:cancel`), the `abort_fun` is called. Between
+	If canceled (by receiving `:cancel`), the `abort_fun` is called. Between
 	two events a `delay`, measured in milliseconds, takes place. 
 
 	This function assumes an infinite generator. There is no means for finishing
 	the generator except for canceling. 
 	"""
-	@spec generate_with_accu(Observer.t, ((accu_t)-> {accu_t, any}), (()-> any), accu_t, pos_integer) :: any
+	@spec generate_with_accu(Observer.t, producer_with_accu_fun_t, (()-> any), accu_t, pos_integer) :: any
 	def generate_with_accu(rx, prod_fun, abort_fun, accu, delay) do
 		receive do
 			:cancel -> abort_fun.()
 		after 0 -> # if :cancel is not there, do not wait for it
 			{new_accu, value} = prod_fun.(accu)
-			Observer.on_next(rx, value)
-			:timer.sleep(delay)
-			generate_with_accu(rx, prod_fun, abort_fun, new_accu, delay)
+			case value do
+				{:on_next, event} -> 
+					Observer.on_next(rx, event)
+					:timer.sleep(delay)
+					generate_with_accu(rx, prod_fun, abort_fun, new_accu, delay)
+				{:on_error, error} -> 
+					Observer.on_error(rx, error)
+					abort_fun.()
+				{:on_completed, _} -> 
+					Observer.on_completed(rx, self)
+					abort_fun.()
+			end
 		end
 	end
 
@@ -73,9 +90,13 @@ defmodule Reaxive.Generator do
 	@doc """
 	Sends a tick every `delay` milliseconds to `rx` 
 	"""
-	@spec tick(Observer.t, pos_integer) :: generator_fun_t
-	def tick(rx, delay), do:
-		fn() -> generate(rx, fn() -> :tick end, fn() -> :ok end, delay) end
+	@spec ticks(pos_integer) :: generator_fun_t
+	def ticks(delay), do:
+		fn(rx) -> # Logger.info("tick process #{inspect self}")
+			generate(rx, fn() -> {:on_next, :tick} end, 
+				fn() -> # Logger.info("ticks stopped") 
+					:ok end, 
+				delay) end
 
 
 	@doc """
