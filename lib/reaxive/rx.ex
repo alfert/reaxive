@@ -137,7 +137,7 @@ defmodule Reaxive.Rx do
 
 	@doc """
 	The `distinct` transformation is a filter, which only passes values that it
-	has not seen before. Since all distinct values has to be stores inside
+	has not seen before. Since all distinct values has to be stored inside
 	the filter, its required memory can grow for ever, if an unbounded 
 	sequence is used.
 
