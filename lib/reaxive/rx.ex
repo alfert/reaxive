@@ -2,6 +2,7 @@ defmodule Reaxive.Rx do
 
 	require Logger
 	alias Reaxive.Sync
+	alias Reaxive.Generator
 
 	@moduledoc """
 	This module implements the combinator on reactive streams of events.
@@ -624,6 +625,22 @@ defmodule Reaxive.Rx do
 	def take_until(rx, pred) do
 		rx |> Reaxive.Rx.Impl.compose(Sync.take_while(&(not pred.(&1))))
 	end
+
+	@doc """
+	Produces a infinite sequence of `:tick`s, with a delay of `millis` milliseconds
+	between each tick. 
+
+	## Examples
+
+		iex> alias Reaxive.Rx
+		iex> Rx.ticks |> Rx.take(5) |> Rx.to_list
+		[:tick, :tick, :tick, :tick, :tick] 
+	"""
+	@spec ticks(pos_integer) :: Observable.t
+	def ticks(millis \\ 50) do
+		delayed_start(Generator.ticks(millis))
+	end
+	
 
 	@doc """
 	Converts the event sequence into a regular list. Requires that the sequence
