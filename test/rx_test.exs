@@ -403,6 +403,14 @@ defmodule RxTest do
 		assert 1..n |> Enum.to_list == tens |> Enum.uniq
 	end
 
+
+	test "properly canceled ticks" do
+		proc_list = Process.list
+		ticks = Rx.ticks |> Rx.take(5) |> Rx.to_list
+		assert ticks == [:tick, :tick, :tick, :tick, :tick] 
+		assert process_leak?(proc_list)
+	end
+
 	###############################################################
 	## Helper functions
 
