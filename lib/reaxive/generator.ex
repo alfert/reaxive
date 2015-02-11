@@ -12,7 +12,7 @@ defmodule Reaxive.Generator do
 
 	@type accu_t :: any
 	@typedoc "Generator function to be used by `Reaxive.Rx.delayed_start`"
-	@type generator_fun_t :: (() -> any
+	@type generator_fun_t :: (() -> any)
 
 	@doc """
 	Generates new values by calling `prod_fun` and sending them to `rx`. 
@@ -41,7 +41,7 @@ defmodule Reaxive.Generator do
 	This function assumes an infinite generator. There is no means for finishing
 	the generator except for canceling. 
 	"""
-	@spec generate(Observer.t, ((accu_t)-> {accu_t, any}), (()-> any), accu_t, pos_integer) :: any
+	@spec generate_with_accu(Observer.t, ((accu_t)-> {accu_t, any}), (()-> any), accu_t, pos_integer) :: any
 	def generate_with_accu(rx, prod_fun, abort_fun, accu, delay) do
 		receive do
 			:cancel -> abort_fun.()
@@ -49,7 +49,7 @@ defmodule Reaxive.Generator do
 			{new_accu, value} = prod_fun.(accu)
 			Observer.on_next(rx, value)
 			:timer.sleep(delay)
-			generate(rx, prod_fun, abort_fun, new_accu, delay)
+			generate_with_accu(rx, prod_fun, abort_fun, new_accu, delay)
 		end
 	end
 
@@ -64,7 +64,7 @@ defmodule Reaxive.Generator do
 	"""
 	@spec tick(Observer.t, pos_integer) :: generator_fun_t
 	def tick(rx, delay), do:
-		fn() -> generate(rx, fn() -> :tick end, fn() -> :ok, delay) end
+		fn() -> generate(rx, fn() -> :tick end, fn() -> :ok end, delay) end
 
 
 	@doc """
@@ -73,6 +73,6 @@ defmodule Reaxive.Generator do
 	"""
 	@spec naturals(Observer.t, pos_integer) :: generator_fun_t
 	def naturals(rx, delay), do: 
-		fn() -> generate_with_accu(rx, &({1+&1, 1+&1}), fn() -> :ok, 0, delay) end
+		fn() -> generate_with_accu(rx, &({1+&1, 1+&1}), fn() -> :ok end, 0, delay) end
 
 end
