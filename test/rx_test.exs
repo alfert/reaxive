@@ -406,8 +406,11 @@ defmodule RxTest do
 
 	test "properly canceled ticks" do
 		proc_list = Process.list
-		ticks = Rx.ticks |> Rx.take(5) |> Rx.to_list
-		assert ticks == [:tick, :tick, :tick, :tick, :tick] 
+		k = 1
+		file = start_tracing()
+		ticks = Rx.ticks |> Rx.take(k) |> Rx.to_list
+		stop_tracing(file)
+		assert ticks == [:tick]|> Stream.cycle |>Enum.take(k)
 		assert process_leak?(proc_list)
 	end
 
@@ -419,6 +422,7 @@ defmodule RxTest do
 		f = Reaxive.Trace.start()
 		{:ok, _} = :dbg.tp(Reaxive.Rx, :cx)
 		{:ok, _} = :dbg.tp(Reaxive.Sync, :cx)
+		{:ok, _} = :dbg.tp(Reaxive.Generator, :cx)
 		{:ok, _} = :dbg.tp(Reaxive.Rx.Impl, :cx)
 		{:ok, _} = :dbg.tp(Enum, :cx)
 		{:ok, _} = :dbg.tp(Stream, :cx)
