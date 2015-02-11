@@ -407,10 +407,18 @@ defmodule RxTest do
 	test "properly canceled ticks" do
 		proc_list = Process.list
 		k = 1
-		file = start_tracing()
+		# file = start_tracing()
 		ticks = Rx.ticks |> Rx.take(k) |> Rx.to_list
-		stop_tracing(file)
+		# stop_tracing(file)
 		assert ticks == [:tick]|> Stream.cycle |>Enum.take(k)
+		assert process_leak?(proc_list)
+	end
+
+	test "properly canceled naturals" do
+		proc_list = Process.list
+		k = 10
+		naturals = Rx.naturals |> Rx.take(k) |> Rx.to_list
+		assert naturals == 0..k|> Enum.take(k)
 		assert process_leak?(proc_list)
 	end
 
