@@ -106,6 +106,6 @@ defmodule Reaxive.Generator do
 	@spec naturals(pos_integer) :: generator_fun_t
 	def naturals(delay), do: 
 		fn(rx) -> 
-			generate_with_accu(rx, &({1+&1, {:on_next, 1+&1}}), fn() -> :ok end, 0, delay) end
+			generate_with_accu(rx, &({1+&1, {:on_next, &1}}), fn() -> :ok end, 0, delay) end
 
 end
