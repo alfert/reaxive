@@ -249,8 +249,9 @@ defmodule Reaxive.Rx.Impl do
 		do: fun . ({event, accu, new_accu})
 
 	@doc "Internal callback function at termination for clearing resources"
-	def terminate(_reason, _state) do
+	def terminate(_reason, state = %__MODULE__{sources: src}) do
 		# Logger.info("Terminating #{inspect self} for reason #{inspect reason} in state #{inspect state}")
+		src |> Enum.each(fn({_pid, fun}) -> fun.() end)
 	end
 
 
