@@ -10,9 +10,11 @@ defmodule Reaxive.Generator do
 	resources used the generator while producing new events. 
 	"""
 
+	require Logger
+
 	@type accu_t :: any
 	@typedoc "Generator function to be used by `Reaxive.Rx.delayed_start`"
-	@type generator_fun_t :: (() -> any)
+	@type generator_fun_t :: ((Observable.t) -> any)
 
 	@doc """
 	Generates new values by calling `prod_fun` and sending them to `rx`. 
@@ -27,9 +29,18 @@ defmodule Reaxive.Generator do
 		receive do
 			:cancel -> abort_fun.()
 		after 0 -> # if :cancel is not there, do not wait for it
-			Observer.on_next(rx, prod_fun.())
-			:timer.sleep(delay)
-			generate(rx, prod_fun, abort_fun, delay)
+			case prod_fun.() do
+				{:on_next, event} -> 
+					Observer.on_next(rx, event)
+					:timer.sleep(delay)
+					generate(rx, prod_fun, abort_fun, delay)
+				{:on_error, error} -> 
+					Observer.on_error(rx, error)
+					abort_fun.()
+				{:on_completed, _} -> 
+					Observer.on_completed(rx, self)
+					abort_fun.()
+			end
 		end
 	end
 	
