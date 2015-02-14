@@ -377,14 +377,14 @@ defmodule Reaxive.Rx do
 		iex> alias Reaxive.Rx
 		iex> tens=Rx.naturals |> Rx.take(10)
 		iex> fives=Rx.naturals |> Rx.take(5)
-		iex> Rx.merge(tens, fives) |> Rx.to_list |> Enum.sort
+		iex> Rx.merge([tens, fives]) |> Rx.to_list |> Enum.sort
 		[0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8, 9]
 	"""
 	@spec merge(Observable.t, Observable.t) :: Observable.t
 	def merge(rx1, rx2), do: merge([rx1, rx2])
 	@spec merge([Observable.t]) :: Observable.t
 	def merge(rxs) when is_list(rxs) do
-		Logger.info "Merging of #{inspect rxs}"
+		# Logger.info "Merging of #{inspect rxs}"
 		{:ok, rx} = Reaxive.Rx.Impl.start("merge", @rx_defaults)
 		rx |> Reaxive.Rx.Impl.compose(Sync.merge(length(rxs)))
 		# subscribe to all originating sequences ...
