@@ -409,7 +409,7 @@ defmodule Reaxive.Rx do
 	"""
 	@spec naturals(pos_integer, pos_integer) :: Observable.t
 	def naturals(delay \\ @rx_delay, timeout \\ @rx_timeout) do
-		delayed_start(Generator.naturals(delay), timeout)
+		delayed_start(Generator.naturals(delay), "naturals", timeout)
 	end
 
 	@doc """
