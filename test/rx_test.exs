@@ -422,6 +422,17 @@ defmodule RxTest do
 		assert process_leak?(proc_list)
 	end
 
+	@tag timeout: 2_000
+	test "merge naturals" do
+		# file = start_tracing()
+		tens = Rx.naturals |> Rx.take(10)
+		fives = Rx.naturals |> Rx.take(5)
+		mergers = [tens, fives]
+		l = mergers |> Rx.merge |> Rx.to_list |> Enum.sort
+		# stop_tracing(file)
+		assert l == [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8, 9]
+	end	
+
 	###############################################################
 	## Helper functions
 
