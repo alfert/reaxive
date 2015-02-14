@@ -89,7 +89,9 @@ defmodule Reaxive.Sync do
 
 	@doc "Reducer function for `take`"
 	def take(n) when n >= 0 do
-		default_behavior(n), do: taker(a, v, acc, new_acc)
+		default_behavior(n) do
+			taker(a, v, acc, new_acc)
+		end
 	end
 
 	defp taker(a = 0, _v, acc, new_acc), do:       halt(acc, a-1, new_acc)
