@@ -384,13 +384,9 @@ defmodule Reaxive.Rx do
 	def merge(rx1, rx2), do: merge([rx1, rx2])
 	@spec merge([Observable.t]) :: Observable.t
 	def merge(rxs) when is_list(rxs) do
+		Logger.info "Merging of #{inspect rxs}"
 		{:ok, rx} = Reaxive.Rx.Impl.start("merge", @rx_defaults)
-
-		# we need a reduce like function, that
-		#  a) aborts immediately if an Exception occurs
-		#  b) finishes only after all sources have finished
-		n = length(rxs)
-		Reaxive.Rx.Impl.compose(rx, Sync.merge(n))
+		rx |> Reaxive.Rx.Impl.compose(Sync.merge(length(rxs)))
 		# subscribe to all originating sequences ...
 		disposes = rxs |> Enum.map &Observable.subscribe(&1, rx)
 		# and set the new disposables as sources.
