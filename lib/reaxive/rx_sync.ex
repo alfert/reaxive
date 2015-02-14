@@ -89,14 +89,12 @@ defmodule Reaxive.Sync do
 
 	@doc "Reducer function for `take`"
 	def take(n) when n >= 0 do
-		default_behavior(n) do
-			cond do
-				a == 0 -> halt(acc, a-1, new_acc)
-				a < 0  -> ignore(v, acc, a, new_acc)
-				a > 0  -> emit(v, acc, a-1, new_acc)
-			end
-		end
+		default_behavior(n), do: taker(a, v, acc, new_acc)
 	end
+
+	defp taker(a = 0, _v, acc, new_acc), do:       halt(acc, a-1, new_acc)
+	defp taker(a, v, acc, new_acc) when a < 0, do: ignore(v, acc, a, new_acc)
+	defp taker(a, v, acc, new_acc), do:            emit(v, acc, a-1, new_acc)
 
 	@doc "Reducer for `take_while`"
 	@spec take_while((any -> boolean)) :: transform_t
