@@ -58,7 +58,7 @@ defmodule Reaxive.Rx do
 	defimpl Observable, for: Reaxive.Rx.Lazy do
 		def subscribe(observable, observer) do
 			rx = Reaxive.Rx.eval(observable)
-			Logger.info "Evaluated #{inspect observable} to #{inspect rx}"
+			# Logger.info "Evaluated #{inspect observable} to #{inspect rx}"
  			Observable.subscribe(rx, observer)
 		end
 	end

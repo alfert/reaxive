@@ -98,7 +98,7 @@ defmodule Reaxive.Rx.Impl do
 			GenServer.cast(observable, {:source, disposable})
 		catch
 			:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] ->
-				Logger.debug "source failed because observable does not exist anymore"
+				# Logger.debug "source failed because observable does not exist anymore"
 				Disposable.dispose disposable
 		end
 	end
@@ -231,9 +231,9 @@ defmodule Reaxive.Rx.Impl do
 			end
 		catch
 			what, message ->
-				 Logger.error "Got exception: #{inspect what}, #{inspect message} \n" <>
-					"with value #{inspect value} in state #{inspect state}\n" <>
-					Exception.format(what, message)
+				#  Logger.error "Got exception: #{inspect what}, #{inspect message} \n" <>
+				# 	"with value #{inspect value} in state #{inspect state}\n" <>
+				# 	Exception.format(what, message)
 				handle_value(state, {:on_error, {what, message}})
 		end
 	end

@@ -94,7 +94,10 @@ defmodule Reaxive.Sync do
 		end
 	end
 
-	defp taker(a = 0, _v, acc, new_acc), do:       halt(acc, a-1, new_acc)
+	defp taker(a = 0, _v, acc, new_acc) do       
+		# Logger.info "taker reached 0, #{inspect self}"
+		halt(acc, a-1, new_acc)
+	end
 	defp taker(a, v, acc, new_acc) when a < 0, do: ignore(v, acc, a, new_acc)
 	defp taker(a, v, acc, new_acc), do:            emit(v, acc, a-1, new_acc)
 
@@ -190,15 +193,15 @@ defmodule Reaxive.Sync do
 	def merge(n) when n > 0 do
 		full_behavior(n,
 			fn(v, acc, k, new_acc) -> 
-				IO.puts("merge: on_next(#{inspect v}) with k=#{inspect k}")
+				# IO.puts("merge: on_next(#{inspect v}) with k=#{inspect k}")
 				emit(v, acc, k, new_acc) end,
 			fn
-				(_v, acc, 1, new_acc) -> IO.puts("merge: last on_completed k=1") 
+				(_v, acc, 1, new_acc) -> # IO.puts("merge: last on_completed k=1") 
 					halt(acc, 1, new_acc)  # last complete => complete merge
-				(v, acc, k, new_acc) -> IO.puts("merge: ignored on_completed with k=#{k}")
+				(v, acc, k, new_acc) -> # IO.puts("merge: ignored on_completed with k=#{k}")
 					ignore(v, acc, k-1, new_acc) # ignore complete
 			end,
-			fn(v, acc, k, new_acc) -> IO.puts("merge: error #{inspect v} with k=#{k}")
+			fn(v, acc, k, new_acc) -> # IO.puts("merge: error #{inspect v} with k=#{k}")
 				error(v, acc, k, new_acc) end
 		)
 	end
