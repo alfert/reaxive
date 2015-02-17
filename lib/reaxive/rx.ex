@@ -366,6 +366,7 @@ defmodule Reaxive.Rx do
 		rx |> Reaxive.Rx.Impl.compose(Sync.map(fun))
 	end
 
+	@tag timeout: 2_000
 	@doc """
 	Merges two or more event sequences in a non-deterministic order.
 
@@ -377,7 +378,7 @@ defmodule Reaxive.Rx do
 		iex> alias Reaxive.Rx
 		iex> tens=Rx.naturals |> Rx.take(10)
 		iex> fives=Rx.naturals |> Rx.take(5)
-		iex> Rx.merge([tens, fives]) |> Rx.to_list |> Enum.sort
+		iex> [tens, fives] |> Rx.merge() |> Rx.to_list |> Enum.sort
 		[0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8, 9]
 	"""
 	@spec merge(Observable.t, Observable.t) :: Observable.t
