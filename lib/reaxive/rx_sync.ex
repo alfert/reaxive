@@ -277,7 +277,7 @@ defmodule Reaxive.Sync do
 	@doc """
 	The `flatter` function takes as argument a function which determines
 	the number of active sources. In this function the access to the
-	observable returned by the `flatter
+	observable returned by the `flatter`
 	"""
 	@spec flatter() :: transform_t
 	def flatter() do
