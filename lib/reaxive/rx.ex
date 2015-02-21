@@ -118,7 +118,7 @@ defmodule Reaxive.Rx do
 	If within `timeout` milliseconds no subscriber has arrived, the
 	stream of events is stopped. This ensures that we get no memory leak.
 	"""
-	@spec delayed_start(((Observer.t) -> any), String.t, pos_integer) :: Observable.t
+	@spec delayed_start(((Observer.t) -> any), String.t, non_neg_integer) :: Observable.t
 	def delayed_start(generator, id \\ "delayed_start", timeout \\ @rx_timeout) do
 		{:ok, rx} = Reaxive.Rx.Impl.start(id, @rx_defaults)
 		delayed = fn() ->
@@ -181,7 +181,7 @@ defmodule Reaxive.Rx do
 		iex> Rx.naturals |> Rx.take(10) |> Rx.drop(5) |> Rx.to_list
 		[5, 6, 7, 8, 9]
 	"""
-	@spec drop(Observable.t, pos_integer) :: Observable.t
+	@spec drop(Observable.t, non_neg_integer) :: Observable.t
 	def drop(rx, n) when n >= 0 do
 		Reaxive.Rx.Impl.compose(rx, Sync.drop(n))
 	end
@@ -331,7 +331,7 @@ defmodule Reaxive.Rx do
 	  elements may be swalloed because no subscriber is available. This might
 	  be changed in the future.
 	"""
-	@spec generate(Enumerable.t, pos_integer, pos_integer) :: Observable.t
+	@spec generate(Enumerable.t, non_neg_integer, non_neg_integer) :: Observable.t
 	def generate(collection, delay \\ @rx_delay, timeout \\ @rx_timeout)
 	def generate(collection, delay, timeout) do
 		send_values = fn(rx) ->
@@ -404,7 +404,7 @@ defmodule Reaxive.Rx do
 	    iex> Rx.naturals |> Rx.take(5) |> Rx.stream |> Enum.to_list
 	    [0, 1, 2, 3, 4]
 	"""
-	@spec naturals(pos_integer, pos_integer) :: Observable.t
+	@spec naturals(non_neg_integer, non_neg_integer) :: t
 	def naturals(delay \\ @rx_delay, timeout \\ @rx_timeout) do
 		delayed_start(Generator.naturals(delay), "naturals", timeout)
 	end
@@ -588,7 +588,7 @@ defmodule Reaxive.Rx do
 		iex> Rx.naturals |> Rx.take(10) |> Rx.to_list
 		[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 	"""
-	@spec take(Observable.t, pos_integer) :: Observable.t
+	@spec take(Observable.t, non_neg_integer) :: Observable.t
 	def take(rx, n) when n >= 0 do
 		rx |> Reaxive.Rx.Impl.compose(Sync.take(n))
 	end
@@ -633,7 +633,7 @@ defmodule Reaxive.Rx do
 		iex> Rx.ticks |> Rx.take(5) |> Rx.to_list
 		[:tick, :tick, :tick, :tick, :tick] 
 	"""
-	@spec ticks(pos_integer) :: Observable.t
+	@spec ticks(non_neg_integer) :: Observable.t
 	def ticks(millis \\ 50) do
 		delayed_start(Generator.ticks(millis))
 	end
