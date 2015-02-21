@@ -296,8 +296,8 @@ defmodule Reaxive.Rx do
 	"""
 	@spec flat_map(Observable.t, (any -> Observable.t)) :: Observable.t
 	def flat_map(rx, map_fun) do
-		{:ok, flatter} = Reaxive.Rx.Impl.start("flat_mapper", @rx_defaults)
-		# Logger.info("created flatter #{inspect flatter}")
+		{:ok, flatter} = Reaxive.Rx.Impl.start("flatter", @rx_defaults)
+		Logger.info("created flatter #{inspect flatter}")
 		rx |> Reaxive.Rx.Impl.compose(
 			Sync.flat_mapper(
 				flatter |> Reaxive.Rx.Impl.compose(Sync.flatter),
