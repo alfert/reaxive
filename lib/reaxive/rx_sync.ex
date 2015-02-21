@@ -27,9 +27,9 @@ defmodule Reaxive.Sync do
 	@type acc_t :: [any]
 	@type tagged_t :: {reason_t, any}
 	@type reduce_t :: {tagged_t, acc_t, acc_t}
-	@type reduce_fun_t :: ((tagged_t, acc_t, acc_t) -> reduce_t)
 	@type step_fun_t :: ((any, acc_t, any, acc_t) -> reduce_t)
-	@type transform_t :: {reduce_fun_t, any}
+	@type reducer_fun_t :: ((reduce_t) -> any)
+	@type transform_t :: {reducer_fun_t, any}
 
 
 	@doc """
