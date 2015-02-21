@@ -24,6 +24,9 @@ defmodule Reaxive.Generator do
 	@typedoc "Producer function with accu"
 	@type producer_with_accu_fun_t :: ((accu_t) -> {accu_t, rx_propagate})
 
+	@typedoc "The type of the abort function of a generator"
+	@type aborter_t(u) :: (() -> u)
+
 	@doc """
 	Generates new values by calling `prod_fun` and sending them to `rx`. 
 	If canceled (by receiving `:cancel`), the `abort_fun` is called. Between
@@ -32,7 +35,7 @@ defmodule Reaxive.Generator do
 	This function assumes an infinite generator. There is no means for finishing
 	the generator except for canceling. 
 	"""
-	@spec generate(Observer.t, producer_fun_t, (()-> any), pos_integer) :: any
+	@spec generate(Observer.t, producer_fun_t, aborter_t(u), pos_integer) :: u when u: var
 	def generate(rx, prod_fun, abort_fun, delay) do
 		receive do
 			:cancel -> abort_fun.()
@@ -60,7 +63,7 @@ defmodule Reaxive.Generator do
 	This function assumes an infinite generator. There is no means for finishing
 	the generator except for canceling. 
 	"""
-	@spec generate_with_accu(Observer.t, producer_with_accu_fun_t, (()-> any), accu_t, pos_integer) :: any
+	@spec generate_with_accu(Observer.t, producer_with_accu_fun_t, aborter_t(u), accu_t, pos_integer) :: u when u: var
 	def generate_with_accu(rx, prod_fun, abort_fun, accu, delay) do
 		receive do
 			:cancel -> abort_fun.()
