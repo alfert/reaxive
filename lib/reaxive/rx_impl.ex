@@ -262,7 +262,7 @@ defmodule Reaxive.Rx.Impl do
 
 	@doc "Internal function calculating the new value"
 	@spec do_action(nil | (... -> any), rx_propagate, any, any) ::
-		{ :halt | :cont, rx_propagate, any, any}
+		{ :halt | :cont, rx_propagate, any, any} | {rx_propagate, any, any}
 	def do_action(nil, event = {:on_completed, nil}, _accu, new_accu), do:
 		{:halt, event, [], new_accu}
 	def do_action(nil, event, _accu, new_accu), do: {:cont, event, [], new_accu}
@@ -367,17 +367,6 @@ defmodule Reaxive.Rx.Impl do
 
 	defimpl Disposable, for: Function do
 		def dispose(fun), do: fun.()
-	end
-
-	# for processes
-	defimpl Observer, for: PID do
-		def on_next(observer, value), do:      Reaxive.Rx.Impl.on_next(observer, value)
-		def on_error(observer, exception), do: Reaxive.Rx.Impl.on_error(observer, exception)
-		def on_completed(observer, observable), do:        Reaxive.Rx.Impl.on_completed(observer, observable)
-	end
-
-	defimpl Observable, for: PID do
-		def subscribe(observable, observer), do: Reaxive.Rx.Impl.subscribe(observable, observer)
 	end
 
 	defimpl Observer, for: Function do
