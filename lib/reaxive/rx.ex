@@ -302,8 +302,26 @@ defmodule Reaxive.Rx do
 			Sync.flat_mapper(
 				flatter |> Reaxive.Rx.Impl.compose(Sync.flatter),
 				map_fun))
-		disp_me = Observable.subscribe(rx, flatter)
-		Reaxive.Rx.Impl.source(flatter, disp_me)
+		##############
+		#### This looks wrong: The flatter should not subscribe to rx
+		#### but to each new sequence which is constructed within the 
+		#### flat_mapper (==> should be handled within Sync.flat_mapper)
+		#### 
+		#### The problem here is that we have to connect the two 
+		#### sequences: `rx` should start to emit values if some other
+		#### observable subscribes to `flatter`. 
+		####
+		#### How do we fix this? 
+		#### a) after flatter is constructed we use no-op function as
+	    #####   observer for `rx` to start production
+		#### b) ??
+		##############
+		# disp_me = Observable.subscribe(rx, flatter)
+		# Logger.info("disp_me is #{inspect disp_me}")
+		# Reaxive.Rx.Impl.source(flatter, disp_me)
+
+		_disp_me = Observable.subscribe(rx, fn(_tag, _value) -> :ok end)
+
 		# we return the new flattened sequence
 		flatter
 	end
