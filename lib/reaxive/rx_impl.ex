@@ -151,6 +151,10 @@ defmodule Reaxive.Rx.Impl do
 	def on_subscribe(%Rx_t{pid: pid} = _observable, on_subscribe), do:
 		GenServer.call(pid, {:on_subscribe, on_subscribe})
 
+	@doc "Sets the auto_stop flag for the running Rx."
+	def set_auto_stop(%Rx_t{pid: pid} = _observable, auto_stop), do:
+		GenServer.call(pid, {:set_auto_stop, auto_stop})
+
 	@doc "All request-reply calls for setting up the Rx."
 	def handle_call({:unsubscribe, observer}, _from, %__MODULE__{subscribers: sub} = state) do
 		new_sub = List.delete(sub, observer)
@@ -171,6 +175,10 @@ defmodule Reaxive.Rx.Impl do
 		{:reply, src, s}
 	def handle_call({:on_subscribe, fun}, _from, %__MODULE__{on_subscribe: nil}= state), do:
 		{:reply, :ok, %__MODULE__{state | on_subscribe: fun}}
+	def handle_call({:set_auto_stop, stop_it}, _from, %__MODULE__{options: options}= state), do:
+		%__MODULE__{state | 
+			options: options |> Keyword.update(:auto_stop, stop_it, fn(_) -> stop_it end)} |>
+			terminate_if_required(:ok)
 
 	@doc "Process the next value"
 	def on_next(%Rx_t{pid: pid} = _observer, value), do:
@@ -205,16 +213,24 @@ defmodule Reaxive.Rx.Impl do
 		{:noreply, %__MODULE__{state | sources: [disposable | src]}}
 	def handle_cast({_tag, _v} = value, state) do
 		#Logger.info "RxImpl #{inspect self} got message #{inspect value} in state #{inspect state}"
-		new_state = handle_event(state, value)
-		case terminate?(new_state) do
-			false -> {:noreply, new_state}
-			true ->
-				%__MODULE__{active: active} = new_state
-				if active, do: emit(new_state, {:on_completed, nil})
-				{:stop, :normal, new_state}
-		end
+		handle_event(state, value) |> terminate_if_required
 	end
 
+	def terminate_if_required(state, return) do
+		case terminate_if_required(state) do
+			{:noreply, state} -> {:reply, return, state}
+			any -> any
+		end
+	end
+	def terminate_if_required(state) do
+		case terminate?(state) do
+			false -> {:noreply, state}
+			true ->
+				%__MODULE__{active: active} = state
+				if active, do: emit(state, {:on_completed, nil})
+				{:stop, :normal, state}
+		end
+	end
 
 	@doc """
 	Internal function to handles the various events, in particular disconnects
@@ -224,6 +240,7 @@ defmodule Reaxive.Rx.Impl do
 	def handle_event(%__MODULE__{} = state, {:on_completed, src}) do
 		state |>
 		 	disconnect_source(src) |>
+		 	# IO.inspect |> 
 			handle_value({:on_completed, nil})
 	end
 	def handle_event(%__MODULE__{} = state, event), do:	handle_value(state, event)
@@ -296,6 +313,7 @@ defmodule Reaxive.Rx.Impl do
 	def disconnect_source(%__MODULE__{sources: src} = state, src_id) do
 		# Logger.info("disconnecting #{inspect src_id} from Rx #{inspect self}=#{inspect state}")
 		new_src = src |> Enum.reject fn({id, _}) -> id == src_id end
+		if (new_src == src), then: Logger.error "disconnecting from unknown src = #{inspect src_id}"
 		%__MODULE__{state | sources: new_src }
 	end
 
