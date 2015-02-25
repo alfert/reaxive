@@ -23,6 +23,9 @@ defmodule Reaxive.Rx do
 	# the delay between pushing events is per default 0 milli second
 	@rx_delay 0
 
+	@typedoc "The basic type of Rx is an `Observable`"
+	@type t :: Observable.t
+
 	defmodule Lazy do
 		@moduledoc """
 		Datastructure to encode a lazy thunk.
@@ -296,11 +299,25 @@ defmodule Reaxive.Rx do
 	"""
 	@spec flat_map(Observable.t, (any -> Observable.t)) :: Observable.t
 	def flat_map(rx, map_fun) do
-		{:ok, flatter} = Reaxive.Rx.Impl.start("flatter", @rx_defaults)
+		# `flatter` does not stop automatically if no source is available
+		# because the mapper decides when there are no source anymore.
+		{:ok, flatter} = Reaxive.Rx.Impl.start("flatter", [auto_stop: false])
 		Logger.info("created flatter #{inspect flatter}")
+
+		check_finished_source = fn() -> 
+			try do
+				[] == Reaxive.Rx.Impl.get_sources(rx) 
+			catch
+				:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] ->
+					Logger.debug "get_sources failed because observable #{inspect rx} does not exist anymore"
+					true
+			end
+		end
+
+
 		rx |> Reaxive.Rx.Impl.compose(
 			Sync.flat_mapper(
-				flatter |> Reaxive.Rx.Impl.compose(Sync.flatter),
+				flatter |> Reaxive.Rx.Impl.compose(Sync.flatter(check_finished_source)),
 				map_fun))
 		##############
 		#### This looks wrong: The flatter should not subscribe to rx

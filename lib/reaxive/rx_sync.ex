@@ -265,7 +265,7 @@ defmodule Reaxive.Sync do
 	def flat_mapper(flatter, map_fun) do
 		default_behavior() do
 			rx = map_fun.(v)
-			# Logger.info("flat_mapper created #{inspect rx} for value #{inspect v}")
+			Logger.info("flat_mapper created #{inspect rx} for value #{inspect v}")
 			disp = Observable.subscribe(rx, flatter)
 			flatter |> Reaxive.Rx.Impl.source(disp)
 			# we ignore the current value v, because rx generates
@@ -279,12 +279,25 @@ defmodule Reaxive.Sync do
 	the number of active sources. In this function the access to the
 	observable returned by the `flatter`
 	"""
-	@spec flatter() :: transform_t
-	def flatter() do
+	@spec flatter((() -> boolean)) :: transform_t
+	def flatter(check_fun) do
+		# this can't work - there is nothing like a counter
 		full_behavior(
 			fn(v, acc, a, new_acc) -> emit(v, acc, a, new_acc) end,
-			# ignore completed, this is handled via counting sources
-			fn(v, acc, a, new_acc) ->	ignore(v, acc, a, new_acc) end,
+			#####
+			# do not ignore on_completed, because we have to emit it properly
+			# but only when we can terminate. Hmmm ==> At first, ensure that
+			# regular reduction mechanism of composed handlers is handled first, 
+			# after that provide it to real subscribers, living in a different 
+			# process or not implemented by Rx.Impl. 
+			# ===> This mechanims has to be handled properly by Rx.Impl!!!!!
+			fn(v, acc, a, new_acc) -> 
+				if (check_fun.()) do 
+					halt(acc, a, new_acc)
+				else 
+					ignore(v, acc, a, new_acc) 
+				end
+			end,
 			fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end
 		)
 	end
