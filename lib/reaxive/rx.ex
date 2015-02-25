@@ -2,6 +2,7 @@ defmodule Reaxive.Rx do
 
 	require Logger
 	alias Reaxive.Sync
+	alias Reaxive.Generator
 
 	@moduledoc """
 	This module implements the combinator on reactive streams of events.
@@ -21,6 +22,9 @@ defmodule Reaxive.Rx do
 	@rx_timeout 5_000
 	# the delay between pushing events is per default 0 milli second
 	@rx_delay 0
+
+	@typedoc "The basic type of Rx is an `Observable`"
+	@type t :: Observable.t
 
 	defmodule Lazy do
 		@moduledoc """
@@ -57,7 +61,7 @@ defmodule Reaxive.Rx do
 	defimpl Observable, for: Reaxive.Rx.Lazy do
 		def subscribe(observable, observer) do
 			rx = Reaxive.Rx.eval(observable)
-			Logger.info "Evaluated #{inspect observable} to #{inspect rx}"
+			# Logger.info "Evaluated #{inspect observable} to #{inspect rx}"
  			Observable.subscribe(rx, observer)
 		end
 	end
@@ -117,7 +121,7 @@ defmodule Reaxive.Rx do
 	If within `timeout` milliseconds no subscriber has arrived, the
 	stream of events is stopped. This ensures that we get no memory leak.
 	"""
-	@spec delayed_start(((Observer.t) -> any), String.t, pos_integer) :: Observable.t
+	@spec delayed_start(((Observer.t) -> any), String.t, non_neg_integer) :: Observable.t
 	def delayed_start(generator, id \\ "delayed_start", timeout \\ @rx_timeout) do
 		{:ok, rx} = Reaxive.Rx.Impl.start(id, @rx_defaults)
 		delayed = fn() ->
@@ -136,7 +140,7 @@ defmodule Reaxive.Rx do
 
 	@doc """
 	The `distinct` transformation is a filter, which only passes values that it
-	has not seen before. Since all distinct values has to be stores inside
+	has not seen before. Since all distinct values has to be stored inside
 	the filter, its required memory can grow for ever, if an unbounded 
 	sequence is used.
 
@@ -180,7 +184,7 @@ defmodule Reaxive.Rx do
 		iex> Rx.naturals |> Rx.take(10) |> Rx.drop(5) |> Rx.to_list
 		[5, 6, 7, 8, 9]
 	"""
-	@spec drop(Observable.t, pos_integer) :: Observable.t
+	@spec drop(Observable.t, non_neg_integer) :: Observable.t
 	def drop(rx, n) when n >= 0 do
 		Reaxive.Rx.Impl.compose(rx, Sync.drop(n))
 	end
@@ -295,14 +299,46 @@ defmodule Reaxive.Rx do
 	"""
 	@spec flat_map(Observable.t, (any -> Observable.t)) :: Observable.t
 	def flat_map(rx, map_fun) do
-		{:ok, flatter} = Reaxive.Rx.Impl.start("flat_mapper", @rx_defaults)
-		# Logger.info("created flatter #{inspect flatter}")
+		# `flatter` does not stop automatically if no source is available
+		# because the mapper decides when there are no source anymore.
+		{:ok, flatter} = Reaxive.Rx.Impl.start("flatter", [auto_stop: false])
+		Logger.info("created flatter #{inspect flatter}")
+
+		check_finished_source = fn() -> 
+			try do
+				[] == Reaxive.Rx.Impl.get_sources(rx) 
+			catch
+				:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] ->
+					Logger.debug "get_sources failed because observable #{inspect rx} does not exist anymore"
+					true
+			end
+		end
+
+
 		rx |> Reaxive.Rx.Impl.compose(
 			Sync.flat_mapper(
-				flatter |> Reaxive.Rx.Impl.compose(Sync.flatter),
+				flatter |> Reaxive.Rx.Impl.compose(Sync.flatter(check_finished_source)),
 				map_fun))
-		disp_me = Observable.subscribe(rx, flatter)
-		Reaxive.Rx.Impl.source(flatter, disp_me)
+		##############
+		#### This looks wrong: The flatter should not subscribe to rx
+		#### but to each new sequence which is constructed within the 
+		#### flat_mapper (==> should be handled within Sync.flat_mapper)
+		#### 
+		#### The problem here is that we have to connect the two 
+		#### sequences: `rx` should start to emit values if some other
+		#### observable subscribes to `flatter`. 
+		####
+		#### How do we fix this? 
+		#### a) after flatter is constructed we use no-op function as
+	    #####   observer for `rx` to start production
+		#### b) ??
+		##############
+		# disp_me = Observable.subscribe(rx, flatter)
+		# Logger.info("disp_me is #{inspect disp_me}")
+		# Reaxive.Rx.Impl.source(flatter, disp_me)
+
+		_disp_me = Observable.subscribe(rx, fn(_tag, _value) -> :ok end)
+
 		# we return the new flattened sequence
 		flatter
 	end
@@ -330,7 +366,7 @@ defmodule Reaxive.Rx do
 	  elements may be swalloed because no subscriber is available. This might
 	  be changed in the future.
 	"""
-	@spec generate(Enumerable.t, pos_integer, pos_integer) :: Observable.t
+	@spec generate(Enumerable.t, non_neg_integer, non_neg_integer) :: Observable.t
 	def generate(collection, delay \\ @rx_delay, timeout \\ @rx_timeout)
 	def generate(collection, delay, timeout) do
 		send_values = fn(rx) ->
@@ -365,6 +401,7 @@ defmodule Reaxive.Rx do
 		rx |> Reaxive.Rx.Impl.compose(Sync.map(fun))
 	end
 
+	@tag timeout: 2_000
 	@doc """
 	Merges two or more event sequences in a non-deterministic order.
 
@@ -376,20 +413,16 @@ defmodule Reaxive.Rx do
 		iex> alias Reaxive.Rx
 		iex> tens=Rx.naturals |> Rx.take(10)
 		iex> fives=Rx.naturals |> Rx.take(5)
-		iex> Rx.merge(tens, fives) |> Rx.to_list |> Enum.sort
+		iex> [tens, fives] |> Rx.merge() |> Rx.to_list |> Enum.sort
 		[0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 6, 7, 8, 9]
 	"""
 	@spec merge(Observable.t, Observable.t) :: Observable.t
 	def merge(rx1, rx2), do: merge([rx1, rx2])
 	@spec merge([Observable.t]) :: Observable.t
 	def merge(rxs) when is_list(rxs) do
+		# Logger.info "Merging of #{inspect rxs}"
 		{:ok, rx} = Reaxive.Rx.Impl.start("merge", @rx_defaults)
-
-		# we need a reduce like function, that
-		#  a) aborts immediately if an Exception occurs
-		#  b) finishes only after all sources have finished
-		n = length(rxs)
-		Reaxive.Rx.Impl.compose(rx, Sync.merge(n))
+		rx |> Reaxive.Rx.Impl.compose(Sync.merge(length(rxs)))
 		# subscribe to all originating sequences ...
 		disposes = rxs |> Enum.map &Observable.subscribe(&1, rx)
 		# and set the new disposables as sources.
@@ -406,9 +439,9 @@ defmodule Reaxive.Rx do
 	    iex> Rx.naturals |> Rx.take(5) |> Rx.stream |> Enum.to_list
 	    [0, 1, 2, 3, 4]
 	"""
-	@spec naturals(pos_integer, pos_integer) :: Observable.t
+	@spec naturals(non_neg_integer, non_neg_integer) :: t
 	def naturals(delay \\ @rx_delay, timeout \\ @rx_timeout) do
-		generate(Stream.unfold(0, fn(n) -> {n, n+1} end), delay, timeout)
+		delayed_start(Generator.naturals(delay), "naturals", timeout)
 	end
 
 	@doc """
@@ -590,7 +623,7 @@ defmodule Reaxive.Rx do
 		iex> Rx.naturals |> Rx.take(10) |> Rx.to_list
 		[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 	"""
-	@spec take(Observable.t, pos_integer) :: Observable.t
+	@spec take(Observable.t, non_neg_integer) :: Observable.t
 	def take(rx, n) when n >= 0 do
 		rx |> Reaxive.Rx.Impl.compose(Sync.take(n))
 	end
@@ -624,6 +657,22 @@ defmodule Reaxive.Rx do
 	def take_until(rx, pred) do
 		rx |> Reaxive.Rx.Impl.compose(Sync.take_while(&(not pred.(&1))))
 	end
+
+	@doc """
+	Produces a infinite sequence of `:tick`s, with a delay of `millis` milliseconds
+	between each tick. 
+
+	## Examples
+
+		iex> alias Reaxive.Rx
+		iex> Rx.ticks |> Rx.take(5) |> Rx.to_list
+		[:tick, :tick, :tick, :tick, :tick] 
+	"""
+	@spec ticks(non_neg_integer) :: Observable.t
+	def ticks(millis \\ 50) do
+		delayed_start(Generator.ticks(millis))
+	end
+	
 
 	@doc """
 	Converts the event sequence into a regular list. Requires that the sequence

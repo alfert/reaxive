@@ -27,9 +27,9 @@ defmodule Reaxive.Sync do
 	@type acc_t :: [any]
 	@type tagged_t :: {reason_t, any}
 	@type reduce_t :: {tagged_t, acc_t, acc_t}
-	@type reduce_fun_t :: ((tagged_t, acc_t, acc_t) -> reduce_t)
 	@type step_fun_t :: ((any, acc_t, any, acc_t) -> reduce_t)
-	@type transform_t :: {reduce_fun_t, any}
+	@type reducer_fun_t :: ((reduce_t) -> any)
+	@type transform_t :: {reducer_fun_t, any}
 
 
 	@doc """
@@ -90,13 +90,16 @@ defmodule Reaxive.Sync do
 	@doc "Reducer function for `take`"
 	def take(n) when n >= 0 do
 		default_behavior(n) do
-			cond do
-				a == 0 -> halt(acc, a-1, new_acc)
-				a < 0  -> ignore(v, acc, a, new_acc)
-				a > 0  -> emit(v, acc, a-1, new_acc)
-			end
+			taker(a, v, acc, new_acc)
 		end
 	end
+
+	defp taker(a = 0, _v, acc, new_acc) do       
+		# Logger.info "taker reached 0, #{inspect self}"
+		halt(acc, a-1, new_acc)
+	end
+	defp taker(a, v, acc, new_acc) when a < 0, do: ignore(v, acc, a, new_acc)
+	defp taker(a, v, acc, new_acc), do:            emit(v, acc, a-1, new_acc)
 
 	@doc "Reducer for `take_while`"
 	@spec take_while((any -> boolean)) :: transform_t
@@ -190,15 +193,15 @@ defmodule Reaxive.Sync do
 	def merge(n) when n > 0 do
 		full_behavior(n,
 			fn(v, acc, k, new_acc) -> 
-				IO.puts("merge: on_next(#{inspect v}) with k=#{inspect k}")
+				# IO.puts("merge: on_next(#{inspect v}) with k=#{inspect k}")
 				emit(v, acc, k, new_acc) end,
 			fn
-				(_v, acc, 1, new_acc) -> IO.puts("merge: last on_completed k=1") 
+				(_v, acc, 1, new_acc) -> # IO.puts("merge: last on_completed k=1") 
 					halt(acc, 1, new_acc)  # last complete => complete merge
-				(v, acc, k, new_acc) -> IO.puts("merge: ignored on_completed with k=#{k}")
+				(v, acc, k, new_acc) -> # IO.puts("merge: ignored on_completed with k=#{k}")
 					ignore(v, acc, k-1, new_acc) # ignore complete
 			end,
-			fn(v, acc, k, new_acc) -> IO.puts("merge: error #{inspect v} with k=#{k}")
+			fn(v, acc, k, new_acc) -> # IO.puts("merge: error #{inspect v} with k=#{k}")
 				error(v, acc, k, new_acc) end
 		)
 	end
@@ -262,7 +265,7 @@ defmodule Reaxive.Sync do
 	def flat_mapper(flatter, map_fun) do
 		default_behavior() do
 			rx = map_fun.(v)
-			# Logger.info("flat_mapper created #{inspect rx} for value #{inspect v}")
+			Logger.info("flat_mapper created #{inspect rx} for value #{inspect v}")
 			disp = Observable.subscribe(rx, flatter)
 			flatter |> Reaxive.Rx.Impl.source(disp)
 			# we ignore the current value v, because rx generates
@@ -274,14 +277,27 @@ defmodule Reaxive.Sync do
 	@doc """
 	The `flatter` function takes as argument a function which determines
 	the number of active sources. In this function the access to the
-	observable returned by the `flatter
+	observable returned by the `flatter`
 	"""
-	@spec flatter() :: transform_t
-	def flatter() do
+	@spec flatter((() -> boolean)) :: transform_t
+	def flatter(check_fun) do
+		# this can't work - there is nothing like a counter
 		full_behavior(
 			fn(v, acc, a, new_acc) -> emit(v, acc, a, new_acc) end,
-			# ignore completed, this is handled via counting sources
-			fn(v, acc, a, new_acc) ->	ignore(v, acc, a, new_acc) end,
+			#####
+			# do not ignore on_completed, because we have to emit it properly
+			# but only when we can terminate. Hmmm ==> At first, ensure that
+			# regular reduction mechanism of composed handlers is handled first, 
+			# after that provide it to real subscribers, living in a different 
+			# process or not implemented by Rx.Impl. 
+			# ===> This mechanims has to be handled properly by Rx.Impl!!!!!
+			fn(v, acc, a, new_acc) -> 
+				if (check_fun.()) do 
+					halt(acc, a, new_acc)
+				else 
+					ignore(v, acc, a, new_acc) 
+				end
+			end,
 			fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end
 		)
 	end

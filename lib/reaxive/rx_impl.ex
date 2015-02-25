@@ -36,14 +36,34 @@ defmodule Reaxive.Rx.Impl do
 		on_subscribe: nil, # function called at first subscription
 		accu: [] # accumulator
 
+	defmodule Rx_t do
+		@moduledoc """
+		Encapsulates a `Rx_Impl` process instance 
+		"""
+		defstruct pid: nil 
+		
+		defimpl Observer do
+			def on_next(observer, value), do:      Reaxive.Rx.Impl.on_next(observer, value)
+			def on_error(observer, exception), do: Reaxive.Rx.Impl.on_error(observer, exception)
+			def on_completed(observer, observable), do:        Reaxive.Rx.Impl.on_completed(observer, observable)
+		end
+
+		defimpl Observable do
+			def subscribe(observable, observer), do: Reaxive.Rx.Impl.subscribe(observable, observer)
+		end
+	end
+
 	@doc """
 	Starts the Rx Impl. If `auto_stop` is true, the `Impl` finishes after completion or
 	after an error or after unsubscribing the last subscriber.
 	"""
+	@spec start() :: {:ok, Observable.t}
 	def start(), do: start(nil, [auto_stop: true])
-	def start(name, options), do:
-		GenServer.start(__MODULE__, [name, options])
-
+	@spec start(nil | String.t, Keyword.t) :: {:ok, Observable.t}
+	def start(name, options) do
+		{:ok, pid} = GenServer.start(__MODULE__, [name, options])
+		{:ok, %Rx_t{pid: pid}}
+	end
 	def init([name, options]) do
 		s = %__MODULE__{name: name, options: options}
 		# Logger.info "init - state = #{inspect s}"
@@ -59,8 +79,8 @@ defmodule Reaxive.Rx.Impl do
 	observable is not or no longer available. In this case, an do-nothing unsubciption
 	functions is returned (since no subscription has occured in the first place).
 	"""
-	@spec subscribe(Observable.t, Observer.t) :: {PID, (() -> :ok)}
-	def subscribe(observable, observer) do
+	@spec subscribe(Observable.t, Observer.t) :: {Observable.t, (() -> :ok)}
+	def subscribe(%Rx_t{pid: pid} = observable, observer) do
 		# dispose_fun is defined first to circumevent a problem in Erlang's cover-tool,
 		# which does not work if after an try-block in Elixir an additional statement is
 		# in the function.
@@ -72,7 +92,7 @@ defmodule Reaxive.Rx.Impl do
 			end
 		end
 		try do
-			:ok = GenServer.cast(observable, {:subscribe, observer})
+			:ok = GenServer.cast(pid, {:subscribe, observer})
 			{observable, dispose_fun}
 		catch
 			:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] ->
@@ -86,19 +106,19 @@ defmodule Reaxive.Rx.Impl do
 	@doc """
 	Unsubscribes an `observer` from the event sequence.
 	"""
-	def unsubscribe(observable, observer), do:
-		GenServer.call(observable, {:unsubscribe, observer})
+	def unsubscribe(%Rx_t{pid: pid} = observable, observer), do:
+		GenServer.call(pid, {:unsubscribe, observer})
 
 	@doc """
 	Sets the disposable event sequence `source`. This is needed for proper unsubscribing
 	from the `source` when terminating the sequence.
 	"""
-	def source(observable, disposable) do
+	def source(%Rx_t{pid: pid} = observable, disposable) do
 		try do
-			GenServer.cast(observable, {:source, disposable})
+			GenServer.cast(pid, {:source, disposable})
 		catch
 			:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] ->
-				Logger.debug "source failed because observable does not exist anymore"
+				# Logger.debug "source failed because observable does not exist anymore"
 				Disposable.dispose disposable
 		end
 	end
@@ -107,29 +127,33 @@ defmodule Reaxive.Rx.Impl do
 	This function sets the internal action on received events before the event is
 	propagated to the subscribers. An initial accumulator value can also be provided.
 	"""
-	def fun(observable, fun, acc \\ []), do:
-		GenServer.call(observable, {:fun, fun, acc})
+	def fun(%Rx_t{pid: pid} = _observable, fun, acc \\ []), do:
+		GenServer.call(pid, {:fun, fun, acc})
 
 	@doc """
 	Composes the internal action on received events with the given `fun`. The
 	initial function to compose with is the identity function.
 	"""
-	def compose(observable, {fun, acc}) do
-		:ok = GenServer.call(observable, {:compose, fun, acc})
+	def compose(%Rx_t{pid: pid} = observable, {fun, acc}) do
+		:ok = GenServer.call(pid, {:compose, fun, acc})
 		observable
 	end
-	def compose(observable, fun, acc), do:
-		GenServer.call(observable, {:compose, fun, acc})
+	def compose(%Rx_t{pid: pid} = observable, fun, acc), do:
+		GenServer.call(pid, {:compose, fun, acc})
 
 	@doc "All subscribers of Rx. Useful for debugging."
-	def subscribers(observable), do: GenServer.call(observable, :subscribers)
+	def subscribers(%Rx_t{pid: pid} = _observable), do: GenServer.call(pid, :subscribers)
 
 	@doc "All sources of Rx. Useful for debugging."
-	def get_sources(observable), do: GenServer.call(observable, :get_sources)
+	def get_sources(%Rx_t{pid: pid} = _observable), do: GenServer.call(pid, :get_sources)
 
 	@doc "Sets the on_subscribe function, which is called for the first subscription."
-	def on_subscribe(observable, on_subscribe), do:
-		GenServer.call(observable, {:on_subscribe, on_subscribe})
+	def on_subscribe(%Rx_t{pid: pid} = _observable, on_subscribe), do:
+		GenServer.call(pid, {:on_subscribe, on_subscribe})
+
+	@doc "Sets the auto_stop flag for the running Rx."
+	def set_auto_stop(%Rx_t{pid: pid} = _observable, auto_stop), do:
+		GenServer.call(pid, {:set_auto_stop, auto_stop})
 
 	@doc "All request-reply calls for setting up the Rx."
 	def handle_call({:unsubscribe, observer}, _from, %__MODULE__{subscribers: sub} = state) do
@@ -151,18 +175,22 @@ defmodule Reaxive.Rx.Impl do
 		{:reply, src, s}
 	def handle_call({:on_subscribe, fun}, _from, %__MODULE__{on_subscribe: nil}= state), do:
 		{:reply, :ok, %__MODULE__{state | on_subscribe: fun}}
+	def handle_call({:set_auto_stop, stop_it}, _from, %__MODULE__{options: options}= state), do:
+		%__MODULE__{state | 
+			options: options |> Keyword.update(:auto_stop, stop_it, fn(_) -> stop_it end)} |>
+			terminate_if_required(:ok)
 
 	@doc "Process the next value"
-	def on_next(observer, value), do:
-		:ok = GenServer.cast(observer, {:on_next, value})
+	def on_next(%Rx_t{pid: pid} = _observer, value), do:
+		:ok = GenServer.cast(pid, {:on_next, value})
 
 	@doc "The last regular message"
-	def on_completed(observer, observable), do:
-		:ok = GenServer.cast(observer, {:on_completed, observable})
+	def on_completed(%Rx_t{pid: pid} = _observer, observable), do:
+		:ok = GenServer.cast(pid, {:on_completed, observable})
 
 	@doc "An error has occured, the pipeline will be aborted."
-	def on_error(observer, exception), do:
-		:ok = GenServer.cast(observer, {:on_error, exception})
+	def on_error(%Rx_t{pid: pid} = _observer, exception), do:
+		:ok = GenServer.cast(pid, {:on_error, exception})
 
 	@doc "Asynchronous callback. Used for processing values and subscription."
 	def handle_cast({:subscribe, observer},
@@ -185,15 +213,24 @@ defmodule Reaxive.Rx.Impl do
 		{:noreply, %__MODULE__{state | sources: [disposable | src]}}
 	def handle_cast({_tag, _v} = value, state) do
 		#Logger.info "RxImpl #{inspect self} got message #{inspect value} in state #{inspect state}"
-		new_state = handle_event(state, value)
-		case terminate?(new_state) do
-			false -> {:noreply, new_state}
-			true ->
-				if (new_state.active), do: emit(new_state, {:on_completed, nil})
-				{:stop, :normal, new_state}
-		end
+		handle_event(state, value) |> terminate_if_required
 	end
 
+	def terminate_if_required(state, return) do
+		case terminate_if_required(state) do
+			{:noreply, state} -> {:reply, return, state}
+			any -> any
+		end
+	end
+	def terminate_if_required(state) do
+		case terminate?(state) do
+			false -> {:noreply, state}
+			true ->
+				%__MODULE__{active: active} = state
+				if active, do: emit(state, {:on_completed, nil})
+				{:stop, :normal, state}
+		end
+	end
 
 	@doc """
 	Internal function to handles the various events, in particular disconnects
@@ -203,6 +240,7 @@ defmodule Reaxive.Rx.Impl do
 	def handle_event(%__MODULE__{} = state, {:on_completed, src}) do
 		state |>
 		 	disconnect_source(src) |>
+		 	# IO.inspect |> 
 			handle_value({:on_completed, nil})
 	end
 	def handle_event(%__MODULE__{} = state, event), do:	handle_value(state, event)
@@ -231,9 +269,9 @@ defmodule Reaxive.Rx.Impl do
 			end
 		catch
 			what, message ->
-				 Logger.error "Got exception: #{inspect what}, #{inspect message} \n" <>
-					"with value #{inspect value} in state #{inspect state}\n" <>
-					Exception.format(what, message)
+				#  Logger.error "Got exception: #{inspect what}, #{inspect message} \n" <>
+				# 	"with value #{inspect value} in state #{inspect state}\n" <>
+				# 	Exception.format(what, message)
 				handle_value(state, {:on_error, {what, message}})
 		end
 	end
@@ -241,7 +279,7 @@ defmodule Reaxive.Rx.Impl do
 
 	@doc "Internal function calculating the new value"
 	@spec do_action(nil | (... -> any), rx_propagate, any, any) ::
-		{ :halt | :cont, rx_propagate, any, any}
+		{ :halt | :cont, rx_propagate, any, any} | {rx_propagate, any, any}
 	def do_action(nil, event = {:on_completed, nil}, _accu, new_accu), do:
 		{:halt, event, [], new_accu}
 	def do_action(nil, event, _accu, new_accu), do: {:cont, event, [], new_accu}
@@ -249,8 +287,9 @@ defmodule Reaxive.Rx.Impl do
 		do: fun . ({event, accu, new_accu})
 
 	@doc "Internal callback function at termination for clearing resources"
-	def terminate(_reason, _state) do
+	def terminate(_reason, state = %__MODULE__{sources: src}) do
 		# Logger.info("Terminating #{inspect self} for reason #{inspect reason} in state #{inspect state}")
+		src |> Enum.each(fn({_pid, fun}) -> fun.() end)
 	end
 
 
@@ -274,6 +313,7 @@ defmodule Reaxive.Rx.Impl do
 	def disconnect_source(%__MODULE__{sources: src} = state, src_id) do
 		# Logger.info("disconnecting #{inspect src_id} from Rx #{inspect self}=#{inspect state}")
 		new_src = src |> Enum.reject fn({id, _}) -> id == src_id end
+		if (new_src == src), then: Logger.error "disconnecting from unknown src = #{inspect src_id}"
 		%__MODULE__{state | sources: new_src }
 	end
 
@@ -345,16 +385,6 @@ defmodule Reaxive.Rx.Impl do
 
 	defimpl Disposable, for: Function do
 		def dispose(fun), do: fun.()
-	end
-
-	defimpl Observer, for: PID do
-		def on_next(observer, value), do:      Reaxive.Rx.Impl.on_next(observer, value)
-		def on_error(observer, exception), do: Reaxive.Rx.Impl.on_error(observer, exception)
-		def on_completed(observer, observable), do:        Reaxive.Rx.Impl.on_completed(observer, observable)
-	end
-
-	defimpl Observable, for: PID do
-		def subscribe(observable, observer), do: Reaxive.Rx.Impl.subscribe(observable, observer)
 	end
 
 	defimpl Observer, for: Function do
