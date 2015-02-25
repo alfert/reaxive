@@ -406,7 +406,7 @@ defmodule RxTest do
 		tens = flatter |>
 			# Rx.as_text |>
 			Rx.to_list
-		assert Enum.count(tens) == n*(n+1)/2
+		assert Enum.count(tens) == div(n*(n+1), 2)
 		assert k |> Enum.to_list == tens |> Enum.uniq
 	end
 
