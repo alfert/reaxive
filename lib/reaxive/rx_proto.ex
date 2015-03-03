@@ -35,3 +35,16 @@ defprotocol Disposable do
 	"""
 	def dispose(disposable)
 end
+
+defprotocol Subscription do
+	@moduledoc """
+	Defines the protocol for subscriptions which provide a little
+	bit more functionality as an `Disposable` from .NET-Framework. 
+	"""
+	
+	@spec unsubscribe(Subscription.t) :: :ok
+ 	def unsubscribe(subscription)
+ 	@spec is_unsubscribed?(Subscription.t) :: boolean
+ 	def is_unsubscribed?(subscription)
+ 	
+end
