@@ -101,7 +101,7 @@ defmodule Reaxive.SubscriptionBehaviour do
 			
 			defimpl Subscription do
 				def unsubscribe(sub), do: __MODULE__.unsubscribe(sub)
-				def is_unsubscribed?(sub), do: __MODULE__.is_unsubscribed(sub)
+				def is_unsubscribed?(sub), do: __MODULE__.is_unsubscribed?(sub)
 			end
 
 			defoverridable [start_link: 1, unsubscribe: 1, is_unsubscribed?: 1, init: 1]
