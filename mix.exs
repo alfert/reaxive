@@ -52,7 +52,7 @@ defmodule Reaxive.Mixfile do
   defp package do
     [contributors: ["Klaus Alfert"],
      licenses: ["Apache 2.0"],
-     links: %{"GitHub" => "https://github.com/alfert/coverex"}
+     links: %{"GitHub" => "https://github.com/alfert/reaxive"}
     ]
   end
 
