@@ -10,7 +10,10 @@ defmodule Reaxive.Subscription.State do
 
 	@type t :: %__MODULE__{}
 
-	def is_unsubscribed?(%__MODULE__{active: active}), do: active == :false
+	def is_unsubscribed?(s = %__MODULE__{active: active}) do
+		# IO.puts("#{__MODULE__}.is_unsubscribed?: s = #{inspect s}")
+		active == :false
+	end
 
 	def start(disp_fun, embedded \\ nil), do: 
 		%__MODULE__{active: true, dispose_fun: disp_fun, embedded_sub: embedded}
@@ -34,16 +37,17 @@ defmodule Reaxive.Subscription.State do
 
 	@spec assign(t, Subscription.t) :: t
 	def assign(s = %__MODULE__{embedded_sub: _embedded, active: true}, sub) do
-		%__MODULE__{s | embedded_sub: sub}
+		%__MODULE__{s | embedded_sub: [sub]}
 	end
 	def assign(s = %__MODULE__{embedded_sub: _embedded}, sub) do
 		:ok = Subscription.unsubscribe(sub)
-		%__MODULE__{s | embedded_sub: sub}
+		%__MODULE__{s | embedded_sub: [sub]}
 	end
 
 	@spec unsubscribe(t) :: {:ok, t}
 	def unsubscribe(%__MODULE__{active: false} = s), do: {:ok, s}
 	def unsubscribe(%__MODULE__{embedded_sub: nil, dispose_fun: disp} = s) do
+		# IO.puts "active unsubscribe"
 		:ok = disp.()
 		{:ok, %__MODULE__{s | active: false}}
 	end
@@ -71,6 +75,7 @@ defmodule Reaxive.SubscriptionBehaviour do
 	defcallback init((()-> :ok)) :: Reaxive.Subscription.State
 	defcallback unsubscribe(t) :: :ok
 	defcallback is_unsubscribed?(t) :: boolean  
+	defcallback is_unsub?(t) :: boolean  
 
 
 	@doc "Defines the default implementations of subscriptions"
@@ -85,6 +90,7 @@ defmodule Reaxive.SubscriptionBehaviour do
 			@spec start_link((()-> :ok)) :: t
 			def start_link(disp_fun) do
 				{:ok, pid} = Agent.start_link(fn() -> init(disp_fun) end)
+				# IO.puts "start_link: #{inspect pid}"
 				{:ok, %__MODULE__{pid: pid}}
 			end
 
@@ -92,16 +98,19 @@ defmodule Reaxive.SubscriptionBehaviour do
 
 			@spec unsubscribe(t) :: :ok
 			def unsubscribe(_sub = %__MODULE__{pid: pid}) do
-				pid |> Agent.get_and_update(State.unsubscribe/1)
+				# IO.puts "unsubscribe"
+				pid |> Agent.get_and_update(&State.unsubscribe/1)
 			end
 			
-			def is_unsubscribed?(_sub = %__MODULE__{pid: pid}) do
-				pid |> Agent.get(State.is_unsubscribed?/1)
-			end
-			
-			defimpl Subscription do
-				def unsubscribe(sub), do: __MODULE__.unsubscribe(sub)
-				def is_unsubscribed?(sub), do: __MODULE__.is_unsubscribed?(sub)
+			def is_unsubscribed?(sub = %__MODULE__{pid: pid}) do
+				# IO.puts "is_unsub: #{inspect sub}"
+				try do 
+					pid |> Agent.get(&State.is_unsubscribed?/1)
+				catch 
+					:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] ->
+						IO.puts "subscription is gone"
+						true
+				end
 			end
 
 			defoverridable [start_link: 1, unsubscribe: 1, is_unsubscribed?: 1, init: 1]
@@ -112,6 +121,12 @@ end
 
 defmodule Reaxive.Subscription do
 	use Reaxive.SubscriptionBehaviour
+
+	defimpl Subscription do
+		def unsubscribe(sub), do: Reaxive.Subscription.unsubscribe(sub)
+		def is_unsubscribed?(sub), do: Reaxive.Subscription.is_unsubscribed?(sub)
+	end
+
 end
 
 defmodule Reaxive.CompositeSubscription do
@@ -139,6 +154,12 @@ defmodule Reaxive.CompositeSubscription do
 		:ok = pid |> Agent.update(State, :delete, [to_delete])
 		sub
 	end
+
+	defimpl Subscription do
+		def unsubscribe(sub), do: Reaxive.CompositeSubscription.unsubscribe(sub)
+		def is_unsubscribed?(sub), do: Reaxive.CompositeSubscription.is_unsubscribed?(sub)
+	end
+
 end
 
 
@@ -163,4 +184,9 @@ defmodule Reaxive.MultiAssignSubscription do
 		:ok = pid |> Agent.update(State, :assign, [to_add])
 		sub
 	end
+	defimpl Subscription do
+		def unsubscribe(sub), do: Reaxive.MultiAssignSubscription.unsubscribe(sub)
+		def is_unsubscribed?(sub), do: Reaxive.MultiAssignSubscription.is_unsubscribed?(sub)
+	end
+
 end
