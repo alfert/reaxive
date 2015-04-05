@@ -98,12 +98,12 @@ defmodule Reaxive.SubscriptionBehaviour do
 	defcallback is_unsubscribed?(t) :: boolean  
 	defcallback is_unsub?(t) :: boolean  
 
-
 	@doc "Defines the default implementations of subscriptions"
 	defmacro __using__(_opts) do
 		quote do
 			alias Reaxive.Subscription.State
-			
+			require Reaxive.Subscription.State
+
 			@typedoc "The type of a simple subscription"
 			@opaque t :: %__MODULE__{}
 			defstruct pid: nil 
@@ -120,17 +120,17 @@ defmodule Reaxive.SubscriptionBehaviour do
 			@spec unsubscribe(t) :: :ok
 			def unsubscribe(_sub = %__MODULE__{pid: pid}) do
 				# IO.puts "unsubscribe"
-				pid |> Agent.get_and_update(&State.unsubscribe/1)
+				State.robust_call(:ok) do
+					:ok = pid |> Agent.get_and_update(&State.unsubscribe/1)
+					pid |> Agent.stop 
+					:ok
+				end
 			end
 			
 			def is_unsubscribed?(sub = %__MODULE__{pid: pid}) do
 				# IO.puts "is_unsub: #{inspect sub}"
-				try do 
+				State.robust_call(true) do 
 					pid |> Agent.get(&State.is_unsubscribed?/1)
-				catch 
-					:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] ->
-						IO.puts "subscription is gone"
-						true
 				end
 			end
 
@@ -166,8 +166,11 @@ defmodule Reaxive.CompositeSubscription do
 	
 	@spec add(t, Subscription.t) :: t
 	def add(sub= %__MODULE__{pid: pid}, to_add) do
-		:ok = pid |> Agent.update(State, :add, [to_add])
-		sub
+		unsub = fn() -> to_add |> Subscription.unsubscribe end
+		State.robust_call(unsub.()) do
+			:ok = pid |> Agent.update(State, :add, [to_add])
+			sub
+		end
 	end
 
 	@spec delete(t, Subscription.t) :: t
@@ -202,8 +205,10 @@ defmodule Reaxive.MultiAssignSubscription do
 	
 	@spec assign(t, Subscription.t) :: t
 	def assign(sub= %__MODULE__{pid: pid}, to_add) do
-		:ok = pid |> Agent.update(State, :assign, [to_add])
-		sub
+		unsub = fn() -> to_add |> Subscription.unsubscribe end
+		State.robust_call(unsub.()) do
+			:ok = pid |> Agent.update(State, :assign, [to_add])
+		end
 	end
 	defimpl Subscription do
 		def unsubscribe(sub), do: Reaxive.MultiAssignSubscription.unsubscribe(sub)

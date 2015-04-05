@@ -16,6 +16,7 @@ defmodule ReaxiveSubscriptionTest do
 		assert Subscription.is_unsubscribed?(sub)
 		assert_receive {:unsubscribe, "A"}
 
+		refute Process.alive? sub.pid
 	end
 
 	@tag timeout: 1_000
