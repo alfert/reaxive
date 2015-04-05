@@ -88,6 +88,19 @@ defmodule ReaxiveSubscriptionTest do
 		assert_receive {:unsubscribe, "C"}
 	end
 
+	test "robust call delivers default value" do
+		require Reaxive.Subscription.State
+		alias Reaxive.Subscription.State
+		
+		{:ok, pid} = Agent.start_link(fn() -> :this_agent_will_stop end)
+		pid |> Agent.stop
+
+		v  = State.robust_call(true) do
+			pid |> Agent.get(fn(s) -> s end)
+		end
+		assert v
+	end
+
 	def unsubscribe(name, pid) do
 		# IO.puts "unsubcribe function for #{name}"
 		send(pid, {:unsubscribe, name})
