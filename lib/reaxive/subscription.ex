@@ -57,6 +57,27 @@ defmodule Reaxive.Subscription.State do
 		{:ok, %__MODULE__{s | active: false}}
 	end
 
+	@doc """
+	This macro allows the call to an GenServer. If the process does not exist, 
+	then the default value is returned. 
+
+	This macros is provided to implement subscriptions easier. 
+	"""
+	defmacro robust_call(default_value, do: block) do
+		# block = Keyword.get(clause, :do)
+		quote do
+			try do
+				unquote(block)
+			catch
+				:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] ->
+					IO.puts "subscription is already gone"
+					unquote(default_value)
+				:exit, :normal -> unquote(default_value)
+			end
+		end
+	end
+
+
 end
 
 defmodule Reaxive.SubscriptionBehaviour do
