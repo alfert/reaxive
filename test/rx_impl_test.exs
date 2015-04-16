@@ -10,9 +10,9 @@ defmodule ReaxiveTest do
 
 		assert Reaxive.Rx.Impl.subscribers(rx) == [:you, :me]
 
-		Disposable.dispose(disp_me)
+		Subscription.unsubscribe(disp_me)
 		assert Reaxive.Rx.Impl.subscribers(rx) == [:you]
-		Disposable.dispose(disp_you)
+		Subscription.unsubscribe(disp_you)
 		assert Reaxive.Rx.Impl.subscribers(rx) == []
 	end
 
@@ -40,7 +40,8 @@ defmodule ReaxiveTest do
 		assert_receive {:on_completed, ^id2}
 
 		Reaxive.Rx.Impl.on_next(rx, :x)
-		disp_me.()
+		# disp_me.()
+		Subscription.unsubscribe(disp_me)
 		# refute Process.alive? rx
 		id = process rx
 		assert_receive {:EXIT, ^id, _}
@@ -135,15 +136,15 @@ defmodule ReaxiveTest do
 	test "Stopping processes after unsubscribe" do
 		# {:ok, rx} = Reaxive.Rx.Impl.start("rx", [auto_stop: true])
 		{:ok, rx} = Reaxive.Rx.Impl.start()
-		:ok = Reaxive.Rx.Impl.source(rx, {self, fn()-> :ok end})
+		# :ok = Reaxive.Rx.Impl.source(rx, {self, fn()-> :ok end})
 		{_, disp_me} = Reaxive.Rx.Impl.subscribe(rx, :me)
 		{_, disp_you} = Reaxive.Rx.Impl.subscribe(rx, :you)
 
 		assert Reaxive.Rx.Impl.subscribers(rx) == [:you, :me]
 
-		Disposable.dispose(disp_me)
+		Subscription.unsubscribe(disp_me)
 		assert Reaxive.Rx.Impl.subscribers(rx) == [:you]
-		Disposable.dispose(disp_you)
+		Subscription.unsubscribe(disp_you)
 		refute Process.alive?(process rx)
 	end
 
@@ -168,7 +169,7 @@ defmodule ReaxiveTest do
 
 		Reaxive.Rx.Impl.on_completed(rx1, self)
 		assert_receive {:on_completed, ^id}
-		disp_me.() # we call this, because our functional observer is too stupid to do it by itself
+		Subscription.unsubscribe(disp_me) # we call this, because our functional observer is too stupid to do it by itself
 
 		refute Process.alive?(process rx1)
 		refute Process.alive?(process rx2)
