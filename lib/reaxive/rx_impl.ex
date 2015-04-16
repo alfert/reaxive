@@ -81,19 +81,12 @@ defmodule Reaxive.Rx.Impl do
 	"""
 	@spec subscribe(Observable.t, Observer.t) :: {Observable.t, (() -> :ok)}
 	def subscribe(%Rx_t{pid: pid} = observable, observer) do
-		# dispose_fun is defined first to circumevent a problem in Erlang's cover-tool,
-		# which does not work if after an try-block in Elixir an additional statement is
-		# in the function.
-		dispose_fun = fn() ->
-			try do
-				unsubscribe(observable, observer)
-			catch
-				:exit, _code -> :ok # Logger.debug "No process #{inspect observable} - no problem #{inspect code}"
-			end
-		end
+		{:ok, sub} = Reaxive.Subscription.start_link(fn() -> 
+			unsubscribe(observable, observer) end)
 		try do
 			:ok = GenServer.cast(pid, {:subscribe, observer})
-			{observable, dispose_fun}
+			#{observable, dispose_fun}
+			{observable, sub}
 		catch
 			:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] ->
 				Logger.debug "subscribe failed because observable #{inspect observable} does not exist anymore"
@@ -104,7 +97,10 @@ defmodule Reaxive.Rx.Impl do
 	end
 
 	@doc """
-	Unsubscribes an `observer` from the event sequence.
+	Unsubscribes an `observer` from the event sequence. If the event sequence 
+	does not exist any longer, the caller must handle any problems. Usually, this 
+	error handling is done within a subscription such that a "real" client has not
+	consider this.
 	"""
 	def unsubscribe(%Rx_t{pid: pid} = observable, observer), do:
 		GenServer.call(pid, {:unsubscribe, observer})
