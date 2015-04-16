@@ -289,7 +289,8 @@ defmodule Reaxive.Rx.Impl do
 	@doc "Internal callback function at termination for clearing resources"
 	def terminate(_reason, state = %__MODULE__{sources: src}) do
 		# Logger.info("Terminating #{inspect self} for reason #{inspect reason} in state #{inspect state}")
-		src |> Enum.each(fn({_pid, fun}) -> fun.() end)
+		# src |> Enum.each(fn({_pid, fun}) -> fun.() end)
+		src |> Enum.each(fn({_pid, sub}) -> sub |> Subscription.unsubscribe() end)
 	end
 
 
@@ -297,7 +298,8 @@ defmodule Reaxive.Rx.Impl do
 	@spec disconnect_all(t) :: t
 	def disconnect_all(%__MODULE__{active: true, sources: src} = state) do
 		# Logger.info("disconnecting all from #{inspect state}")
-		src |> Enum.each fn({_id, disp}) -> Disposable.dispose(disp) end
+		# src |> Enum.each fn({_id, disp}) -> Disposable.dispose(disp) end
+		src |> Enum.each(fn({_pid, sub}) -> sub |> Subscription.unsubscribe() end)
 		%__MODULE__{state | active: false, subscribers: []}
 	end
 	# disconnecting from a disconnected state does not change anything
