@@ -282,7 +282,8 @@ defmodule Reaxive.Rx do
 			{:on_completed, _any} -> nil
 			{:on_error, e} -> raise e
 		end
-		Disposable.dispose(rx2)
+		# Disposable.dispose(rx2)
+		Subscription.unsubscribe(rx2)
 		val
 	end
 
