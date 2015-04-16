@@ -1,4 +1,6 @@
 defmodule Reaxive.Subscription.State do
+	require Logger
+
 	@moduledoc """
 	Encapsulates the internal state of subscriptions and implements all functions
 	of the family of subscription (simple, composite, and multi-assign).
@@ -48,13 +50,24 @@ defmodule Reaxive.Subscription.State do
 	def unsubscribe(%__MODULE__{active: false} = s), do: {:ok, s}
 	def unsubscribe(%__MODULE__{embedded_sub: nil, dispose_fun: disp} = s) do
 		# IO.puts "active unsubscribe"
-		:ok = disp.()
+		:ok = do_unsubscribe(disp)
 		{:ok, %__MODULE__{s | active: false}}
 	end
 	def unsubscribe(%__MODULE__{embedded_sub: embedded, dispose_fun: disp} = s) do
-		:ok = disp.()
+		:ok = do_unsubscribe(disp)
 		embedded |> Enum.each fn(sub) -> :ok = Subscription.unsubscribe(sub) end
 		{:ok, %__MODULE__{s | active: false}}
+	end
+
+	# gracefully handles non-existing genservers
+	defp do_unsubscribe(disp_fun) do
+		try do
+			:ok = disp_fun.()
+		catch
+			:exit, {fail, {GenServer, :call, proc}} when fail in [:normal, :noproc] ->
+					Logger.debug "event sequence #{inspect proc} is already gone"
+					:ok
+		end
 	end
 
 	@doc """
