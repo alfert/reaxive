@@ -78,6 +78,9 @@ defmodule Reaxive.Rx.Impl do
 	Fails grafecully with an `on_error` message to the observer, if the
 	observable is not or no longer available. In this case, an do-nothing unsubciption
 	functions is returned (since no subscription has occured in the first place).
+
+	# TODO:
+	The typing is not correct, we need to return subscriptions, also in the error case!
 	"""
 	@spec subscribe(Observable.t, Observer.t) :: {Observable.t, (() -> :ok)}
 	def subscribe(%Rx_t{pid: pid} = observable, observer) do
@@ -310,7 +313,12 @@ defmodule Reaxive.Rx.Impl do
 	@spec disconnect_source(%__MODULE__{}, any) :: %__MODULE__{}
 	def disconnect_source(%__MODULE__{sources: src} = state, src_id) do
 		# Logger.info("disconnecting #{inspect src_id} from Rx #{inspect self}=#{inspect state}")
-		new_src = src |> Enum.reject fn({id, _}) -> id == src_id end
+		new_src = src 
+			|> Enum.map(fn sub = {id, s} -> 
+					if id == src_id, do: Subscription.unsubscribe(s) 
+					sub
+				end)
+			|> Enum.reject fn({id, _}) -> id == src_id end
 		if (new_src == src), then: Logger.error "disconnecting from unknown src = #{inspect src_id}"
 		%__MODULE__{state | sources: new_src }
 	end
@@ -368,7 +376,8 @@ defmodule Reaxive.Rx.Impl do
 			emit(ev)
 	end
 
-	@doc "Internal predicate to check if we terminate ourselves."
+	@doc "Internal predicate to check if we 
+	terminate ourselves."
 	def terminate?(%__MODULE__{options: options, subscribers: []}) do
 		Keyword.get(options, :auto_stop, false)
 	end
