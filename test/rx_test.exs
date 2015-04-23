@@ -8,18 +8,23 @@ defmodule RxTest do
 	require Logger
 
 	# wait for messages passing through is 1 milli second
-	@delay 1
+	@delay 5
 
 	# one 1 second instead of 30 seconds
 	@tag timeout: 1_000
 
 	test "map function works" do
 		{:ok, rx} = Rx.Impl.start()
-
+		# Logger.debug("We are in process #{inspect self}")
 		rx1 = rx |> Rx.map &(&1 + 1)
+
+		assert rx == rx1
+
 		o = simple_observer_fun(self)
 		{id, disp_me} = Observable.subscribe(rx1, o)
 
+		assert %Reaxive.Subscription{} = disp_me
+		
 		#Rx.Impl.subscribers(rx) |>
 		#	Enum.each(fn(r) -> assert is_pid(r)end)
 		# TODO: find a way to check the intended condition
@@ -38,13 +43,13 @@ defmodule RxTest do
 		proc_list = Process.list
 		{:ok, rx} = Rx.Impl.start()
 		o = simple_observer_fun(self)
-		Rx.Impl.source(rx, {self, fn() -> :ok end})
+		Rx.Impl.source(rx, {self, ReaxiveTestTools.EmptySubscription.new})
 
 		rx2 = rx |> Rx.map(&(&1 + 1))
 		{rx3, disp_me} = rx2 |> Observable.subscribe(o)
 
 		Rx.Impl.on_next(rx, 1)
-		assert_receive {:on_next, 2}, @delay
+		assert_receive {:on_next, 2}, 2*@delay # weird that @delay is not enough
 
 		Observer.on_next(rx, 2)
 		assert_receive {:on_next, 3}, @delay
@@ -71,10 +76,12 @@ defmodule RxTest do
 		{rx, disp_me} = values |> Rx.generate |> Observable.subscribe(o)
 
 		values |> Enum.each fn(v) ->
-			assert_receive{:on_next, ^v}, @delay end
+			assert_receive{:on_next, ^v}, 20* @delay end
 		id = process rx
-		assert_receive {:on_completed, ^id}, @delay
+		assert_receive {:on_completed, ^id}, 20* @delay
 		Subscription.unsubscribe(disp_me)
+		refute Process.alive? id
+		:timer.sleep(@delay)
 		assert process_leak?(all_procs)
 	end
 
