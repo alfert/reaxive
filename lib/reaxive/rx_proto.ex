@@ -29,13 +29,6 @@ defprotocol Observer do
 	def on_completed(observer, observable)
 end
 
-defprotocol Disposable do
-	@moduledoc """
-	Defines the function for canceling a running computation.
-	"""
-	def dispose(disposable)
-end
-
 defprotocol Subscription do
 	@moduledoc """
 	Defines the protocol for subscriptions which provide a little

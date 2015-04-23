@@ -381,10 +381,6 @@ defmodule Reaxive.Rx.Impl do
 	def terminate?(%__MODULE__{}), do: false
 
 
-	defimpl Disposable, for: Function do
-		def dispose(fun), do: fun.()
-	end
-
 	defimpl Observer, for: Function do
 		def on_next(observer, value), do: observer.(:on_next, value)
 		def on_error(observer, exception), do: observer.(:on_error, exception)
