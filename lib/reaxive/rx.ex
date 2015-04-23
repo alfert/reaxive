@@ -133,7 +133,13 @@ defmodule Reaxive.Rx do
 		end
 		pid = spawn(delayed)
 		Reaxive.Rx.Impl.on_subscribe(rx, fn()-> send(pid, :go) end)
-		Reaxive.Rx.Impl.source(rx, {pid, fn() -> send(pid, :cancel) end})
+		# create a subscription to properly cancel the generator
+		{:ok, sub} = Reaxive.Subscription.start_link(
+			fn() -> 
+				send(pid, :cancel) 
+				:ok
+			end)
+		Reaxive.Rx.Impl.source(rx, {pid, sub})
 		rx
 	end
 
