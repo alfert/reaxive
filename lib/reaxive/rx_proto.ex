@@ -19,7 +19,7 @@ defprotocol Observer do
 
 	It is the taks of `on_error` and `on_completed` to free up
 	all internal resources. In particular the subscription needs
-	to be closed. This can be done by calling `dispose`.
+	to be closed. This can be done by calling `unsubscribe`.
 	"""
 	@spec on_next(Observer.t, any) :: :ok
 	def on_next(observer, value)
@@ -31,7 +31,7 @@ end
 
 defprotocol Subscription do
 	@moduledoc """
-	Defines the protocol for subscriptions which provide a little
+	Defines the protocol for subscriptions providing a little
 	bit more functionality as an `Disposable` from .NET-Framework. 
 	"""
 	
