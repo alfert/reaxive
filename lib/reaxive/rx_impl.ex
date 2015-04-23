@@ -294,7 +294,7 @@ defmodule Reaxive.Rx.Impl do
 	@spec disconnect_all(t) :: t
 	def disconnect_all(%__MODULE__{active: true, sources: src} = state) do
 		# Logger.info("disconnecting all from #{inspect state}")
-		# src |> Enum.each fn({_id, disp}) -> Disposable.dispose(disp) end
+		# src |> Enum.each fn({_id, disp}) -> Subscription.unsubscribe(disp) end
 		src |> Enum.each(fn({_pid, sub}) -> sub |> Subscription.unsubscribe() end)
 		%__MODULE__{state | active: false, subscribers: []}
 	end
