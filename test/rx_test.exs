@@ -30,7 +30,7 @@ defmodule RxTest do
 		Rx.Impl.on_completed(rx, self)
 		pid = process(id)
 		assert_receive {:on_completed, ^pid}, @delay
-		Disposable.dispose(disp_me)
+		Subscription.unsubscribe(disp_me)
 		refute Process.alive?(process rx)
 	end
 
@@ -59,7 +59,7 @@ defmodule RxTest do
 		id = process rx3
 		assert_receive {:on_completed, ^id}, @delay
 
-		Disposable.dispose(disp_me)
+		Subscription.unsubscribe(disp_me)
 
 		assert process_leak?(proc_list)
 	end
@@ -74,7 +74,7 @@ defmodule RxTest do
 			assert_receive{:on_next, ^v}, @delay end
 		id = process rx
 		assert_receive {:on_completed, ^id}, @delay
-		Disposable.dispose(disp_me)
+		Subscription.unsubscribe(disp_me)
 		assert process_leak?(all_procs)
 	end
 
@@ -90,7 +90,7 @@ defmodule RxTest do
 		id = process rx
 		assert_receive {:on_completed, ^id}
 
-		Disposable.dispose(disp_me)
+		Subscription.unsubscribe(disp_me)
 		assert process_leak?(all_procs)
 	end
 
