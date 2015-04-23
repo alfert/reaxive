@@ -115,7 +115,7 @@ defmodule Reaxive.Rx.Impl do
 		catch
 			:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] ->
 				# Logger.debug "source failed because observable does not exist anymore"
-				Disposable.dispose disposable
+				Subscription.unsubscribe disposable
 		end
 	end
 
