@@ -84,6 +84,34 @@ defmodule Reaxive.Generator do
 		end
 	end
 
+	@doc """
+	Generates values from a stream. Expect that the stream only contains 
+	proper elments, no errors can occur. After the end of the stream, an
+	`on_complete` message is send. 
+	"""
+	def generate_stream(rx, stream, delay) do
+		next_value_fun = fn value, acc -> 
+			receive do
+				:cancel -> 
+					# Logger.debug "Got a cancel message"
+					{:halt, acc}
+			after 0 -> # only of no cancel message is here, go on
+				Observer.on_next(rx, value)
+				:timer.sleep(delay)
+				{acc, acc}
+			end
+		end 
+		stream 
+			|> Stream.transform(
+				# accu 
+				[],
+				# next value
+				next_value_fun)
+			|> Stream.run
+		Observer.on_completed(rx, self)	
+	end
+	
+
 	#############
 	### How to deal with 
 	###   * finite generators, sending a on_complete after a while
@@ -111,4 +139,13 @@ defmodule Reaxive.Generator do
 		fn(rx) -> 
 			generate_with_accu(rx, &({1+&1, {:on_next, &1}}), fn() -> :ok end, 0, delay) end
 
+
+	@doc """
+	Enumerates all elements of the given `coll`. Sends the next element
+	after the `delay` milliseconds to `rx`.
+	"""
+	@spec from(Enumerable.t, non_neg_integer) :: generator_fun_t
+	def from(coll, delay), do:
+		fn(rx) -> generate_stream(rx, coll, delay) end
+	
 end
