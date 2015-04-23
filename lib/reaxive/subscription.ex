@@ -65,7 +65,7 @@ defmodule Reaxive.Subscription.State do
 			:ok = disp_fun.()
 		catch
 			:exit, {fail, {GenServer, :call, proc}} when fail in [:normal, :noproc] ->
-					Logger.debug "event sequence #{inspect proc} is already gone"
+					# Logger.debug "event sequence #{inspect proc} is already gone"
 					:ok
 		end
 	end
