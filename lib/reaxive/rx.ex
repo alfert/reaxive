@@ -282,7 +282,7 @@ defmodule Reaxive.Rx do
 			{:on_completed, _any} -> nil
 			{:on_error, e} -> raise e
 		end
-		# Disposable.dispose(rx2)
+		# Subscription.unsubscribe(rx2)
 		Subscription.unsubscribe(rx2)
 		val
 	end
@@ -578,9 +578,9 @@ defmodule Reaxive.Rx do
 				end
 			end,
 			# resource deallocation
-			fn({{_id, rx2}, e}) -> Disposable.dispose(rx2)
+			fn({{_id, rx2}, e}) -> Subscription.unsubscribe(rx2)
 				 			e
-			  ({_id, rx2}) -> Disposable.dispose(rx2)
+			  ({_id, rx2}) -> Subscription.unsubscribe(rx2)
 
 			end)
 	end
