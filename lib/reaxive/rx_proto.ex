@@ -41,3 +41,23 @@ defprotocol Subscription do
  	def is_unsubscribed?(subscription)
  	
 end
+
+defprotocol Runnable do
+	@moduledoc """
+	Defines a protocol for starting a sequence of events. The basic idea
+	is that only after calling `run` the sending of events starts, at least 
+	for "cold" observables, which need to be started explicitely. 
+
+	There are usually two basic modes of implementing `run`:
+
+	* do some side effect for producing events, e.g. fork a new process sending 
+	  events. This is the usual implementation for sources of an event sequence
+	* in  an inbetween node, you will simply call `run` on your sources
+
+	Some the `Rx` functions will call `run` to start immedietely the event sequence. 
+	In particular functions like `to_list` or `stream` do it inside their implementation
+	"""
+
+	@spec run(Runnable.t) :: :ok
+	def run(runnable)
+end
