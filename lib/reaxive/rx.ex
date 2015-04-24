@@ -412,7 +412,6 @@ defmodule Reaxive.Rx do
 		rx |> Reaxive.Rx.Impl.compose(Sync.map(fun))
 	end
 
-	@tag timeout: 2_000
 	@doc """
 	Merges two or more event sequences in a non-deterministic order.
 
