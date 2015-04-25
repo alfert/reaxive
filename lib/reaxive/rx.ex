@@ -127,11 +127,11 @@ defmodule Reaxive.Rx do
 		delayed = fn() ->
 			receive do
 				:go -> 
-					Logger.debug "Got :go"
+					# Logger.debug "Got :go"
 					generator.(rx)
-					Logger.debug(":go got finished")
+					# Logger.debug(":go got finished")
 				:run -> 
-					Logger.debug "Got :run!"
+					# Logger.debug "Got :run!"
 					generator.(rx)
 			after timeout ->
 				Observer.on_error(rx, :timeout)
@@ -143,7 +143,7 @@ defmodule Reaxive.Rx do
 		# create a subscription to properly cancel the generator
 		{:ok, sub} = Reaxive.Subscription.start_link(
 			fn() -> 
-				# Logger.debug "Got an unsubscription"
+				# Logger.debug "Got an unsubscription, cancel process #{inspect pid}"
 				send(pid, :cancel) 
 				:ok
 			end)
@@ -411,6 +411,7 @@ defmodule Reaxive.Rx do
 		rx |> Reaxive.Rx.Impl.compose(Sync.map(fun))
 	end
 
+	@tag timeout: 2_000
 	@doc """
 	Merges two or more event sequences in a non-deterministic order.
 
