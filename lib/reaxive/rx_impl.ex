@@ -191,8 +191,10 @@ defmodule Reaxive.Rx.Impl do
 			terminate_if_required(:ok)
 
 	@doc "Process the next value"
-	def on_next(%Rx_t{pid: pid} = _observer, value), do:
+	def on_next(%Rx_t{pid: pid} = _observer, value) do
+		# Logger.debug "Sending on_next(#{inspect value}) to #{inspect pid}"
 		:ok = GenServer.cast(pid, {:on_next, value})
+	end
 
 	@doc "The last regular message"
 	def on_completed(%Rx_t{pid: pid} = _observer, observable), do:
@@ -218,7 +220,7 @@ defmodule Reaxive.Rx.Impl do
 	def handle_cast({:source, disposable}, %__MODULE__{sources: src}= state), do:
 		{:noreply, %__MODULE__{state | sources: [disposable | src]}}
 	def handle_cast({_tag, _v} = value, state) do
-		#Logger.info "RxImpl #{inspect self} got message #{inspect value} in state #{inspect state}"
+		# Logger.debug "RxImpl #{inspect self} got message #{inspect value} in state #{inspect state}"
 		handle_event(state, value) |> terminate_if_required
 	end
 
@@ -232,7 +234,7 @@ defmodule Reaxive.Rx.Impl do
 		if terminate?(state) do
 			%__MODULE__{active: active} = state
 			if active, do: emit(state, {:on_completed, nil})
-			Logger.debug "Stop in #{inspect self}, because terminate required at state #{inspect state}"
+			#Logger.debug "Stop in #{inspect self}, because terminate required at state #{inspect state}"
 			{:stop, :normal, state}
 		else
 			{:noreply, state}
@@ -258,6 +260,7 @@ defmodule Reaxive.Rx.Impl do
 	"""
 	@spec handle_value(t, rx_propagate) :: t
 	def handle_value(%__MODULE__{active: true} = state, e = {:on_error, _exception}) do
+		Logger.debug "got on_error #{inspect e} ==> disconnect all: #{inspect state}"
 		notify({:cont, e}, state) |> disconnect_all()
 	end
 	def handle_value(%__MODULE__{active: true, action: fun, accu: accu} = state, value) do
@@ -296,7 +299,6 @@ defmodule Reaxive.Rx.Impl do
 	@doc "Internal callback function at termination for clearing resources"
 	def terminate(_reason, state = %__MODULE__{sources: src}) do
 		# Logger.info("Terminating #{inspect self} for reason #{inspect reason} in state #{inspect state}")
-		# src |> Enum.each(fn({_pid, fun}) -> fun.() end)
 		src |> Enum.each(fn({_pid, sub}) -> sub |> Subscription.unsubscribe() end)
 	end
 
