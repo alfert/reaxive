@@ -102,7 +102,9 @@ defmodule RxTest do
 		all_procs = Process.list()
 		rxs = values |> Rx.generate |> Rx.as_text
 		assert is_pid(process rxs)
-		{rx, disp_me} =  rxs |> Observable.subscribe(o)
+		{rx, disp_me} =  rxs 
+			|> Observable.subscribe(o)
+			|> Runnable.run
 		# wait longer due to IO happening which might
 		# change timings on travis and other CI platforms
 		id = process rx
@@ -238,11 +240,12 @@ defmodule RxTest do
 		all_procs = Process.list()
 		o = simple_observer_fun(self)
 		error = Rx.error(exception)
-		{_id, disp_me} = error |> 
-			# Rx.as_text |> 
-			Observable.subscribe(o)
-		assert_receive {:on_error, ^exception}, @delay
-		disp_me.()
+		{_id, disp_me} = error 
+			# |> Rx.as_text 
+			|> Observable.subscribe(o)
+			|> Runnable.run
+		assert_receive {:on_error, ^exception} # , @delay
+		Subscription.unsubscribe disp_me
 		# refute Process.alive?(error)
 		process_leak?(all_procs)
 	end
