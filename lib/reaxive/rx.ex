@@ -126,14 +126,20 @@ defmodule Reaxive.Rx do
 		{:ok, rx} = Reaxive.Rx.Impl.start(id, @rx_defaults)
 		delayed = fn() ->
 			receive do
-				:go -> generator.(rx)
+				:go -> 
+					Logger.debug "Got :go"
+					generator.(rx)
+					Logger.debug(":go got finished")
+				:run -> 
+					Logger.debug "Got :run!"
+					generator.(rx)
 			after timeout ->
 				Observer.on_error(rx, :timeout)
 			end
 		end
 		pid = spawn(delayed)
 		# Logger.debug ("spawned delayed start process #{inspect pid}")
-		Reaxive.Rx.Impl.on_subscribe(rx, fn()-> send(pid, :go) end)
+		Reaxive.Rx.Impl.on_run(rx, fn()-> send(pid, :go) end)
 		# create a subscription to properly cancel the generator
 		{:ok, sub} = Reaxive.Subscription.start_link(
 			fn() -> 
@@ -142,6 +148,7 @@ defmodule Reaxive.Rx do
 				:ok
 			end)
 		# Logger.debug "delayed subscription is #{inspect sub}"
+		# set the source, otherwise rx kills himslef due to a lacking source
 		Reaxive.Rx.Impl.source(rx, {pid, sub})
 		rx
 	end
