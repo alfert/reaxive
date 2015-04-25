@@ -386,15 +386,6 @@ defmodule Reaxive.Rx do
 	@spec generate(Enumerable.t, non_neg_integer, non_neg_integer) :: Observable.t
 	def generate(collection, delay \\ @rx_delay, timeout \\ @rx_timeout)
 	def generate(collection, delay, timeout) do
-		# send_values = fn(rx) ->
-		# 	collection |> Enum.each(fn(element) ->
-		# 		:timer.sleep(delay)
-		# 		Observer.on_next(rx, element)
-		# 	end)
-
-		# 	Observer.on_completed(rx, self())
-		# end
-		# delayed_start(send_values, "generate", timeout)
 		delayed_start(Generator.from(collection, delay), "generator.from", timeout)
 	end
 
