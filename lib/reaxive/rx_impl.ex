@@ -33,7 +33,7 @@ defmodule Reaxive.Rx.Impl do
 		action: nil, # the function to be applied to the values
 		options: [], #  behavior options,
 		queue: nil, # outbound queue before any subscriber is available
-		on_subscribe: nil, # function called at first subscription
+		on_run: nil, # function called at run
 		accu: [] # accumulator
 
 	defmodule Rx_t do
@@ -50,6 +50,10 @@ defmodule Reaxive.Rx.Impl do
 
 		defimpl Observable do
 			def subscribe(observable, observer), do: Reaxive.Rx.Impl.subscribe(observable, observer)
+		end
+	
+		defimpl Runnable do
+			def run(rx), do: Reaxive.Rx.Impl.run(rx)
 		end
 	end
 
@@ -146,9 +150,13 @@ defmodule Reaxive.Rx.Impl do
 	@doc "All sources of Rx. Useful for debugging."
 	def get_sources(%Rx_t{pid: pid} = _observable), do: GenServer.call(pid, :get_sources)
 
-	@doc "Sets the on_subscribe function, which is called for the first subscription."
-	def on_subscribe(%Rx_t{pid: pid} = _observable, on_subscribe), do:
-		GenServer.call(pid, {:on_subscribe, on_subscribe})
+	@doc "Sets the on_run function, which is called for the first subscription."
+	def on_run(%Rx_t{pid: pid} = _observable, on_run), do:
+		GenServer.call(pid, {:on_run, on_run})
+
+	@doc "Starts the event sequence"
+	def run(%Rx_t{pid: pid} = _observable), do:
+		GenServer.cast(pid, {:run})
 
 	@doc "Sets the auto_stop flag for the running Rx."
 	def set_auto_stop(%Rx_t{pid: pid} = _observable, auto_stop), do:
@@ -172,8 +180,8 @@ defmodule Reaxive.Rx.Impl do
 	def handle_call(:subscribers, _from, %__MODULE__{subscribers: sub} = s), do: {:reply, sub, s}
 	def handle_call(:get_sources, _from, %__MODULE__{sources: src} = s), do:
 		{:reply, src, s}
-	def handle_call({:on_subscribe, fun}, _from, %__MODULE__{on_subscribe: nil}= state), do:
-		{:reply, :ok, %__MODULE__{state | on_subscribe: fun}}
+	def handle_call({:on_run, fun}, _from, %__MODULE__{on_run: nil}= state), do:
+		{:reply, :ok, %__MODULE__{state | on_run: fun}}
 	def handle_call({:set_auto_stop, stop_it}, _from, %__MODULE__{options: options}= state), do:
 		%__MODULE__{state | 
 			options: options |> Keyword.update(:auto_stop, stop_it, fn(_) -> stop_it end)} |>
@@ -192,16 +200,12 @@ defmodule Reaxive.Rx.Impl do
 		:ok = GenServer.cast(pid, {:on_error, exception})
 
 	@doc "Asynchronous callback. Used for processing values and subscription."
-	def handle_cast({:subscribe, observer},
-			%__MODULE__{subscribers: [], on_subscribe: nil} = state), do:
+	def handle_cast({:run}, %__MODULE__{active: true}= state), do:
+		{:noreply, do_run(state)}
+	def handle_cast({:run}, %__MODULE__{active: false}= state), do:
+		{:noreply, state}
+	def handle_cast({:subscribe, observer},	%__MODULE__{subscribers: []} = state), do:
 		do_subscribe(state, observer)
-	def handle_cast({:subscribe, observer},
-			%__MODULE__{subscribers: [], on_subscribe: on_subscribe} = state) do
-		# If the on_subscribe hook is set, we call it on first subscription.
-		# Introduced for properly implementing the Enum/Stream generator
-		on_subscribe.()
-		do_subscribe(state, observer)
-	end
 	def handle_cast({:subscribe, observer}, %__MODULE__{} = state), do:
 		do_subscribe(state, observer)
 	def handle_cast({:source, disposable}, %__MODULE__{sources: []}= state) when is_list(disposable), do:
@@ -323,11 +327,23 @@ defmodule Reaxive.Rx.Impl do
 		%__MODULE__{state | sources: new_src }
 	end
 
-
 	@doc "Internal function for subscribing a new `observer`"
 	def do_subscribe(%__MODULE__{subscribers: sub}= state, observer) do
 		# Logger.info "RxImpl #{inspect self} subscribes to #{inspect observer} in state #{inspect state}"
 		{:noreply,%__MODULE__{state | subscribers: [observer | sub]}}
+	end
+
+	@doc "run the sequence by calling `run` on all source and call the `on_run` function."
+	def do_run(%__MODULE__{sources: src, on_run: nil} = state) do
+		# Logger.debug "do_run on #{inspect state}"
+		src |> Enum.each fn {id, s} -> Runnable.run(id) end
+		state
+	end
+	def do_run(%__MODULE__{sources: src, on_run: runner} = state) do
+		# Logger.debug "do_run on #{inspect state}"
+		runner.()
+		src |> Enum.each fn {id, s} -> Runnable.run(id) end
+		state
 	end
 
 	@doc "Internal function to notify subscribers, knows about ignoring notifies."
