@@ -236,7 +236,7 @@ defmodule Reaxive.Rx do
 
   @doc """
 	The `error` function takes an in Elixir defined exception and generate a stream with the
-	exception as the only element. The stream starts after the first subscription.
+	exception as the only element. 
 
 	## Examples
 
