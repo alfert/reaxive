@@ -583,8 +583,10 @@ defmodule Reaxive.Rx do
 		# the accumulator is the disposable, which does not change.
 		o = stream_observer()
 		Stream.resource(
-			# initialize the stream: Connect with rx
-			fn() -> Observable.subscribe(rx, o) end,
+			# initialize the stream: Connect with rx and run it
+			fn() -> 
+				Observable.subscribe(rx, o) |> Runnable.run()
+			end,
 			# next element is taken from the message queue
 			fn(acc) ->
 				receive do
@@ -597,7 +599,7 @@ defmodule Reaxive.Rx do
 			fn({{_id, rx2}, e}) -> Subscription.unsubscribe(rx2)
 				 			e
 			  ({_id, rx2}) -> Subscription.unsubscribe(rx2)
-
+			  (sub) -> Subscription.unsubscribe(sub)
 			end)
 	end
 
