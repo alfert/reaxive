@@ -73,12 +73,22 @@ defmodule RxTest do
 		values = [1, 2, 3, 4]
 		o = simple_observer_fun(self)
 		all_procs = Process.list()
-		{rx, disp_me} = values |> Rx.generate |> Observable.subscribe(o)
+		# file = start_tracing()
+		# on_exit fn() -> stop_tracing(file) end
+
+		{rx, disp_me} = values |> Rx.generate 
+			|> Observable.subscribe(o) 
+		Runnable.run(rx)
+		:timer.sleep(@delay)
 
 		values |> Enum.each fn(v) ->
-			assert_receive{:on_next, ^v}, 20* @delay end
+			Logger.debug "want receive #{inspect v}"
+			assert_receive{:on_next, ^v} # , 10* @delay
+		end
 		id = process rx
-		assert_receive {:on_completed, ^id}, 20* @delay
+
+		assert_receive {:on_completed, ^id} # ,  @delay
+
 		Subscription.unsubscribe(disp_me)
 		refute Process.alive? id
 		:timer.sleep(@delay)
