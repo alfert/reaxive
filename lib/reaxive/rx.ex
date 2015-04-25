@@ -716,3 +716,9 @@ defmodule Reaxive.Rx do
 	end
 
 end
+defimpl Runnable, for: PID do
+  	def run(pid) do 
+  		send(pid, :run)
+  		:ok
+  	end
+end
