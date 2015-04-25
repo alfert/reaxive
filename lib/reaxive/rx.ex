@@ -292,7 +292,7 @@ defmodule Reaxive.Rx do
 	@spec first(Observable.t) :: term
 	def first(rx) do
 		o = stream_observer(self)
-		{_id, rx2} = Observable.subscribe(rx, o)
+		{_id, rx2} = Observable.subscribe(rx, o) |> Runnable.run()
 		val = receive do
 			{:on_next, value} -> value
 			{:on_completed, _any} -> nil
