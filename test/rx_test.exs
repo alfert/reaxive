@@ -78,16 +78,17 @@ defmodule RxTest do
 
 		{rx, disp_me} = values |> Rx.generate 
 			|> Observable.subscribe(o) 
-		Runnable.run(rx)
+			|> Runnable.run
 		:timer.sleep(@delay)
 
 		values |> Enum.each fn(v) ->
-			Logger.debug "want receive #{inspect v}"
-			assert_receive{:on_next, ^v} # , 10* @delay
+			# Logger.debug "want receive #{inspect v}"
+			assert_receive{:on_next, ^v}# , 11* @delay
 		end
 		id = process rx
 
-		assert_receive {:on_completed, ^id} # ,  @delay
+		# Logger.debug "Waiting for completed"
+		assert_receive {:on_completed, ^id} #,  @delay
 
 		Subscription.unsubscribe(disp_me)
 		refute Process.alive? id
