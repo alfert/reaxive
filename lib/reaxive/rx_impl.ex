@@ -226,12 +226,13 @@ defmodule Reaxive.Rx.Impl do
 		end
 	end
 	def terminate_if_required(state) do
-		case terminate?(state) do
-			false -> {:noreply, state}
-			true ->
-				%__MODULE__{active: active} = state
-				if active, do: emit(state, {:on_completed, nil})
-				{:stop, :normal, state}
+		if terminate?(state) do
+			%__MODULE__{active: active} = state
+			if active, do: emit(state, {:on_completed, nil})
+			Logger.debug "Stop in #{inspect self}, because terminate required at state #{inspect state}"
+			{:stop, :normal, state}
+		else
+			{:noreply, state}
 		end
 	end
 
