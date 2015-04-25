@@ -176,6 +176,25 @@ defmodule ReaxiveTest do
 		refute Process.alive?(process rx2)
 	end
 
+	@tag timeout: 1_000
+	test "call the run callback" do
+		me = self
+		{:ok, rx} = Reaxive.Rx.Impl.start()
+
+		dummy_sub = ReaxiveTestTools.EmptySubscription.new
+		:ok = Reaxive.Rx.Impl.source(rx, {self, dummy_sub})
+
+		Reaxive.Rx.Impl.on_run(rx, fn() -> send(me, :on_run_called) end)
+		call_me = simple_observer_fun(self)
+		{rx3, disp_me} = Reaxive.Rx.Impl.subscribe(rx, call_me)
+
+		Runnable.run(rx)
+		Observer.on_completed(rx, dummy_sub)
+
+		assert_receive :on_run_called
+		assert_receive {:on_completed, me}		
+	end
+
 	def drain_messages(wait_millis \\ 50)
 	def drain_messages(wait_millis) when is_integer(wait_millis) do
 		receive do
