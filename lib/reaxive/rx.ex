@@ -552,6 +552,7 @@ defmodule Reaxive.Rx do
 			for e <- collection, do: Observer.on_next(rx, e)
 			source = Observable.subscribe(prev_rx, rx)
 			:ok = Reaxive.Rx.Impl.source(rx, source)
+			Runnable.run(prev_rx)
 		end, "start_with")
 	end
 
