@@ -723,9 +723,29 @@ defmodule Reaxive.Rx do
 	end
 
 end
+
+
 defimpl Runnable, for: PID do
+	@doc """
+	Running a PID means to send it the message `:run`. Only used for 
+	explicitely spawned and custom implemented processes (.e.g for generator 
+	functions).
+	"""
   	def run(pid) do 
   		send(pid, :run)
   		:ok
   	end
+end
+
+defimpl Runnable, for: Tuple do
+	@doc """
+	Running a tuple assumes it represents the result of a subscription, 
+	i.e. a tuple out of a `%Reaxive.Rx.Impl.Rx_t{}` and a 
+	`%Reaxive.Subscription{}`.
+	"""
+	def run(p = { rx = %Reaxive.Rx.Impl.Rx_t{}, %Reaxive.Subscription{}}) do
+		Reaxive.Rx.Impl.run(rx)
+		p
+	end
+	
 end

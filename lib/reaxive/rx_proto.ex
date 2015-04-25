@@ -55,9 +55,18 @@ defprotocol Runnable do
 	* in  an inbetween node, you will simply call `run` on your sources
 
 	Some the `Rx` functions will call `run` to start immedietely the event sequence. 
-	In particular functions like `to_list` or `stream` do it inside their implementation
+	In particular functions like `to_list` or `stream` do it inside their implementation. 
+
+	Where do we need an implementation of `Runnable`?
+
+	* `Observables` need to implement `Runnable` such that we can start them from 
+	   the outside on request.
+	* The source connection between two `Observables` (i.e. `Rx_Impl` for now) needs
+	  to contain a `Runnable` as firt component.
+
 	"""
 
-	@spec run(Runnable.t) :: :ok
+	@doc "Run start an event sequence. It returns its input parameters"
+	@spec run(Runnable.t) :: Runnable.t
 	def run(runnable)
 end

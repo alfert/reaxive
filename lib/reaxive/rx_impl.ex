@@ -53,7 +53,10 @@ defmodule Reaxive.Rx.Impl do
 		end
 	
 		defimpl Runnable do
-			def run(rx), do: Reaxive.Rx.Impl.run(rx)
+			def run(rx) do 
+				Reaxive.Rx.Impl.run(rx)
+				rx
+			end
 		end
 	end
 
