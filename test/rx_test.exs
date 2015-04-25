@@ -257,13 +257,16 @@ defmodule RxTest do
 	test "starts with a few numbers" do
 		first = 1..10
 		second = 11..20
-		all = second |> Rx.generate |> Rx.start_with(first) |>
-			# Rx.as_text |>
-			Rx.stream |> Enum.to_list
+		all = second |> Rx.generate 
+			# |> Rx.as_text
+			|> Rx.start_with(first)
+			# |> Rx.as_text
+			|> Rx.stream |> Enum.to_list
 
 		assert Enum.concat(first, second) == all
 	end
 
+	@tag timeout: 2_000
 	test "merge a pair of streams" do
 		first = 1..10
 		second = 11..20
