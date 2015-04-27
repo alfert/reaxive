@@ -406,10 +406,10 @@ defmodule Reaxive.Rx.Impl do
 
 	@doc "Internal predicate to check if we 
 	terminate ourselves."
-	def terminate?(%__MODULE__{options: options, subscribers: []}) do
+	def terminate?(%__MODULE__{options: options, sources: []}) do
 		Keyword.get(options, :auto_stop, false)
 	end
-	def terminate?(%__MODULE__{options: options, sources: []}) do
+	def terminate?(%__MODULE__{options: options, subscribers: []}) do
 		Keyword.get(options, :auto_stop, false)
 	end
 	def terminate?(%__MODULE__{options: options, active: false}) do
