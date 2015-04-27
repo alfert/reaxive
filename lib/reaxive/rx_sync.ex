@@ -193,15 +193,15 @@ defmodule Reaxive.Sync do
 	def merge(n) when n > 0 do
 		full_behavior(n,
 			fn(v, acc, k, new_acc) -> 
-				# IO.puts("merge: on_next(#{inspect v}) with k=#{inspect k}")
+				 IO.puts("merge: on_next(#{inspect v}) with k=#{inspect k}")
 				emit(v, acc, k, new_acc) end,
 			fn
-				(_v, acc, 1, new_acc) -> # IO.puts("merge: last on_completed k=1") 
+				(_v, acc, 1, new_acc) ->  IO.puts("merge: last on_completed k=1") 
 					halt(acc, 1, new_acc)  # last complete => complete merge
-				(v, acc, k, new_acc) -> # IO.puts("merge: ignored on_completed with k=#{k}")
+				(v, acc, k, new_acc) ->  IO.puts("merge: ignored on_completed with k=#{k}")
 					ignore(v, acc, k-1, new_acc) # ignore complete
 			end,
-			fn(v, acc, k, new_acc) -> # IO.puts("merge: error #{inspect v} with k=#{k}")
+			fn(v, acc, k, new_acc) ->  IO.puts("merge: error #{inspect v} with k=#{k}")
 				error(v, acc, k, new_acc) end
 		)
 	end
@@ -263,11 +263,14 @@ defmodule Reaxive.Sync do
 	"""
 	@spec flat_mapper(Reaxive.Rx.Impl.t, (any -> Observable.t)) :: transform_t
 	def flat_mapper(flatter, map_fun) do
+		Logger.debug "flat_map for flatter #{inspect flatter} and map_fun #{inspect map_fun}"
 		default_behavior() do
+			Logger.debug "flat_map with value v = #{inspect v}"
 			rx = map_fun.(v)
 			Logger.info("flat_mapper created #{inspect rx} for value #{inspect v}")
 			disp = Observable.subscribe(rx, flatter)
 			flatter |> Reaxive.Rx.Impl.source(disp)
+			Runnable.run(rx) 
 			# we ignore the current value v, because rx generates
 			# new value for which we cater.
 			ignore(v, acc, a, new_acc)
@@ -281,9 +284,18 @@ defmodule Reaxive.Sync do
 	"""
 	@spec flatter((() -> boolean)) :: transform_t
 	def flatter(check_fun) do
-		# this can't work - there is nothing like a counter
+		# we don't need to do anything special, we simply have many sources
+		# and stop regularly if all sources are stopped, or we get an error
+		# or we are canceled from the frontside
+		# default_behavior() do
+		# 	Logger.debug "flatter got: #{inspect v}"
+		# 	emit(v, acc, a, new_acc)
+		# end		
+		# # # this can't work - there is nothing like a counter
 		full_behavior(
-			fn(v, acc, a, new_acc) -> emit(v, acc, a, new_acc) end,
+			fn(v, acc, a, new_acc) -> 
+				Logger.debug "flatter emit: #{inspect v}"
+				emit(v, acc, a, new_acc) end,
 			#####
 			# do not ignore on_completed, because we have to emit it properly
 			# but only when we can terminate. Hmmm ==> At first, ensure that
@@ -292,11 +304,15 @@ defmodule Reaxive.Sync do
 			# process or not implemented by Rx.Impl. 
 			# ===> This mechanims has to be handled properly by Rx.Impl!!!!!
 			fn(v, acc, a, new_acc) -> 
-				if (check_fun.()) do 
-					halt(acc, a, new_acc)
-				else 
-					ignore(v, acc, a, new_acc) 
-				end
+				Logger.debug "flatter got completed: #{inspect v}"
+				Logger.debug "process dict of flatter: #{inspect :erlang.get()}"
+				## does not work correctly, but alas!
+				ignore(v, acc, a, new_acc) 
+				# if (check_fun.()) do 
+				# 	halt(acc, a, new_acc)
+				# else 
+				# 	ignore(v, acc, a, new_acc) 
+				# end
 			end,
 			fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end
 		)

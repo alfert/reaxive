@@ -319,20 +319,21 @@ defmodule Reaxive.Rx do
 	def flat_map(rx, map_fun) do
 		# `flatter` does not stop automatically if no source is available
 		# because the mapper decides when there are no source anymore.
-		{:ok, flatter} = Reaxive.Rx.Impl.start("flatter", [auto_stop: false])
+		{:ok, flatter} = Reaxive.Rx.Impl.start("flatter", [auto_stop: true])
 		Logger.info("created flatter #{inspect flatter}")
 
 		check_finished_source = fn() -> 
 			try do
-				[] == Reaxive.Rx.Impl.get_sources(rx) 
+				Logger.debug "Check finished: get state of flatter: #{inspect :sys.get_state(flatter.pid)}"
+				src = Reaxive.Rx.Impl.get_sources(flatter) 
+				Logger.debug "Check finished sources: #{inspect src}"
+				[] == src
 			catch
 				:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] ->
 					Logger.debug "get_sources failed because observable #{inspect rx} does not exist anymore"
 					true
 			end
 		end
-
-
 		rx |> Reaxive.Rx.Impl.compose(
 			Sync.flat_mapper(
 				flatter |> Reaxive.Rx.Impl.compose(Sync.flatter(check_finished_source)),
@@ -351,12 +352,11 @@ defmodule Reaxive.Rx do
 	    #####   observer for `rx` to start production
 		#### b) ??
 		##############
-		# disp_me = Observable.subscribe(rx, flatter)
-		# Logger.info("disp_me is #{inspect disp_me}")
-		# Reaxive.Rx.Impl.source(flatter, disp_me)
+		disp_me = Observable.subscribe(rx, flatter)
+		Logger.debug("disp_me is #{inspect disp_me}")
+		Reaxive.Rx.Impl.source(flatter, disp_me)
 
-		_disp_me = Observable.subscribe(rx, fn(_tag, _value) -> :ok end)
-
+		# _disp_me = Observable.subscribe(rx, fn(_tag, _value) -> :ok end)
 		# we return the new flattened sequence
 		flatter
 	end
