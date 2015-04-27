@@ -322,13 +322,19 @@ defmodule Reaxive.Rx.Impl do
 	"""
 	@spec disconnect_source(%__MODULE__{}, any) :: %__MODULE__{}
 	def disconnect_source(%__MODULE__{sources: src} = state, src_id) do
-		# Logger.info("disconnecting #{inspect src_id} from Rx #{inspect self}=#{inspect state}")
+		Logger.info("disconnecting #{inspect src_id} from Rx #{inspect self}=#{inspect state}")
 		new_src = src 
-			|> Enum.map(fn sub = {id, s} -> 
-					if id == src_id, do: Subscription.unsubscribe(s) 
-					sub
-				end)
-			|> Enum.reject fn({id, _}) -> id == src_id end
+			|> Enum.map(fn 	(sub ={%Reaxive.Rx.Impl.Rx_t{pid: pid}, s}) ->
+								if pid == src_id, do: Subscription.unsubscribe(s) 
+								sub	
+							(sub = {id, s}) -> 
+								if id == src_id, do: Subscription.unsubscribe(s) 
+								sub	
+						end)
+			|> Enum.reject fn
+				({%Reaxive.Rx.Impl.Rx_t{pid: pid}, _}) -> pid == src_id 
+				({id, _}) -> id == src_id 
+			end
 		if (new_src == src), then: Logger.error "disconnecting from unknown src = #{inspect src_id}"
 		%__MODULE__{state | sources: new_src }
 	end
