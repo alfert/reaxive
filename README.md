@@ -5,10 +5,52 @@
 [![hex.pm version](https://img.shields.io/hexpm/v/reaxive.svg?style=flat)](https://hex.pm/packages/reaxive)
 [![Inline docs](http://inch-ci.org/github/alfert/reaxive.svg?branch=master&style=flat-square)](http://inch-ci.org/github/alfert/reaxive)
 
-Reaxive is a reactive event handling library, inspired by Elm (http://elm-lang.org) and Reactive Extensions.
+Reaxive is a reactive event handling library, inspired by Elm (http://elm-lang.org) and Reactive Extensions. It implements the kind of asynchronous collections José Valim talked 
+about in his keynotes on ElixirConf2014 and ElixirConfEU 2015. 
+
+## Usage
+
+### Preparations
+To use Reaxive you have to add it to your Mix dependencies 
+
+	deps: [
+		{reaxive, "~> 0.0.3"}
+	]
+
+and add the `reaxive` and the `logger` application to your required applications
+
+	applications: [:kernel, :reaxive, :logger]
+
+### Using Reaxive
+
+Now you can use Reaxive. All the combinators are defined in the module
+`Reaxive.Rx` (see http://hexdocs.pm/reaxive/). Basically, they follow the
+naming scheme from other reactive frameworks, such as Reactive Extensions
+(.NET), RxScala or RxJS. Hence the wonderful marble diagrams of RX (see e.g.
+http://rxmarbles.com/) can be used to understand the combinators' semantics.
+
+	alias Reaxive.Rx
+	1..100
+	|> Rx.generate
+	|> Rx.map(&(&+1))
+	|> Rx.filter(&Integer.is_odd/1)
+	|> Rx.as_text
+	|> Rx.sum
+
+The combinators are building a pipeline for event processing spawing new
+processes on-demand. Adhering to the protocol should be sufficient that these
+processes are automatically stopped again. This is extremely important, since otherwise
+we get a process leak in our system which will eat up all system resources. 
+
+
 
 ## Current State
 
+The next development steps need to simply and streamline the implementation. Also tests with
+PropEr would be highly appreciated. 
+
+
+## History
 In the v0.0.3 series, we introduce cancellable generators. 
 
 Subjects are a re-implementation of `Rx.Impl`. Major ideas:
@@ -27,7 +69,6 @@ Subjects are a re-implementation of `Rx.Impl`. Major ideas:
   calling functions on not-existing gen-servers)
 
 
-## History
 
 The first code version (v0.0.1) has conceptual problems which showed up during testing.
 As any observable lives in its own  process, we have maxium of concurrency.
