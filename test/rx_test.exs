@@ -302,13 +302,26 @@ defmodule RxTest do
 	test "merge streams with errors" do
 		first = 1..10
 		second = 11..20
+		all = Enum.concat(first, second) |> Enum.sort
+
 		first_rx = first |> Rx.generate(50)
 		second_rx = second |> Rx.generate(100)
-		all = Rx.merge([first_rx, second_rx, Rx.error(RuntimeError.exception("check it out man"))]) |>
-			# Rx.as_text |>
-			Rx.stream |> Enum.sort
+		merged = Rx.merge([
+				first_rx, 
+				second_rx, 
+				Rx.error(RuntimeError.exception("check it out man"))
+				]) 
+			|> Rx.as_text 
+			|> Rx.stream 
+			|> Enum.sort
 
-		assert [] == all
+		## the merge with error should be smaller then `all`, but
+		## we cannot guarantee that the merged one is empty due 
+		## to concurrency of the source events. 
+		assert merged != all
+		assert merged |> Enum.all? &(all |> Enum.member? &1)
+		assert Enum.count(merged) < Enum.count(all)
+		# assert [] == merged
 		refute Process.alive?(process first_rx)
 		refute Process.alive?(process second_rx)
 	end
