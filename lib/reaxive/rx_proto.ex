@@ -62,7 +62,7 @@ defprotocol Runnable do
 	* `Observables` need to implement `Runnable` such that we can start them from 
 	   the outside on request.
 	* The source connection between two `Observables` (i.e. `Rx_Impl` for now) needs
-	  to contain a `Runnable` as firt component.
+	  to contain a `Runnable` as first component.
 
 	"""
 

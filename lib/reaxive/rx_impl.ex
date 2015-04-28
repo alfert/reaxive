@@ -4,7 +4,12 @@ defmodule Reaxive.Rx.Impl do
 	require Logger
 
 	@moduledoc """
-	Implements the Rx protocols and handles the contract.
+	Implements the Rx protocols and handles the contract. This module is internally used
+	as the workhorse for most Rx combinators. However, any user should not rely on inner
+	workings but use only `Reaxive.Rx.`, since this module is subject to change. 
+
+	There are several issues with this implementation, in particular from an idiomatic  
+	point of view and it is too complicated. 
 	"""
 
 	@typedoc """
