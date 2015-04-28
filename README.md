@@ -42,13 +42,21 @@ processes on-demand. Adhering to the protocol should be sufficient that these
 processes are automatically stopped again. This is extremely important, since otherwise
 we get a process leak in our system which will eat up all system resources. 
 
+The protocols, which lay the foundation for Reaxive, can also be found at
+http://hexdocs.pm/reaxive/ .
 
+## Future Development Steps
 
-## Current State
+Important tasks for the future are: 
 
-The next development steps need to simply and streamline the implementation. Also tests with
-PropEr would be highly appreciated. 
-
+* simply and streamline the implementation
+* implement José Valim's `async` operator to break a synchronous pipeline into 
+  asynchronuous pieces 
+* add more of the missing combinators 
+* develop a concept of when and how to integrate with OTP Supervision
+* gain experience of using in Reaxive, .e.g by applying to Phoenix Channels
+* apply property based testing (using PropEr?) 
+* apply the dialyzer 
 
 ## History
 In the v0.0.3 series, we introduce cancellable generators. 
