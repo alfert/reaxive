@@ -96,6 +96,7 @@ defmodule Reaxive.Generator do
 					# Logger.debug "Got a cancel message"
 					{:halt, acc}
 			after 0 -> # only of no cancel message is here, go on
+				# Logger.debug "Send on_next(#{inspect rx}, #{inspect value}"
 				Observer.on_next(rx, value)
 				:timer.sleep(delay)
 				{acc, acc}
