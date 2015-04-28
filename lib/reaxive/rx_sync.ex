@@ -263,11 +263,11 @@ defmodule Reaxive.Sync do
 	"""
 	@spec flat_mapper(Reaxive.Rx.Impl.t, (any -> Observable.t)) :: transform_t
 	def flat_mapper(flatter, map_fun) do
-		Logger.debug "flat_map for flatter #{inspect flatter} and map_fun #{inspect map_fun}"
+		# Logger.debug "flat_map for flatter #{inspect flatter} and map_fun #{inspect map_fun}"
 		default_behavior() do
-			Logger.debug "flat_map with value v = #{inspect v}"
+			# Logger.debug "flat_map with value v = #{inspect v}"
 			rx = map_fun.(v)
-			Logger.info("flat_mapper created #{inspect rx} for value #{inspect v}")
+			# Logger.info("flat_mapper created #{inspect rx} for value #{inspect v}")
 			disp = Observable.subscribe(rx, flatter)
 			flatter |> Reaxive.Rx.Impl.source(disp)
 			Runnable.run(rx) 
