@@ -262,7 +262,7 @@ defmodule Reaxive.Rx.Impl do
 	"""
 	@spec handle_value(t, rx_propagate) :: t
 	def handle_value(%__MODULE__{active: true} = state, e = {:on_error, _exception}) do
-		Logger.debug "got on_error #{inspect e} ==> disconnect all: #{inspect state}"
+		# Logger.debug "got on_error #{inspect e} ==> disconnect all: #{inspect state}"
 		notify({:cont, e}, state) |> disconnect_all()
 	end
 	def handle_value(%__MODULE__{active: true, action: fun, accu: accu} = state, value) do
