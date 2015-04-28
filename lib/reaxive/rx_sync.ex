@@ -278,20 +278,17 @@ defmodule Reaxive.Sync do
 	end
 
 	@doc """
-	The `flatter` function takes as argument a function which determines
-	the number of active sources. In this function the access to the
-	observable returned by the `flatter`
+	The `flatter` function implements a behaivour that emits all values and 
+	ignores all `on_completed` messages. If the `flatter` has to stop, this has
+	to be determined by `Rx.Impl`, i.e. stop if no sources are available or 
+	if no subscribers are available. 
+
 	"""
 	@spec flatter() :: transform_t
 	def flatter() do
 		# we don't need to do anything special, we simply have many sources
 		# and stop regularly if all sources are stopped, or we get an error
 		# or we are canceled from the frontside
-		# default_behavior() do
-		# 	Logger.debug "flatter got: #{inspect v}"
-		# 	emit(v, acc, a, new_acc)
-		# end		
-		# # # this can't work - there is nothing like a counter
 		full_behavior(
 			fn(v, acc, a, new_acc) -> 
 				# Logger.debug "flatter emit: #{inspect v}"
