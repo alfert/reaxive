@@ -270,6 +270,8 @@ defmodule Reaxive.Sync do
 			# Logger.info("flat_mapper created #{inspect rx} for value #{inspect v}")
 			disp = Observable.subscribe(rx, flatter)
 			flatter |> Reaxive.Rx.Impl.source(disp)
+			# start the new established sequence since for v, to send new
+			# values to the flatter. 
 			Runnable.run(rx) 
 			# we ignore the current value v, because rx generates
 			# new value for which we cater.
