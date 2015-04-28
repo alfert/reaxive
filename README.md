@@ -14,7 +14,7 @@ about in his keynotes on ElixirConf2014 and ElixirConfEU 2015.
 To use Reaxive you have to add it to your Mix dependencies 
 
 	deps: [
-		{reaxive, "~> 0.0.3"}
+		{:reaxive, "~> 0.0.3"}
 	]
 
 and add the `reaxive` and the `logger` application to your required applications
