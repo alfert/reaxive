@@ -237,6 +237,7 @@ defmodule Reaxive.Rx.Impl do
 			#Logger.debug "Stop in #{inspect self}, because terminate required at state #{inspect state}"
 			{:stop, :normal, state}
 		else
+			#Logger.debug "NO Stop in #{inspect self}, at state #{inspect state}"
 			{:noreply, state}
 		end
 	end
@@ -246,7 +247,8 @@ defmodule Reaxive.Rx.Impl do
 	the source which is sending a `on_completed`.
 	"""
 	@spec handle_event(t, rx_propagate) :: t
-	def handle_event(%__MODULE__{} = state, {:on_completed, src}) do
+	def handle_event(%__MODULE__{} = state, e = {:on_completed, src}) do
+		# Logger.debug "#{inspect self} got an #{inspect e} in state #{inspect state}"
 		state |>
 		 	disconnect_source(src) |>
 		 	# IO.inspect |> 
@@ -322,7 +324,7 @@ defmodule Reaxive.Rx.Impl do
 	"""
 	@spec disconnect_source(%__MODULE__{}, any) :: %__MODULE__{}
 	def disconnect_source(%__MODULE__{sources: src} = state, src_id) do
-		Logger.info("disconnecting #{inspect src_id} from Rx #{inspect self}=#{inspect state}")
+		#Logger.debug("disconnecting #{inspect src_id} from Rx #{inspect self}=#{inspect state}")
 		new_src = src 
 			|> Enum.map(fn 	(sub ={%Reaxive.Rx.Impl.Rx_t{pid: pid}, s}) ->
 								if pid == src_id, do: Subscription.unsubscribe(s) 
