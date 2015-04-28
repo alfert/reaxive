@@ -8,18 +8,23 @@ defmodule RxTest do
 	require Logger
 
 	# wait for messages passing through is 1 milli second
-	@delay 1
+	@delay 5
 
 	# one 1 second instead of 30 seconds
 	@tag timeout: 1_000
 
 	test "map function works" do
 		{:ok, rx} = Rx.Impl.start()
-
+		# Logger.debug("We are in process #{inspect self}")
 		rx1 = rx |> Rx.map &(&1 + 1)
+
+		assert rx == rx1
+
 		o = simple_observer_fun(self)
 		{id, disp_me} = Observable.subscribe(rx1, o)
 
+		assert %Reaxive.Subscription{} = disp_me
+		
 		#Rx.Impl.subscribers(rx) |>
 		#	Enum.each(fn(r) -> assert is_pid(r)end)
 		# TODO: find a way to check the intended condition
@@ -30,7 +35,7 @@ defmodule RxTest do
 		Rx.Impl.on_completed(rx, self)
 		pid = process(id)
 		assert_receive {:on_completed, ^pid}, @delay
-		Disposable.dispose(disp_me)
+		Subscription.unsubscribe(disp_me)
 		refute Process.alive?(process rx)
 	end
 
@@ -38,13 +43,13 @@ defmodule RxTest do
 		proc_list = Process.list
 		{:ok, rx} = Rx.Impl.start()
 		o = simple_observer_fun(self)
-		Rx.Impl.source(rx, {self, fn() -> :ok end})
+		Rx.Impl.source(rx, {self, ReaxiveTestTools.EmptySubscription.new})
 
 		rx2 = rx |> Rx.map(&(&1 + 1))
 		{rx3, disp_me} = rx2 |> Observable.subscribe(o)
 
 		Rx.Impl.on_next(rx, 1)
-		assert_receive {:on_next, 2}, @delay
+		assert_receive {:on_next, 2}, 2*@delay # weird that @delay is not enough
 
 		Observer.on_next(rx, 2)
 		assert_receive {:on_next, 3}, @delay
@@ -57,9 +62,9 @@ defmodule RxTest do
 		end
 		Observer.on_completed(rx, self)
 		id = process rx3
-		assert_receive {:on_completed, ^id}, @delay
+		assert_receive {:on_completed, ^id} # , 2* @delay
 
-		Disposable.dispose(disp_me)
+		Subscription.unsubscribe(disp_me)
 
 		assert process_leak?(proc_list)
 	end
@@ -68,13 +73,26 @@ defmodule RxTest do
 		values = [1, 2, 3, 4]
 		o = simple_observer_fun(self)
 		all_procs = Process.list()
-		{rx, disp_me} = values |> Rx.generate |> Observable.subscribe(o)
+		# file = start_tracing()
+		# on_exit fn() -> stop_tracing(file) end
+
+		{rx, disp_me} = values |> Rx.generate 
+			|> Observable.subscribe(o) 
+			|> Runnable.run
+		:timer.sleep(@delay)
 
 		values |> Enum.each fn(v) ->
-			assert_receive{:on_next, ^v}, @delay end
+			# Logger.debug "want receive #{inspect v}"
+			assert_receive{:on_next, ^v}# , 11* @delay
+		end
 		id = process rx
-		assert_receive {:on_completed, ^id}, @delay
-		Disposable.dispose(disp_me)
+
+		# Logger.debug "Waiting for completed"
+		assert_receive {:on_completed, ^id} #,  @delay
+
+		Subscription.unsubscribe(disp_me)
+		refute Process.alive? id
+		:timer.sleep(@delay)
 		assert process_leak?(all_procs)
 	end
 
@@ -84,13 +102,15 @@ defmodule RxTest do
 		all_procs = Process.list()
 		rxs = values |> Rx.generate |> Rx.as_text
 		assert is_pid(process rxs)
-		{rx, disp_me} =  rxs |> Observable.subscribe(o)
+		{rx, disp_me} =  rxs 
+			|> Observable.subscribe(o)
+			|> Runnable.run
 		# wait longer due to IO happening which might
 		# change timings on travis and other CI platforms
 		id = process rx
 		assert_receive {:on_completed, ^id}
 
-		Disposable.dispose(disp_me)
+		Subscription.unsubscribe(disp_me)
 		assert process_leak?(all_procs)
 	end
 
@@ -220,11 +240,12 @@ defmodule RxTest do
 		all_procs = Process.list()
 		o = simple_observer_fun(self)
 		error = Rx.error(exception)
-		{_id, disp_me} = error |> 
-			# Rx.as_text |> 
-			Observable.subscribe(o)
-		assert_receive {:on_error, ^exception}, @delay
-		disp_me.()
+		{_id, disp_me} = error 
+			# |> Rx.as_text 
+			|> Observable.subscribe(o)
+			|> Runnable.run
+		assert_receive {:on_error, ^exception} # , @delay
+		Subscription.unsubscribe disp_me
 		# refute Process.alive?(error)
 		process_leak?(all_procs)
 	end
@@ -240,13 +261,16 @@ defmodule RxTest do
 	test "starts with a few numbers" do
 		first = 1..10
 		second = 11..20
-		all = second |> Rx.generate |> Rx.start_with(first) |>
-			# Rx.as_text |>
-			Rx.stream |> Enum.to_list
+		all = second |> Rx.generate 
+			# |> Rx.as_text
+			|> Rx.start_with(first)
+			# |> Rx.as_text
+			|> Rx.stream |> Enum.to_list
 
 		assert Enum.concat(first, second) == all
 	end
 
+	@tag timeout: 2_000
 	test "merge a pair of streams" do
 		first = 1..10
 		second = 11..20
@@ -278,13 +302,26 @@ defmodule RxTest do
 	test "merge streams with errors" do
 		first = 1..10
 		second = 11..20
+		all = Enum.concat(first, second) |> Enum.sort
+
 		first_rx = first |> Rx.generate(50)
 		second_rx = second |> Rx.generate(100)
-		all = Rx.merge([first_rx, second_rx, Rx.error(RuntimeError.exception("check it out man"))]) |>
-			# Rx.as_text |>
-			Rx.stream |> Enum.sort
+		merged = Rx.merge([
+				first_rx, 
+				second_rx, 
+				Rx.error(RuntimeError.exception("check it out man"))
+				]) 
+			|> Rx.as_text 
+			|> Rx.stream 
+			|> Enum.sort
 
-		assert [] == all
+		## the merge with error should be smaller then `all`, but
+		## we cannot guarantee that the merged one is empty due 
+		## to concurrency of the source events. 
+		assert merged != all
+		assert merged |> Enum.all? &(all |> Enum.member? &1)
+		assert Enum.count(merged) < Enum.count(all)
+		# assert [] == merged
 		refute Process.alive?(process first_rx)
 		refute Process.alive?(process second_rx)
 	end
@@ -386,20 +423,27 @@ defmodule RxTest do
 		assert [1] == one
 	end
 
-	@tag timeout: 1_000
+	@tag timeout: 2_000
 	test "a simple sequence generated by flat_map" do
 		k = 10
-		file = start_tracing()
-		flatter = Rx.return(k) |> Rx.flat_map(&(Rx.generate(1..&1)))
-		# Logger.info("flat_mapper is #{inspect flatter}")
-		tens = flatter |>
-			# Rx.as_text |>
-			Rx.to_list
-		stop_tracing(file)
-		assert 1..k |> Enum.to_list == tens
+		#file = start_tracing()
+		flatter = Rx.return(k) |> Rx.flat_map(&(
+			Rx.generate(1..&1) 
+			# |> Rx.as_text
+			))
+		# Logger.info("flatter is #{inspect flatter}")
+		# Logger.debug "flatter sources = #{inspect Reaxive.Rx.Impl.get_sources(flatter)}"
+		# Logger.debug "flatter subscribers = #{inspect Reaxive.Rx.Impl.subscribers(flatter)}"
+		# Logger.debug "get state of flatter: #{inspect :sys.get_state(flatter.pid)}"
+		tens = flatter 
+			|> Rx.map(&(&1 + 1))
+			|> Rx.as_text 
+			|> Rx.to_list
+		#stop_tracing(file)
+		assert 2..(k+1) |> Enum.to_list == tens
 	end
 
-	@tag timeout: 1_000
+	@tag timeout: 2_000
 	test "a more complex sequence generated by flat_map" do
 		n = 10
 		k = 1..n

@@ -10,9 +10,9 @@ defmodule ReaxiveTest do
 
 		assert Reaxive.Rx.Impl.subscribers(rx) == [:you, :me]
 
-		Disposable.dispose(disp_me)
+		Subscription.unsubscribe(disp_me)
 		assert Reaxive.Rx.Impl.subscribers(rx) == [:you]
-		Disposable.dispose(disp_you)
+		Subscription.unsubscribe(disp_you)
 		assert Reaxive.Rx.Impl.subscribers(rx) == []
 	end
 
@@ -40,7 +40,8 @@ defmodule ReaxiveTest do
 		assert_receive {:on_completed, ^id2}
 
 		Reaxive.Rx.Impl.on_next(rx, :x)
-		disp_me.()
+		# disp_me.()
+		Subscription.unsubscribe(disp_me)
 		# refute Process.alive? rx
 		id = process rx
 		assert_receive {:EXIT, ^id, _}
@@ -135,15 +136,16 @@ defmodule ReaxiveTest do
 	test "Stopping processes after unsubscribe" do
 		# {:ok, rx} = Reaxive.Rx.Impl.start("rx", [auto_stop: true])
 		{:ok, rx} = Reaxive.Rx.Impl.start()
-		:ok = Reaxive.Rx.Impl.source(rx, {self, fn()-> :ok end})
+		dummy_sub = ReaxiveTestTools.EmptySubscription.new
+		:ok = Reaxive.Rx.Impl.source(rx, {self, dummy_sub})
 		{_, disp_me} = Reaxive.Rx.Impl.subscribe(rx, :me)
 		{_, disp_you} = Reaxive.Rx.Impl.subscribe(rx, :you)
 
 		assert Reaxive.Rx.Impl.subscribers(rx) == [:you, :me]
 
-		Disposable.dispose(disp_me)
+		Subscription.unsubscribe(disp_me)
 		assert Reaxive.Rx.Impl.subscribers(rx) == [:you]
-		Disposable.dispose(disp_you)
+		Subscription.unsubscribe(disp_you)
 		refute Process.alive?(process rx)
 	end
 
@@ -168,10 +170,29 @@ defmodule ReaxiveTest do
 
 		Reaxive.Rx.Impl.on_completed(rx1, self)
 		assert_receive {:on_completed, ^id}
-		disp_me.() # we call this, because our functional observer is too stupid to do it by itself
+		Subscription.unsubscribe(disp_me) # we call this, because our functional observer is too stupid to do it by itself
 
 		refute Process.alive?(process rx1)
 		refute Process.alive?(process rx2)
+	end
+
+	@tag timeout: 1_000
+	test "call the run callback" do
+		me = self
+		{:ok, rx} = Reaxive.Rx.Impl.start()
+
+		dummy_sub = ReaxiveTestTools.EmptySubscription.new
+		:ok = Reaxive.Rx.Impl.source(rx, {self, dummy_sub})
+
+		Reaxive.Rx.Impl.on_run(rx, fn() -> send(me, :on_run_called) end)
+		call_me = simple_observer_fun(self)
+		{rx3, disp_me} = Reaxive.Rx.Impl.subscribe(rx, call_me)
+
+		Runnable.run(rx)
+		Observer.on_completed(rx, dummy_sub)
+
+		assert_receive :on_run_called
+		assert_receive {:on_completed, me}		
 	end
 
 	def drain_messages(wait_millis \\ 50)

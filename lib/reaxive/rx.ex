@@ -126,14 +126,30 @@ defmodule Reaxive.Rx do
 		{:ok, rx} = Reaxive.Rx.Impl.start(id, @rx_defaults)
 		delayed = fn() ->
 			receive do
-				:go -> generator.(rx)
+				:go -> 
+					# Logger.debug "Got :go"
+					generator.(rx)
+					# Logger.debug(":go got finished")
+				:run -> 
+					# Logger.debug "Got :run!"
+					generator.(rx)
 			after timeout ->
 				Observer.on_error(rx, :timeout)
 			end
 		end
 		pid = spawn(delayed)
-		Reaxive.Rx.Impl.on_subscribe(rx, fn()-> send(pid, :go) end)
-		Reaxive.Rx.Impl.source(rx, {pid, fn() -> send(pid, :cancel) end})
+		# Logger.debug ("spawned delayed start process #{inspect pid}")
+		Reaxive.Rx.Impl.on_run(rx, fn()-> send(pid, :go) end)
+		# create a subscription to properly cancel the generator
+		{:ok, sub} = Reaxive.Subscription.start_link(
+			fn() -> 
+				# Logger.debug "Got an unsubscription, cancel process #{inspect pid}"
+				send(pid, :cancel) 
+				:ok
+			end)
+		# Logger.debug "delayed subscription is #{inspect sub}"
+		# set the source, otherwise rx kills himslef due to a lacking source
+		Reaxive.Rx.Impl.source(rx, {pid, sub})
 		rx
 	end
 
@@ -220,19 +236,20 @@ defmodule Reaxive.Rx do
 
   @doc """
 	The `error` function takes an in Elixir defined exception and generate a stream with the
-	exception as the only element. The stream starts after the first subscription.
+	exception as the only element. 
 
 	## Examples
 
 		iex> alias Reaxive.Rx
 		iex> me = self
-		iex> Rx.error(RuntimeError.exception("yeah")) |> Observable.subscribe(fn(t, x) -> me |> send {t, x} end)
+		iex> Rx.error(RuntimeError.exception("yeah")) |> 
+		iex> Observable.subscribe(fn(t, x) -> me |> send {t, x} end) |> Runnable.run
 		iex> receive do x -> x end
 		{:on_error, %RuntimeError{message: "yeah"}} 
 	"""
 	def error(%{__exception__: true} = exception, timeout \\ @rx_timeout) do
 		delayed_start(fn(rx) ->
-#			Logger.info("do on_error with #{inspect exception}")
+			# Logger.info("do on_error with #{inspect exception}")
 			Observer.on_error(rx, exception) end, "error", timeout)
 	end
 
@@ -276,13 +293,14 @@ defmodule Reaxive.Rx do
 	@spec first(Observable.t) :: term
 	def first(rx) do
 		o = stream_observer(self)
-		{_id, rx2} = Observable.subscribe(rx, o)
+		{_id, rx2} = Observable.subscribe(rx, o) |> Runnable.run()
 		val = receive do
 			{:on_next, value} -> value
 			{:on_completed, _any} -> nil
 			{:on_error, e} -> raise e
 		end
-		Disposable.dispose(rx2)
+		# Subscription.unsubscribe(rx2)
+		Subscription.unsubscribe(rx2)
 		val
 	end
 
@@ -301,44 +319,18 @@ defmodule Reaxive.Rx do
 	def flat_map(rx, map_fun) do
 		# `flatter` does not stop automatically if no source is available
 		# because the mapper decides when there are no source anymore.
-		{:ok, flatter} = Reaxive.Rx.Impl.start("flatter", [auto_stop: false])
-		Logger.info("created flatter #{inspect flatter}")
-
-		check_finished_source = fn() -> 
-			try do
-				[] == Reaxive.Rx.Impl.get_sources(rx) 
-			catch
-				:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] ->
-					Logger.debug "get_sources failed because observable #{inspect rx} does not exist anymore"
-					true
-			end
-		end
-
+		{:ok, flatter} = Reaxive.Rx.Impl.start("flatter", [auto_stop: true])
+		# Logger.info("created flatter #{inspect flatter}")
 
 		rx |> Reaxive.Rx.Impl.compose(
 			Sync.flat_mapper(
-				flatter |> Reaxive.Rx.Impl.compose(Sync.flatter(check_finished_source)),
+				flatter |> Reaxive.Rx.Impl.compose(Sync.flatter()),
 				map_fun))
-		##############
-		#### This looks wrong: The flatter should not subscribe to rx
-		#### but to each new sequence which is constructed within the 
-		#### flat_mapper (==> should be handled within Sync.flat_mapper)
-		#### 
-		#### The problem here is that we have to connect the two 
-		#### sequences: `rx` should start to emit values if some other
-		#### observable subscribes to `flatter`. 
-		####
-		#### How do we fix this? 
-		#### a) after flatter is constructed we use no-op function as
-	    #####   observer for `rx` to start production
-		#### b) ??
-		##############
-		# disp_me = Observable.subscribe(rx, flatter)
-		# Logger.info("disp_me is #{inspect disp_me}")
-		# Reaxive.Rx.Impl.source(flatter, disp_me)
+		disp_me = Observable.subscribe(rx, flatter)
+		# Logger.debug("disp_me is #{inspect disp_me}")
+		Reaxive.Rx.Impl.source(flatter, disp_me)
 
-		_disp_me = Observable.subscribe(rx, fn(_tag, _value) -> :ok end)
-
+		# _disp_me = Observable.subscribe(rx, fn(_tag, _value) -> :ok end)
 		# we return the new flattened sequence
 		flatter
 	end
@@ -369,15 +361,7 @@ defmodule Reaxive.Rx do
 	@spec generate(Enumerable.t, non_neg_integer, non_neg_integer) :: Observable.t
 	def generate(collection, delay \\ @rx_delay, timeout \\ @rx_timeout)
 	def generate(collection, delay, timeout) do
-		send_values = fn(rx) ->
-			collection |> Enum.each(fn(element) ->
-				:timer.sleep(delay)
-				Observer.on_next(rx, element)
-			end)
-
-			Observer.on_completed(rx, self())
-		end
-		delayed_start(send_values, "generate", timeout)
+		delayed_start(Generator.from(collection, delay), "generator.from", timeout)
 	end
 
 	@doc """
@@ -544,6 +528,7 @@ defmodule Reaxive.Rx do
 			for e <- collection, do: Observer.on_next(rx, e)
 			source = Observable.subscribe(prev_rx, rx)
 			:ok = Reaxive.Rx.Impl.source(rx, source)
+			Runnable.run(prev_rx)
 		end, "start_with")
 	end
 
@@ -566,8 +551,10 @@ defmodule Reaxive.Rx do
 		# the accumulator is the disposable, which does not change.
 		o = stream_observer()
 		Stream.resource(
-			# initialize the stream: Connect with rx
-			fn() -> Observable.subscribe(rx, o) end,
+			# initialize the stream: Connect with rx and run it
+			fn() -> 
+				Observable.subscribe(rx, o) |> Runnable.run()
+			end,
 			# next element is taken from the message queue
 			fn(acc) ->
 				receive do
@@ -577,10 +564,10 @@ defmodule Reaxive.Rx do
 				end
 			end,
 			# resource deallocation
-			fn({{_id, rx2}, e}) -> Disposable.dispose(rx2)
+			fn({{_id, rx2}, e}) -> Subscription.unsubscribe(rx2)
 				 			e
-			  ({_id, rx2}) -> Disposable.dispose(rx2)
-
+			  ({_id, rx2}) -> Subscription.unsubscribe(rx2)
+			  (sub) -> Subscription.unsubscribe(sub)
 			end)
 	end
 
@@ -705,4 +692,30 @@ defmodule Reaxive.Rx do
 		new_rx |> Reaxive.Rx.Impl.compose(transform)
 	end
 
+end
+
+
+defimpl Runnable, for: PID do
+	@doc """
+	Running a PID means to send it the message `:run`. Only used for 
+	explicitely spawned and custom implemented processes (.e.g for generator 
+	functions).
+	"""
+  	def run(pid) do 
+  		send(pid, :run)
+  		:ok
+  	end
+end
+
+defimpl Runnable, for: Tuple do
+	@doc """
+	Running a tuple assumes it represents the result of a subscription, 
+	i.e. a tuple out of a `%Reaxive.Rx.Impl.Rx_t{}` and a 
+	`%Reaxive.Subscription{}`.
+	"""
+	def run(p = { rx = %Reaxive.Rx.Impl.Rx_t{}, %Reaxive.Subscription{}}) do
+		Reaxive.Rx.Impl.run(rx)
+		p
+	end
+	
 end

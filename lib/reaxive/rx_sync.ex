@@ -263,11 +263,16 @@ defmodule Reaxive.Sync do
 	"""
 	@spec flat_mapper(Reaxive.Rx.Impl.t, (any -> Observable.t)) :: transform_t
 	def flat_mapper(flatter, map_fun) do
+		# Logger.debug "flat_map for flatter #{inspect flatter} and map_fun #{inspect map_fun}"
 		default_behavior() do
+			# Logger.debug "flat_map with value v = #{inspect v}"
 			rx = map_fun.(v)
-			Logger.info("flat_mapper created #{inspect rx} for value #{inspect v}")
+			# Logger.info("flat_mapper created #{inspect rx} for value #{inspect v}")
 			disp = Observable.subscribe(rx, flatter)
 			flatter |> Reaxive.Rx.Impl.source(disp)
+			# start the new established sequence since for v, to send new
+			# values to the flatter. 
+			Runnable.run(rx) 
 			# we ignore the current value v, because rx generates
 			# new value for which we cater.
 			ignore(v, acc, a, new_acc)
@@ -275,15 +280,21 @@ defmodule Reaxive.Sync do
 	end
 
 	@doc """
-	The `flatter` function takes as argument a function which determines
-	the number of active sources. In this function the access to the
-	observable returned by the `flatter`
+	The `flatter` function implements a behaivour that emits all values and 
+	ignores all `on_completed` messages. If the `flatter` has to stop, this has
+	to be determined by `Rx.Impl`, i.e. stop if no sources are available or 
+	if no subscribers are available. 
+
 	"""
-	@spec flatter((() -> boolean)) :: transform_t
-	def flatter(check_fun) do
-		# this can't work - there is nothing like a counter
+	@spec flatter() :: transform_t
+	def flatter() do
+		# we don't need to do anything special, we simply have many sources
+		# and stop regularly if all sources are stopped, or we get an error
+		# or we are canceled from the frontside
 		full_behavior(
-			fn(v, acc, a, new_acc) -> emit(v, acc, a, new_acc) end,
+			fn(v, acc, a, new_acc) -> 
+				# Logger.debug "flatter emit: #{inspect v}"
+				emit(v, acc, a, new_acc) end,
 			#####
 			# do not ignore on_completed, because we have to emit it properly
 			# but only when we can terminate. Hmmm ==> At first, ensure that
@@ -292,11 +303,8 @@ defmodule Reaxive.Sync do
 			# process or not implemented by Rx.Impl. 
 			# ===> This mechanims has to be handled properly by Rx.Impl!!!!!
 			fn(v, acc, a, new_acc) -> 
-				if (check_fun.()) do 
-					halt(acc, a, new_acc)
-				else 
-					ignore(v, acc, a, new_acc) 
-				end
+				# Logger.debug "flatter got completed: #{inspect v}"
+				ignore(v, acc, a, new_acc) 
 			end,
 			fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end
 		)

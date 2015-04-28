@@ -9,15 +9,23 @@ Reaxive is a reactive event handling library, inspired by Elm (http://elm-lang.o
 
 ## Current State
 
-The current code (v0.0.2 series and later) is a major rework that implements ideas of 
+In the v0.0.3 series, we introduce cancellable generators. 
 
-* http://www.introtorx.com
-* http://go.microsoft.com/fwlink/?LinkID=205219
+Subjects are a re-implementation of `Rx.Impl`. Major ideas:
 
-and also inspired by Clojure's transducers introduced by Rich Hickey 
+* separate subscription handling from event handling
+* subscriptions 
+  * implement the boolean predicate `is_unsubscribed` as shown in the slides
+  * functions for adding and removing subscribers from a subscription
+* can subscriptions be implemented without a `GenServer`? 
+* event handling should be done in a pure functional setting with explicit accumulators
+  * Re-use `compose` and the `Rx.Sync` functions as combinators
+  * combinators operate on a `Observeable`
+  * Send composed events to subscribers
+* we need a better mechanism to automatically stop processes or to detect that 
+  they not running any more (==> monitoring or providing a general abstraction for 
+  calling functions on not-existing gen-servers)
 
-* http://blog.cognitect.com/blog/2014/8/6/transducers-are-coming
-* http://clojure.org/transducers
 
 ## History
 
@@ -27,6 +35,16 @@ This results in pushing events from the front while later transformations are
 not properly setup. Due to this, some of the first events may be swallowed and
 disappear, so the tests fail because not all events are piped through the
 entire sequence of transformation.
+
+The code v0.0.2 series is a major rework that implements ideas of 
+
+* http://www.introtorx.com
+* http://go.microsoft.com/fwlink/?LinkID=205219
+
+and also inspired by Clojure's transducers introduced by Rich Hickey 
+
+* http://blog.cognitect.com/blog/2014/8/6/transducers-are-coming
+* http://clojure.org/transducers
 
 
 ## Contributing
