@@ -282,8 +282,8 @@ defmodule Reaxive.Sync do
 	the number of active sources. In this function the access to the
 	observable returned by the `flatter`
 	"""
-	@spec flatter((() -> boolean)) :: transform_t
-	def flatter(check_fun) do
+	@spec flatter() :: transform_t
+	def flatter() do
 		# we don't need to do anything special, we simply have many sources
 		# and stop regularly if all sources are stopped, or we get an error
 		# or we are canceled from the frontside
@@ -294,7 +294,7 @@ defmodule Reaxive.Sync do
 		# # # this can't work - there is nothing like a counter
 		full_behavior(
 			fn(v, acc, a, new_acc) -> 
-				Logger.debug "flatter emit: #{inspect v}"
+				# Logger.debug "flatter emit: #{inspect v}"
 				emit(v, acc, a, new_acc) end,
 			#####
 			# do not ignore on_completed, because we have to emit it properly
@@ -304,15 +304,8 @@ defmodule Reaxive.Sync do
 			# process or not implemented by Rx.Impl. 
 			# ===> This mechanims has to be handled properly by Rx.Impl!!!!!
 			fn(v, acc, a, new_acc) -> 
-				Logger.debug "flatter got completed: #{inspect v}"
-				Logger.debug "process dict of flatter: #{inspect :erlang.get()}"
-				## does not work correctly, but alas!
+				# Logger.debug "flatter got completed: #{inspect v}"
 				ignore(v, acc, a, new_acc) 
-				# if (check_fun.()) do 
-				# 	halt(acc, a, new_acc)
-				# else 
-				# 	ignore(v, acc, a, new_acc) 
-				# end
 			end,
 			fn(v, acc, a, new_acc) -> error(v, acc, a, new_acc) end
 		)

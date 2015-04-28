@@ -320,40 +320,14 @@ defmodule Reaxive.Rx do
 		# `flatter` does not stop automatically if no source is available
 		# because the mapper decides when there are no source anymore.
 		{:ok, flatter} = Reaxive.Rx.Impl.start("flatter", [auto_stop: true])
-		Logger.info("created flatter #{inspect flatter}")
+		# Logger.info("created flatter #{inspect flatter}")
 
-		check_finished_source = fn() -> 
-			try do
-				Logger.debug "Check finished: get state of flatter: #{inspect :sys.get_state(flatter.pid)}"
-				src = Reaxive.Rx.Impl.get_sources(flatter) 
-				Logger.debug "Check finished sources: #{inspect src}"
-				[] == src
-			catch
-				:exit, {fail, {GenServer, :call, _}} when fail in [:normal, :noproc] ->
-					Logger.debug "get_sources failed because observable #{inspect rx} does not exist anymore"
-					true
-			end
-		end
 		rx |> Reaxive.Rx.Impl.compose(
 			Sync.flat_mapper(
-				flatter |> Reaxive.Rx.Impl.compose(Sync.flatter(check_finished_source)),
+				flatter |> Reaxive.Rx.Impl.compose(Sync.flatter()),
 				map_fun))
-		##############
-		#### This looks wrong: The flatter should not subscribe to rx
-		#### but to each new sequence which is constructed within the 
-		#### flat_mapper (==> should be handled within Sync.flat_mapper)
-		#### 
-		#### The problem here is that we have to connect the two 
-		#### sequences: `rx` should start to emit values if some other
-		#### observable subscribes to `flatter`. 
-		####
-		#### How do we fix this? 
-		#### a) after flatter is constructed we use no-op function as
-	    #####   observer for `rx` to start production
-		#### b) ??
-		##############
 		disp_me = Observable.subscribe(rx, flatter)
-		Logger.debug("disp_me is #{inspect disp_me}")
+		# Logger.debug("disp_me is #{inspect disp_me}")
 		Reaxive.Rx.Impl.source(flatter, disp_me)
 
 		# _disp_me = Observable.subscribe(rx, fn(_tag, _value) -> :ok end)
