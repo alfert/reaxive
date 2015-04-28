@@ -206,7 +206,7 @@ defmodule Reaxive.Rx do
 	end
 
 	@doc """
-	drop_while` filters out the first elements while the predicate is `true`.
+	`drop_while` filters out the first elements while the predicate is `true`.
 
 	## Examples
 
@@ -255,7 +255,7 @@ defmodule Reaxive.Rx do
 
 
 	@doc """
-	This function filter the event sequence such that only those
+	This function filters the event sequence such that only those
 	events remain in the sequence for which `pred` returns true.
 
 	In Reactive Extensions, this function is called `Where`.
@@ -299,7 +299,6 @@ defmodule Reaxive.Rx do
 			{:on_completed, _any} -> nil
 			{:on_error, e} -> raise e
 		end
-		# Subscription.unsubscribe(rx2)
 		Subscription.unsubscribe(rx2)
 		val
 	end
@@ -352,11 +351,12 @@ defmodule Reaxive.Rx do
 		naturals = Rx.generate(Stream.unfold(0, fn(n) -> {n, n+1} end))
 		ticks = Rx.generate(Stream.unfold(:tick, fn(x) -> {x, x} end))
 
-	*Important Remarks:*
+	## Examples
 
-	* If the delay is set to too small value (e.g. `0`), then the first few
-	  elements may be swalloed because no subscriber is available. This might
-	  be changed in the future.
+		iex> alias Reaxive.Rx
+		iex> Rx.generate([1, 2, 3]) |> Rx.map(&(&1 * 2)) |> Rx.to_list
+		[2, 4, 6]
+
 	"""
 	@spec generate(Enumerable.t, non_neg_integer, non_neg_integer) :: Observable.t
 	def generate(collection, delay \\ @rx_delay, timeout \\ @rx_timeout)
@@ -430,6 +430,17 @@ defmodule Reaxive.Rx do
 
 	@doc """
 	The `never` function creates a sequence of events that never pushes anything.
+
+	## Examples
+
+		iex> alias Reaxive.Rx
+		iex> Rx.never |> Observable.subscribe(Rx.stream_observer) |> Runnable.run
+		iex> receive do
+		iex>   _ -> :got_something
+		iex> after 1_000
+		iex>    -> :nothing
+		iex> end
+		:nothing
 	"""
 	@spec never() :: Observable.t
 	def never() do
@@ -547,8 +558,6 @@ defmodule Reaxive.Rx do
 	"""
 	@spec stream(Observable.t) :: Enumerable.t
 	def stream(rx) do
-		# queue all events in an process and collect them.
-		# the accumulator is the disposable, which does not change.
 		o = stream_observer()
 		Stream.resource(
 			# initialize the stream: Connect with rx and run it
@@ -571,8 +580,18 @@ defmodule Reaxive.Rx do
 			end)
 	end
 
-	@doc "A simple observer function, sending tag and value as composed message to the process."
-	@spec stream_observer(pid) :: Observer.t # ((any, any) -> {any, any}
+	@doc """
+	A simple observer function, sending tag and value as composed message to the 
+	process `pid`. The function sends the following messages: 
+
+		{:on_next, value}
+		{:on_complete, nil}
+		{:on_error, error_value}
+	
+	This function is used in various situations within Rx, in particular for implementing
+	the `stream` combinator.  You find its use also in the examples for `never`.
+	"""
+	@spec stream_observer(pid) :: Observer.t 
 	def stream_observer(pid \\ self) do
 		fn(tag, value) -> send(pid, {tag, value}) end
 	end
@@ -603,6 +622,8 @@ defmodule Reaxive.Rx do
 	This can be achieved by converting the sequence into a stream and back again:
 
 		rx |> Rx.stream |> Stream.take(-n) |> Rx.generate
+
+	But it would not work if the sequence is infinite, for obvious reasons.
 
 	## Examples
 
@@ -676,22 +697,6 @@ defmodule Reaxive.Rx do
 		rx |> stream |> Enum.to_list
 	end
 	
-
-	@doc """
-	Transform adds a composable transformation to an event sequence.
-	If `obs` is a `Rx_Impl`, the transformation is added as composition,
-	otherwise a new `Rx_Impl` is created to decouple `obs` and the transformation.
-	"""
-	@doc false
-	# This functions does not work yet
-	@spec transform(Observable.t, Sync.transform_t) :: Observable.t
-	def transform(obs, transform) do
-		{:ok, new_rx} = Reaxive.Rx.Impl.start("transform", @rx_defaults)
-		source = Observable.subscribe(obs, new_rx)
-		:ok = Reaxive.Rx.Impl.source(new_rx, source)
-		new_rx |> Reaxive.Rx.Impl.compose(transform)
-	end
-
 end
 
 
