@@ -3,6 +3,7 @@ defmodule Reaxive.Rx do
 	require Logger
 	alias Reaxive.Sync
 	alias Reaxive.Generator
+	require Integer
 
 	@moduledoc """
 	This module implements the combinator on reactive streams of events.
@@ -107,6 +108,28 @@ defmodule Reaxive.Rx do
 	def as_text(rx) do
 		rx |> Reaxive.Rx.Impl.compose(Sync.as_text)
 	end	
+
+	@doc """
+	The call to `async` decouples two parts of an event sequence into asynchronuous 
+	sequences. It is helpfull to explicitely introduce asynchronicity.
+
+	## Examples
+
+		iex> alias Reaxive.Rx
+		iex> require Integer
+		iex> [1,2,3] |> Rx.generate |> Rx.filter( &Integer.is_odd/1 ) |>
+		iex> Rx.async |>
+		iex> Rx.map( &(&1 + 1))  |> Rx.to_list
+		[2, 4]
+	"""
+	@spec async(Observable.t) :: Observable.t
+	def async(rx1) do
+		{:ok, rx2} = Reaxive.Rx.Impl.start("async", @rx_defaults)
+		src = Observable.subscribe(rx1, rx2)
+		:ok = Reaxive.Rx.Impl.source(rx2, src)
+		rx2
+	end
+	
 
 	@doc """
 	The `delayed_start` function starts a generator after the first
