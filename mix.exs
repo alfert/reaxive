@@ -10,7 +10,7 @@ defmodule Reaxive.Mixfile do
       description: description,
       source_url: "https://github.com/alfert/reaxive",
       homepage_url: "https://github.com/alfert/reaxive",
-      docs: [readme: true],
+      docs: [readme: "README.md"],
       test_coverage: [tool: Coverex.Task, log: :info, coveralls: true],
       deps: deps ]
   end
@@ -31,8 +31,8 @@ defmodule Reaxive.Mixfile do
     [
       {:coverex, "~> 1.2.0", only: :test},
       {:earmark, "~> 0.1", only: :dev},
-      {:ex_doc, "~> 0.6", only: :dev},
-      {:dialyze, "~> 0.1.3", only: :dev},
+      {:ex_doc, "~> 0.7.2", only: :dev},
+      {:dialyze, "~> 0.1.4", only: :dev},
       {:dbg, "~>1.0.0", only: :test},
       {:inch_ex, only: :docs}
    ]
