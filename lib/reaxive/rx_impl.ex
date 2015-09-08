@@ -30,7 +30,7 @@ defmodule Reaxive.Rx.Impl do
 
 	@type t :: %__MODULE__{}
 
-	@derive Access
+#	@derive Access
 	defstruct name: nil, # might be handy to identify the Rx?
 		active: true, # if false, then an error has occurred or the calculation is completed
 		subscribers: [], # all interested observers
@@ -342,7 +342,7 @@ defmodule Reaxive.Rx.Impl do
 				({%Reaxive.Rx.Impl.Rx_t{pid: pid}, _}) -> pid == src_id 
 				({id, _}) -> id == src_id 
 			end
-		if (new_src == src), then: Logger.error "disconnecting from unknown src = #{inspect src_id}"
+		if (new_src == src), do: Logger.error "disconnecting from unknown src = #{inspect src_id}"
 		%__MODULE__{state | sources: new_src }
 	end
 
