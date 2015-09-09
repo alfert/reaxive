@@ -29,12 +29,12 @@ defmodule Reaxive.Mixfile do
 
   defp deps do
     [
-      {:coverex, "~> 1.2.0", only: :test},
-      {:earmark, "~> 0.1.15", only: :dev},
-      {:ex_doc, "~> 0.7.2", only: :dev},
-      {:dialyze, "~> 0.1.4", only: :dev},
+      {:coverex, "~> 1.4.0", only: :test},
+      {:earmark, "~> 0.1.17", only: :dev},
+      {:ex_doc, "~> 0.8.4", only: :dev},
+      {:dialyze, "~> 0.2.0", only: :dev},
       {:dbg, "~>1.0.0", only: :test},
-      {:inch_ex, only: :docs}
+      {:inch_ex, "~> 0.4.0", only: :docs}
    ]
   end
 
