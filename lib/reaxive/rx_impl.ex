@@ -30,7 +30,6 @@ defmodule Reaxive.Rx.Impl do
 
 	@type t :: %__MODULE__{}
 
-#	@derive Access
 	defstruct name: nil, # might be handy to identify the Rx?
 		active: true, # if false, then an error has occurred or the calculation is completed
 		subscribers: [], # all interested observers
