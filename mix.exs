@@ -44,13 +44,13 @@ defmodule Reaxive.Mixfile do
     Reaxive is a library inspired by Reactive Extensions and ELM to provide
     functional reactive programming to Elixir. It allows for active sequences
     of events and a set of stream-reducer like transformations such as map or
-    filter. 
+    filter.
     """
   end
 
   # Hex Package definition
   defp package do
-    [contributors: ["Klaus Alfert"],
+    [maintainers: ["Klaus Alfert"],
      licenses: ["Apache 2.0"],
      links: %{"GitHub" => "https://github.com/alfert/reaxive"}
     ]
