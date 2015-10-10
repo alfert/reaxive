@@ -1,10 +1,10 @@
 #!/bin/bash
-# release.sh old new 
+# release.sh old new
 set -x
 
 # old is always with -dev
-old="0.0.3"
-new="0.1.0-dev"
+old="0.1.0"
+new="0.1.1-dev"
 # do not set any variables beyond this line
 old_version="$old-dev"
 release_version="$old"
