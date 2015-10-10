@@ -5,16 +5,16 @@
 [![hex.pm version](https://img.shields.io/hexpm/v/reaxive.svg?style=flat)](https://hex.pm/packages/reaxive)
 [![Inline docs](http://inch-ci.org/github/alfert/reaxive.svg?branch=master&style=flat-square)](http://inch-ci.org/github/alfert/reaxive)
 
-Reaxive is a reactive event handling library, inspired by Elm (http://elm-lang.org) and Reactive Extensions. It implements the kind of asynchronous collections José Valim talked 
-about in his keynotes on ElixirConf2014 and ElixirConfEU 2015. 
+Reaxive is a reactive event handling library, inspired by Elm (http://elm-lang.org) and Reactive Extensions. It implements the kind of asynchronous collections José Valim talked
+about in his keynotes on ElixirConf2014 and ElixirConfEU 2015.
 
 ## Usage
 
 ### Preparations
-To use Reaxive you have to add it to your Mix dependencies 
+To use Reaxive you have to add it to your Mix dependencies
 
 	deps: [
-		{:reaxive, "~> 0.0.3"}
+		{:reaxive, "~> 0.1.0"}
 	]
 
 and add the `reaxive` and the `logger` application to your required applications
@@ -40,40 +40,42 @@ http://rxmarbles.com/) can be used to understand the combinators' semantics.
 The combinators are building a pipeline for event processing spawing new
 processes on-demand. Adhering to the protocol should be sufficient that these
 processes are automatically stopped again. This is extremely important, since otherwise
-we get a process leak in our system which will eat up all system resources. 
+we get a process leak in our system which will eat up all system resources.
 
 The protocols, which lay the foundation for Reaxive, can also be found at
 http://hexdocs.pm/reaxive/ .
 
 ## Future Development Steps
 
-Important tasks for the future are: 
+Important tasks for the future are:
 
-* simply and streamline the implementation
-* implement José Valim's `async` operator to break a synchronous pipeline into 
-  asynchronuous pieces 
-* add more of the missing combinators 
+* simpily and streamline the implementation
+* add more of the missing combinators
 * develop a concept of when and how to integrate with OTP Supervision
 * gain experience of using in Reaxive, .e.g by applying to Phoenix Channels
-* apply property based testing (using PropEr?) 
-* apply the dialyzer 
+* apply property based testing (using PropEr?)
+* apply the dialyzer
 
 ## History
-In the v0.0.3 series, we introduce cancellable generators. 
+The v0.1.0 series supports Elixir 1.1.0 and later.
+
+In the v0.0.3 series, we introduce cancellable generators. We also implement
+José Valim's `async` operator to break a synchronous pipeline into
+asynchronuous pieces
 
 Subjects are a re-implementation of `Rx.Impl`. Major ideas:
 
 * separate subscription handling from event handling
-* subscriptions 
+* subscriptions
   * implement the boolean predicate `is_unsubscribed` as shown in the slides
   * functions for adding and removing subscribers from a subscription
-* can subscriptions be implemented without a `GenServer`? 
+* can subscriptions be implemented without a `GenServer`?
 * event handling should be done in a pure functional setting with explicit accumulators
   * Re-use `compose` and the `Rx.Sync` functions as combinators
   * combinators operate on a `Observeable`
   * Send composed events to subscribers
-* we need a better mechanism to automatically stop processes or to detect that 
-  they not running any more (==> monitoring or providing a general abstraction for 
+* we need a better mechanism to automatically stop processes or to detect that
+  they not running any more (==> monitoring or providing a general abstraction for
   calling functions on not-existing gen-servers)
 
 
@@ -85,12 +87,12 @@ not properly setup. Due to this, some of the first events may be swallowed and
 disappear, so the tests fail because not all events are piped through the
 entire sequence of transformation.
 
-The code v0.0.2 series is a major rework that implements ideas of 
+The code v0.0.2 series is a major rework that implements ideas of
 
 * http://www.introtorx.com
 * http://go.microsoft.com/fwlink/?LinkID=205219
 
-and also inspired by Clojure's transducers introduced by Rich Hickey 
+and also inspired by Clojure's transducers introduced by Rich Hickey
 
 * http://blog.cognitect.com/blog/2014/8/6/transducers-are-coming
 * http://clojure.org/transducers
@@ -98,11 +100,11 @@ and also inspired by Clojure's transducers introduced by Rich Hickey
 
 ## Contributing
 
-Please use the GitHub issue tracker for 
+Please use the GitHub issue tracker for
 
 * bug reports and for
 * submitting pull requests
 
 ## License
 
-Reaxive is provided under the Apache 2.0 License. 
+Reaxive is provided under the Apache 2.0 License.
