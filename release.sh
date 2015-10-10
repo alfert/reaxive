@@ -21,7 +21,7 @@ fi
 read -p "Check the variables. Press Ctrl-C for exit, return for continuing"
 
 # update version in mix.exs
-sed -i "s/\(version: \"\)$old_version\",/\\1$release_version\",/" mix.exs
+sed -i "" "s/\(version: \"\)$old_version\",/\\1$release_version\",/" mix.exs
 
 # add to git
 git commit -m "bump version to $release_version" mix.exs
@@ -34,7 +34,7 @@ mix hex.publish
 mix hex.docs
 
 # update version in mix.exs
-sed -i "s/\(version: \"\)$release_version\",/\\1$new_version\",/" mix.exs
+sed -i "" "s/\(version: \"\)$release_version\",/\\1$new_version\",/" mix.exs
 
 # add to git
 git commit -m "bump version to $new_version" mix.exs
