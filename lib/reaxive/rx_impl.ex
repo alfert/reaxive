@@ -116,14 +116,14 @@ defmodule Reaxive.Rx.Impl do
 	error handling is done within a subscription such that a "real" client has not
 	consider this.
 	"""
-	def unsubscribe(%Rx_t{pid: pid} = observable, observer), do:
+	def unsubscribe(%Rx_t{pid: pid} = _observable, observer), do:
 		GenServer.call(pid, {:unsubscribe, observer})
 
 	@doc """
 	Sets the disposable event sequence `source`. This is needed for proper unsubscribing
 	from the `source` when terminating the sequence.
 	"""
-	def source(%Rx_t{pid: pid} = observable, disposable) do
+	def source(%Rx_t{pid: pid} = _observable, disposable) do
 		try do
 			GenServer.cast(pid, {:source, disposable})
 		catch
@@ -148,7 +148,7 @@ defmodule Reaxive.Rx.Impl do
 		:ok = GenServer.call(pid, {:compose, fun, acc})
 		observable
 	end
-	def compose(%Rx_t{pid: pid} = observable, fun, acc), do:
+	def compose(%Rx_t{pid: pid} = _observable, fun, acc), do:
 		GenServer.call(pid, {:compose, fun, acc})
 
 	@doc "All subscribers of Rx. Useful for debugging."
@@ -251,7 +251,7 @@ defmodule Reaxive.Rx.Impl do
 	the source which is sending a `on_completed`.
 	"""
 	@spec handle_event(t, rx_propagate) :: t
-	def handle_event(%__MODULE__{} = state, e = {:on_completed, src}) do
+	def handle_event(%__MODULE__{} = state, _e = {:on_completed, src}) do
 		# Logger.debug "#{inspect self} got an #{inspect e} in state #{inspect state}"
 		state |>
 		 	disconnect_source(src) |>
@@ -273,9 +273,9 @@ defmodule Reaxive.Rx.Impl do
 		try do
 			# Logger.debug "Handle_value with v=#{inspect value} and #{inspect state}"
 			{tag, new_v, new_accu} = case do_action(fun, value, accu, []) do
-				{{:cont, {tag, val} = ev}, acc, new_acc} -> {:cont, ev, new_acc}
-				{{tag, val}, acc, new_acc} -> {:cont, {tag, val}, new_acc}
-				{tag, val, acc, new_acc} -> {tag, val, new_acc}
+				{{:cont, {_tag, _val} = ev}, _acc, new_acc} -> {:cont, ev, new_acc}
+				{{tag, val}, _acc, new_acc} -> {:cont, {tag, val}, new_acc}
+				{tag, val, _acc, new_acc} -> {tag, val, new_acc}
 			end
 			new_state = %__MODULE__{
 				notify({tag, new_v}, state) |	accu: :lists.reverse(new_accu)}
@@ -303,7 +303,7 @@ defmodule Reaxive.Rx.Impl do
 		do: fun . ({event, accu, new_accu})
 
 	@doc "Internal callback function at termination for clearing resources"
-	def terminate(_reason, state = %__MODULE__{sources: src}) do
+	def terminate(_reason, _state = %__MODULE__{sources: src}) do
 		# Logger.info("Terminating #{inspect self} for reason #{inspect reason} in state #{inspect state}")
 		src |> Enum.each(fn({_pid, sub}) -> sub |> Subscription.unsubscribe() end)
 	end
@@ -354,13 +354,13 @@ defmodule Reaxive.Rx.Impl do
 	@doc "run the sequence by calling `run` on all source and call the `on_run` function."
 	def do_run(%__MODULE__{sources: src, on_run: nil} = state) do
 		# Logger.debug "do_run on #{inspect state}"
-		src |> Enum.each(fn {id, s} -> Runnable.run(id) end)
+		src |> Enum.each(fn {id, _s} -> Runnable.run(id) end)
 		state
 	end
 	def do_run(%__MODULE__{sources: src, on_run: runner} = state) do
 		# Logger.debug "do_run on #{inspect state}"
 		runner.()
-		src |> Enum.each(fn {id, s} -> Runnable.run(id) end)
+		src |> Enum.each(fn {id, _s} -> Runnable.run(id) end)
 		state
 	end
 

@@ -12,7 +12,7 @@ defmodule Reaxive.Subscription.State do
 
 	@type t :: %__MODULE__{}
 
-	def is_unsubscribed?(s = %__MODULE__{active: active}) do
+	def is_unsubscribed?(_s = %__MODULE__{active: active}) do
 		# IO.puts("#{__MODULE__}.is_unsubscribed?: s = #{inspect s}")
 		active == :false
 	end
@@ -64,7 +64,7 @@ defmodule Reaxive.Subscription.State do
 		try do
 			:ok = disp_fun.()
 		catch
-			:exit, {fail, {GenServer, :call, proc}} when fail in [:normal, :noproc] ->
+			:exit, {fail, {GenServer, :call, _proc}} when fail in [:normal, :noproc] ->
 					# Logger.debug "event sequence #{inspect proc} is already gone"
 					:ok
 		end
@@ -216,7 +216,7 @@ defmodule Reaxive.MultiAssignSubscription do
 	def init(disp_fun), do: State.start(disp_fun, [])
 	
 	@spec assign(t, Subscription.t) :: t
-	def assign(sub= %__MODULE__{pid: pid}, to_add) do
+	def assign(_sub= %__MODULE__{pid: pid}, to_add) do
 		unsub = fn() -> to_add |> Subscription.unsubscribe end
 		State.robust_call(unsub.()) do
 			:ok = pid |> Agent.update(State, :assign, [to_add])
