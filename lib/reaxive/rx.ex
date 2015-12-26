@@ -77,7 +77,7 @@ defmodule Reaxive.Rx do
 
 		iex> alias Reaxive.Rx
 		iex> require Integer
-		iex> Rx.naturals |> Rx.take(10) |> Rx.map(&(1+&1*2)) |> Rx.all &Integer.is_odd/1
+		iex> Rx.naturals |> Rx.take(10) |> Rx.map(&(1+&1*2)) |> Rx.all(&Integer.is_odd/1)
 		true
 	"""
 	@spec all(Observable.t, (any -> boolean)) :: boolean
@@ -92,7 +92,7 @@ defmodule Reaxive.Rx do
 
 		iex> alias Reaxive.Rx
 		iex> require Integer
-		iex> Rx.naturals |> Rx.take(10) |> Rx.any fn(x) -> x > 5 end
+		iex> Rx.naturals |> Rx.take(10) |> Rx.any(fn(x) -> x > 5 end)
 		true
 	"""
 	@spec any(Observable.t, (any -> boolean)) :: boolean
@@ -266,7 +266,7 @@ defmodule Reaxive.Rx do
 		iex> alias Reaxive.Rx
 		iex> me = self
 		iex> Rx.error(RuntimeError.exception("yeah")) |> 
-		iex> Observable.subscribe(fn(t, x) -> me |> send {t, x} end) |> Runnable.run
+		iex> Observable.subscribe(fn(t, x) -> me |> send({t, x}) end) |> Runnable.run
 		iex> receive do x -> x end
 		{:on_error, %RuntimeError{message: "yeah"}} 
 	"""

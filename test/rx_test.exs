@@ -16,7 +16,7 @@ defmodule RxTest do
 	test "map function works" do
 		{:ok, rx} = Rx.Impl.start()
 		# Logger.debug("We are in process #{inspect self}")
-		rx1 = rx |> Rx.map &(&1 + 1)
+		rx1 = rx |> Rx.map(&(&1 + 1))
 
 		assert rx == rx1
 
@@ -55,11 +55,11 @@ defmodule RxTest do
 		assert_receive {:on_next, 3}, @delay
 
 		values = [1, 2, 3, 4]
-		values |> Enum.each fn(v) ->
+		values |> Enum.each(fn(v) ->
 			Observer.on_next(rx, v)
 			k = v+1
 			assert_receive {:on_next, ^k}, @delay
-		end
+		end)
 		Observer.on_completed(rx, self)
 		id = process rx3
 		assert_receive {:on_completed, ^id} # , 2* @delay
@@ -81,10 +81,10 @@ defmodule RxTest do
 			|> Runnable.run
 		:timer.sleep(@delay)
 
-		values |> Enum.each fn(v) ->
-			# Logger.debug "want receive #{inspect v}"
-			assert_receive{:on_next, ^v}# , 11* @delay
-		end
+		values |> Enum.each(fn(v) ->
+					# Logger.debug "want receive #{inspect v}"
+					assert_receive{:on_next, ^v}# , 11* @delay
+				end)
 		id = process rx
 
 		# Logger.debug "Waiting for completed"
@@ -319,7 +319,7 @@ defmodule RxTest do
 		## we cannot guarantee that the merged one is empty due 
 		## to concurrency of the source events. 
 		assert merged != all
-		assert merged |> Enum.all? &(all |> Enum.member? &1)
+		assert merged |> Enum.all?(&(all |> Enum.member?(&1)))
 		assert Enum.count(merged) < Enum.count(all)
 		# assert [] == merged
 		refute Process.alive?(process first_rx)
@@ -388,25 +388,25 @@ defmodule RxTest do
 	end
 
 	test "all even numbers can be divided by two" do
-		even = Rx.naturals |> Rx.take(10) |> Rx.map &(&1 * 2)
+		even = Rx.naturals |> Rx.take(10) |> Rx.map(&(&1 * 2))
 
 		assert (even |> Rx.all(&Integer.is_even/1)) == true
 	end
 
 	test "all odd numbers cannot be divided by two" do
-		odds = Rx.naturals |> Rx.take(10) |> Rx.map &(1 + &1 * 2)
+		odds = Rx.naturals |> Rx.take(10) |> Rx.map(&(1 + &1 * 2))
 
 		assert (odds |> Rx.all(&Integer.is_even/1)) == false
 	end
 
 	test "any odd numbers cannot be divided by two" do
-		odds = Rx.naturals |> Rx.take(10) |> Rx.map &(1 + &1 * 2)
+		odds = Rx.naturals |> Rx.take(10) |> Rx.map(&(1 + &1 * 2))
 
 		assert (odds |> Rx.any(&Integer.is_even/1)) == false
 	end
 
 	test "some odd number can be divided by seven" do
-		odds = Rx.naturals |> Rx.take(10) |> Rx.map &(1 + &1 * 2)
+		odds = Rx.naturals |> Rx.take(10) |> Rx.map(&(1 + &1 * 2))
 
 		assert (odds |> Rx.any(&(rem(&1, 7) == 0))) == true
 	end
