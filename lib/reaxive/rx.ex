@@ -431,7 +431,7 @@ defmodule Reaxive.Rx do
 		{:ok, rx} = Reaxive.Rx.Impl.start("merge", @rx_defaults)
 		rx |> Reaxive.Rx.Impl.compose(Sync.merge(length(rxs)))
 		# subscribe to all originating sequences ...
-		disposes = rxs |> Enum.map &Observable.subscribe(&1, rx)
+		disposes = rxs |> Enum.map(&Observable.subscribe(&1, rx))
 		# and set the new disposables as sources.
 		:ok = Reaxive.Rx.Impl.source(rx, disposes)
 		rx

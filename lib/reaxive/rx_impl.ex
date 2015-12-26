@@ -337,10 +337,10 @@ defmodule Reaxive.Rx.Impl do
 								if id == src_id, do: Subscription.unsubscribe(s) 
 								sub	
 						end)
-			|> Enum.reject fn
-				({%Reaxive.Rx.Impl.Rx_t{pid: pid}, _}) -> pid == src_id 
-				({id, _}) -> id == src_id 
-			end
+			|> Enum.reject(fn
+							({%Reaxive.Rx.Impl.Rx_t{pid: pid}, _}) -> pid == src_id 
+							({id, _}) -> id == src_id 
+						end)
 		if (new_src == src), do: Logger.error "disconnecting from unknown src = #{inspect src_id}"
 		%__MODULE__{state | sources: new_src }
 	end
@@ -354,13 +354,13 @@ defmodule Reaxive.Rx.Impl do
 	@doc "run the sequence by calling `run` on all source and call the `on_run` function."
 	def do_run(%__MODULE__{sources: src, on_run: nil} = state) do
 		# Logger.debug "do_run on #{inspect state}"
-		src |> Enum.each fn {id, s} -> Runnable.run(id) end
+		src |> Enum.each(fn {id, s} -> Runnable.run(id) end)
 		state
 	end
 	def do_run(%__MODULE__{sources: src, on_run: runner} = state) do
 		# Logger.debug "do_run on #{inspect state}"
 		runner.()
-		src |> Enum.each fn {id, s} -> Runnable.run(id) end
+		src |> Enum.each(fn {id, s} -> Runnable.run(id) end)
 		state
 	end
 

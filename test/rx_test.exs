@@ -62,7 +62,7 @@ defmodule RxTest do
 		end)
 		Observer.on_completed(rx, self)
 		id = process rx3
-		assert_receive {:on_completed, ^id} # , 2* @delay
+		assert_receive({:on_completed, ^id}) # , 2* @delay
 
 		Subscription.unsubscribe(disp_me)
 

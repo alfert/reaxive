@@ -22,11 +22,11 @@ defmodule Reaxive.Subscription.State do
 
 	@spec add(t, Subscription.t) :: t
 	def add(s = %__MODULE__{embedded_sub: embedded, active: true}, sub) do
-		%__MODULE__{s | embedded_sub: [sub] |> Enum.into embedded}
+		%__MODULE__{s | embedded_sub: [sub] |> Enum.into(embedded)}
 	end
 	def add(s = %__MODULE__{embedded_sub: embedded}, sub) do
 		:ok = Subscription.unsubscribe(sub)
-		%__MODULE__{s | embedded_sub: [sub] |> Enum.into embedded}
+		%__MODULE__{s | embedded_sub: [sub] |> Enum.into(embedded)}
 	end
 	
 	@spec delete(t, Subscription.t) :: t
@@ -55,7 +55,7 @@ defmodule Reaxive.Subscription.State do
 	end
 	def unsubscribe(%__MODULE__{embedded_sub: embedded, dispose_fun: disp} = s) do
 		:ok = do_unsubscribe(disp)
-		embedded |> Enum.each fn(sub) -> :ok = Subscription.unsubscribe(sub) end
+		embedded |> Enum.each(fn(sub) -> :ok = Subscription.unsubscribe(sub) end)
 		{:ok, %__MODULE__{s | active: false}}
 	end
 
