@@ -5,6 +5,7 @@ defmodule Reaxive.Mixfile do
     [ app: :reaxive,
       version: "0.1.1-dev",
       elixir: "~> 1.0",
+      elixirc_paths: elixirc_paths(Mix.env),
       package: package,
       name: "Reaxive - a Reactive Extension inspired library for Elixir",
       description: description,
@@ -14,6 +15,11 @@ defmodule Reaxive.Mixfile do
       test_coverage: [tool: Coverex.Task, log: :info, coveralls: true],
       deps: deps ]
   end
+
+  # Specifies which paths to compile per environment
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_),     do: ["lib"]
+
 
   # Configuration for the OTP applicatioon
   def application do
