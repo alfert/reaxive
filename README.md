@@ -13,9 +13,11 @@ about in his keynotes on ElixirConf2014 and ElixirConfEU 2015.
 ### Preparations
 To use Reaxive you have to add it to your Mix dependencies
 
+```elixir
 	deps: [
 		{:reaxive, "~> 0.1.0"}
 	]
+```
 
 and add the `reaxive` and the `logger` application to your required applications
 
@@ -29,6 +31,7 @@ naming scheme from other reactive frameworks, such as Reactive Extensions
 (.NET), RxScala or RxJS. Hence the wonderful marble diagrams of RX (see e.g.
 http://rxmarbles.com/) can be used to understand the combinators' semantics.
 
+```elixir
 	alias Reaxive.Rx
 	1..100
 	|> Rx.generate
@@ -36,6 +39,7 @@ http://rxmarbles.com/) can be used to understand the combinators' semantics.
 	|> Rx.filter(&Integer.is_odd/1)
 	|> Rx.as_text
 	|> Rx.sum
+```
 
 The combinators are building a pipeline for event processing spawing new
 processes on-demand. Adhering to the protocol should be sufficient that these
