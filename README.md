@@ -41,7 +41,7 @@ http://rxmarbles.com/) can be used to understand the combinators' semantics.
 	|> Rx.sum
 ```
 
-The combinators are building a pipeline for event processing spawing new
+The combinators are building a pipeline for event processing spawning new
 processes on-demand. Adhering to the protocol should be sufficient that these
 processes are automatically stopped again. This is extremely important, since otherwise
 we get a process leak in our system which will eat up all system resources.
